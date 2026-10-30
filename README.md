@@ -81,6 +81,10 @@ PYTHONPATH=src python -m app_forge compliance check --project .
 The test suite covers the manifest schema, catalog integrity, resolver, templates, analyzer, integration/recovery (including fault injection),
 security boundaries, compliance statuses and CLI exit codes.
 
+## Continuous integration
+
+GitHub Actions runs automatically on pushes to `main`, pull requests targeting `main`, and manual dispatches. The workflow tests Python 3.11–3.14 on Ubuntu, Windows, and macOS, then runs Ruff linting, mypy type checks, a `pip-audit` dependency scan, and a source/wheel build on Ubuntu. A failed job is reported on the pull request; configure branch protection in GitHub repository settings if these checks should be required before merging.
+
 ## What is and is not done
 
 See **docs/spec-coverage.md**. Highlights of the gaps: the **GUI has never run under real PySide6** (its logic is exercised against a stub, and a real-Qt test suite exists but has not been executed; PySide6 was unavailable
