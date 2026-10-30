@@ -209,21 +209,65 @@ class VerificationEngine:
             out.append((f"tests/{m.group(2)}.py::import", "failed"))  # module failed to import
         return out
 
+    @staticmethod
+    def _pip_audit_commands(root: Path) -> tuple[list[tuple[list[str], str]] | None, str]:
+        """Build independent audit invocations for this project; never audit Forge's environment."""
+        lockfiles = sorted(root.glob("pylock*.toml"))
+        if lockfiles:
+            return [(["pip-audit", "--locked", str(root)], "project lockfile(s): " + ", ".join(
+                p.name for p in lockfiles
+            ))], ""
+        if (root / "pyproject.toml").is_file():
+            return [(["pip-audit", str(root)], "project metadata: pyproject.toml")], ""
+
+        requirements = sorted(root.glob("requirements*.txt"))
+        requirements.extend(sorted((root / "requirements").glob("*.txt"))
+                            if (root / "requirements").is_dir() else [])
+        files = list(dict.fromkeys(p for p in requirements if p.is_file()))
+        if files:
+            # Each file can define a distinct environment (runtime, dev, platform, etc.).
+            # Audit independently so incompatible pins across files are not conflated.
+            return [
+                (["pip-audit", "--requirement", str(path.relative_to(root))],
+                 f"requirements file: {path.relative_to(root).as_posix()}")
+                for path in files
+            ], ""
+        return None, "no supported dependency manifest found (pylock*.toml, pyproject.toml, or requirements*.txt)"
+
     def _tool(self, root: Path, tool: str, add, timeout: float) -> None:
-        if shutil.which(tool) is None:
+        executable = shutil.which(tool)
+        if executable is None:
             add(tool, "not_run", f"{tool} is not installed")
             return
-        cmd = {"ruff": ["ruff", "check", "."],
-               "mypy": ["mypy", "src"] if (root / "src").is_dir() else ["mypy", "."],
-               "pip-audit": ["pip-audit"]}[tool]
-        t0 = time.monotonic()
-        try:
-            proc = run_command(cmd, cwd=root, timeout=timeout, env=safe_environ(), inherit_env=False)
-        except Exception as exc:
-            add(tool, "failed", _tail(str(exc)), time.monotonic() - t0)
+        if tool == "ruff":
+            commands = [([executable, "check", "."], "")]
+        elif tool == "mypy":
+            commands = [([executable, "src"] if (root / "src").is_dir() else [executable, "."], "")]
+        elif tool == "pip-audit":
+            commands, missing_detail = self._pip_audit_commands(root)
+            if commands is None:
+                add(tool, "not_run", missing_detail)
+                return
+            commands = [([executable if i == 0 else arg for i, arg in enumerate(cmd)], label)
+                        for cmd, label in commands]
+        else:
+            add(tool, "not_run", f"unsupported tool: {tool}")
             return
-        add(tool, "passed" if proc.returncode == 0 else "failed", _tail(proc.stdout + proc.stderr),
-            time.monotonic() - t0)
+
+        t0 = time.monotonic()
+        outputs = []
+        failed = False
+        for cmd, label in commands:
+            try:
+                proc = run_command(cmd, cwd=root, timeout=timeout, env=safe_environ(), inherit_env=False)
+                failed = failed or proc.returncode != 0
+                output = _tail(proc.stdout + proc.stderr)
+            except Exception as exc:
+                failed = True
+                output = _tail(f"{type(exc).__name__}: {exc}")
+            outputs.append(f"{label}: {output}".strip(": ") if label else output)
+        detail = _tail("\n".join(part for part in outputs if part))
+        add(tool, "failed" if failed else "passed", detail, time.monotonic() - t0)
 
 
 def compare_evidence(before: list[dict], after: list[dict]) -> dict:

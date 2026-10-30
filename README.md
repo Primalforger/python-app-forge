@@ -75,6 +75,7 @@ python -m unittest discover -s tests -t .                 # the full suite (also
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -t .      # or: pytest
 PYTHONPATH=src python -m app_forge test run .                 # Forge verifying itself
+PYTHONPATH=src python -m app_forge test run . --check pip-audit # audit this project's declared dependencies
 PYTHONPATH=src python -m app_forge compliance check --project .
 ```
 The test suite covers the manifest schema, catalog integrity, resolver, templates, analyzer, integration/recovery (including fault injection),
