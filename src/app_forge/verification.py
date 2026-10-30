@@ -171,7 +171,7 @@ class VerificationEngine:
 
     @staticmethod
     def _parse_junit(xml: Path, root: Path) -> list[tuple[str, str]]:
-        out = []
+        out: list[tuple[str, str]] = []
         try:
             tree = ET.parse(xml)
         except ET.ParseError:
@@ -239,17 +239,18 @@ class VerificationEngine:
         if executable is None:
             add(tool, "not_run", f"{tool} is not installed")
             return
+        commands: list[tuple[list[str], str]]
         if tool == "ruff":
             commands = [([executable, "check", "."], "")]
         elif tool == "mypy":
             commands = [([executable, "src"] if (root / "src").is_dir() else [executable, "."], "")]
         elif tool == "pip-audit":
-            commands, missing_detail = self._pip_audit_commands(root)
-            if commands is None:
+            audit_commands, missing_detail = self._pip_audit_commands(root)
+            if audit_commands is None:
                 add(tool, "not_run", missing_detail)
                 return
             commands = [([executable if i == 0 else arg for i, arg in enumerate(cmd)], label)
-                        for cmd, label in commands]
+                        for cmd, label in audit_commands]
         else:
             add(tool, "not_run", f"unsupported tool: {tool}")
             return
