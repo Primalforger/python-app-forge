@@ -69,7 +69,7 @@ class TemplateTests(ForgeTestCase):
         pkg = root / "src" / "legacy_pkg"
         pkg.mkdir(parents=True)
         (pkg / "__init__.py").write_text("", encoding="utf-8")
-        (root / "pyproject.toml").write_text('[project]\\nname = "legacy"\\nversion = "1.0"\\n',
+        (root / "pyproject.toml").write_text('[project]\nname = "legacy"\nversion = "1.0"\n',
                                              encoding="utf-8")
         s = self.services()
         with self.assertRaises(ValidationFailure):
@@ -86,7 +86,7 @@ class TemplateTests(ForgeTestCase):
         pkg = root / "src" / "adoptable"
         pkg.mkdir(parents=True)
         (pkg / "__init__.py").write_text("", encoding="utf-8")
-        (root / "pyproject.toml").write_text('[project]\\nname = "adoptable"\\nversion = "1.0"\\n',
+        (root / "pyproject.toml").write_text('[project]\nname = "adoptable"\nversion = "1.0"\n',
                                              encoding="utf-8")
         s = self.services()
         with project_lock(s.settings.locks_dir, root, "another operation"):
