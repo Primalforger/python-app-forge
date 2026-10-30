@@ -137,6 +137,48 @@ class TemplateTests(ForgeTestCase):
                              stat.S_IMODE(reference.stat().st_mode))
         self.assertFalse(list(root.glob(".forge.toml.*.tmp")))
 
+    def test_cli_init_uses_transactional_creation_and_reports_conflicts(self):
+        out = self.tmp / "cli-created"
+        args = ["--home", str(self.home), "--json", "init", "--archetype", "cli",
+                "--name", "CLI Created", "--out", str(out)]
+        buf = StringIO()
+        with redirect_stdout(buf):
+            code = cli_main(args + ["--dry-run"])
+        self.assertEqual(code, 0)
+        self.assertFalse(out.exists())
+        self.assertTrue(json.loads(buf.getvalue())["result"]["dry_run"])
+
+        out.mkdir()
+        buf = StringIO()
+        with redirect_stdout(buf):
+            code = cli_main(args)
+        self.assertEqual(code, 3)
+        self.assertTrue(out.is_dir())
+        self.assertEqual(json.loads(buf.getvalue())["error"]["category"], "conflict")
+
+    def test_cli_project_adopt_previews_then_requires_explicit_confirmation(self):
+        root = self.tmp / "cli-adopt"
+        package = root / "src" / "cli_adopt"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (root / "pyproject.toml").write_text(
+            '[project]\\nname = "cli-adopt"\\nversion = "1.0"\\n', encoding="utf-8")
+        args = ["--home", str(self.home), "--json", "project", "adopt", str(root),
+                "--package", "cli_adopt", "--archetype", "cli"]
+        buf = StringIO()
+        with redirect_stdout(buf):
+            code = cli_main(args)
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(buf.getvalue())["result"]["preview"])
+        self.assertFalse((root / "forge.toml").exists())
+
+        buf = StringIO()
+        with redirect_stdout(buf):
+            code = cli_main(args + ["--yes"])
+        self.assertEqual(code, 0)
+        self.assertFalse(json.loads(buf.getvalue())["result"]["preview"])
+        self.assertTrue((root / "forge.toml").is_file())
+
     def test_gui_and_cli_generate_identical_projects(self):  # AT-002
         # The GUI calls ForgeServices.create_project; the CLI must produce the same tree.
         self.services().create_project("desktop", {"name": "Parity App"}, self.tmp / "svc",
