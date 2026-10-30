@@ -70,7 +70,7 @@ Plan-time failures you may see: `anchor-missing`, `anchor-ambiguous`, `patch-tar
 * Other components: `[dependencies.components] "forge.themes" = "^1.0"`.
 * Python packages: `python_packages = ["attrs>=23"]`. Forge compares each with the project's existing requirements: absent → added
   (Forge projects) or advised (others); incompatible → conflict; looser than needed → flagged for review; never silently rewritten.
-* Interfaces: `provides = ["ui.table@1.0"]`, `requires = ["ui.themes"]`.
+* Interfaces are versioned contracts, separate from component-to-component dependencies: `provides = ["ui.table@1.0"]` declares an exact interface version; `requires = ["ui.themes@^1.0"]` accepts any compatible provider version. A requirement without `@` accepts any version. Providers must declare a version; requirements may use the normal Forge constraints (`^`, `~`, comparisons, or `*`). Forge validates declarations when loading a catalog and checks requirements against providers selected for installation or already present in the project. Missing providers report `missing-interface`; providers with no matching version report `incompatible-interface`.
 
 ## Rules worth knowing
 
