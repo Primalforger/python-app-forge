@@ -130,7 +130,7 @@ class ResolverTests(ForgeTestCase):
         v = self.custom_component("acme.invalid-interface", provides=("ui theme@1.0",))
         result = self.services(builtin=False).validate_catalog()
         self.assertFalse(result["ok"])
-        self.assertTrue(any("interface name" in item["error"] for item in result["quarantined"]))
+        self.assertTrue(any("interface name" in detail for item in result["quarantined"] for detail in item.get("details", [])))
 
 
 if __name__ == "__main__":
