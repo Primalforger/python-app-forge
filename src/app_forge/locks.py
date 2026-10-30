@@ -23,7 +23,7 @@ def pid_alive(pid: int) -> bool:
     if os.name == "nt":  # os.kill(pid, 0) is not a safe probe on Windows
         import ctypes
         from ctypes import wintypes
-        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32 = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
         k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
         k32.OpenProcess.restype = wintypes.HANDLE
         k32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
@@ -31,7 +31,7 @@ def pid_alive(pid: int) -> bool:
         k32.CloseHandle.argtypes = [wintypes.HANDLE]
         handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
         if not handle:
-            return ctypes.get_last_error() == 5  # ACCESS_DENIED: it exists, we may not inspect it
+            return getattr(ctypes, "get_last_error")() == 5  # ACCESS_DENIED: it exists, we may not inspect it
         try:
             code = wintypes.DWORD()
             # An exited process can still be opened while anyone holds a handle: check it is really running.
