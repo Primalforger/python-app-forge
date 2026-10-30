@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Any
 
 from app_forge.domain.errors import ValidationFailure
+from app_forge.domain.interfaces import parse_interface, validate_interface_declarations
 from app_forge.domain.versioning import Constraint, Version, is_semver
 
 ARCHETYPES = ("desktop", "web", "cli", "service")
@@ -215,6 +216,10 @@ def parse_manifest(data: dict) -> ComponentManifest:
     status = _req(sup, "status", str, p, "support.")
     if status and status not in ("stable", "preview", "deprecated"):
         p.append("support.status must be stable|preview|deprecated")
+    interface_problems = validate_interface_declarations(
+        tuple(ifc.get("provides", [])), tuple(ifc.get("requires", []))
+    )
+    p.extend(interface_problems)
     if p:
         raise ValidationFailure(f"Invalid component manifest ({cid or '?'})", details=p)
     return ComponentManifest(
