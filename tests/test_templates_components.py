@@ -162,7 +162,7 @@ class TemplateTests(ForgeTestCase):
         package.mkdir(parents=True)
         (package / "__init__.py").write_text("", encoding="utf-8")
         (root / "pyproject.toml").write_text(
-            '[project]\\nname = "cli-adopt"\\nversion = "1.0"\\n', encoding="utf-8")
+            '[project]\nname = "cli-adopt"\nversion = "1.0"\n', encoding="utf-8")
         args = ["--home", str(self.home), "--json", "project", "adopt", str(root),
                 "--package", "cli_adopt", "--archetype", "cli"]
         buf = StringIO()
