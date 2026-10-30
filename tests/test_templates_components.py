@@ -58,11 +58,45 @@ class TemplateTests(ForgeTestCase):
         from unittest import mock
         s = self.services()
         out = self.tmp / "rollback"
-        with mock.patch("app_forge.services.os.replace", side_effect=OSError("promotion failed")):
+        with mock.patch("app_forge.services._rename_directory_noreplace",
+                        side_effect=OSError("promotion failed")):
             with self.assertRaises(OSError):
                 s.create_project("cli", {"name": "Rollback App"}, out)
         self.assertFalse(out.exists())
         self.assertEqual(list(self.tmp.glob(".rollback.forge-create-*")), [])
+
+    def test_existing_empty_destination_is_rejected_and_preserved(self):
+        out = self.tmp / "already-there"
+        out.mkdir()
+        with self.assertRaises(ConflictFailure):
+            self.services().create_project("cli", {"name": "No Clobber"}, out)
+        self.assertTrue(out.is_dir())
+        self.assertEqual(list(out.iterdir()), [])
+
+    def test_destination_created_during_promotion_is_never_replaced(self):
+        from unittest import mock
+        from app_forge.services import _rename_directory_noreplace
+        s = self.services()
+        out = self.tmp / "raced"
+        def create_racing_destination(stage, destination):
+            destination.mkdir()
+            (destination / "owner.txt").write_text("other process", encoding="utf-8")
+            _rename_directory_noreplace(stage, destination)
+        with mock.patch("app_forge.services._rename_directory_noreplace",
+                        side_effect=create_racing_destination):
+            with self.assertRaises(FileExistsError):
+                s.create_project("cli", {"name": "Race App"}, out)
+        self.assertEqual((out / "owner.txt").read_text(encoding="utf-8"), "other process")
+        self.assertEqual(list(self.tmp.glob(".raced.forge-create-*")), [])
+
+    @unittest.skipUnless(__import__("os").name == "posix", "POSIX permission semantics")
+    def test_created_project_root_uses_normal_umask_filtered_directory_mode(self):
+        import stat
+        reference = self.tmp / "reference-dir"
+        reference.mkdir()
+        out = self.tmp / "mode-project"
+        self.services().create_project("cli", {"name": "Mode Project"}, out)
+        self.assertEqual(stat.S_IMODE(out.stat().st_mode), stat.S_IMODE(reference.stat().st_mode))
 
     def test_adoption_rejects_invalid_or_undiscovered_package(self):
         root = self.tmp / "legacy"
@@ -95,6 +129,12 @@ class TemplateTests(ForgeTestCase):
         result = s.adopt_project(root, package="adoptable", archetype="cli", confirm=True)
         self.assertFalse(result["preview"])
         self.assertEqual(s.analyzer.analyze(root)["package"], "adoptable")
+        if __import__("os").name == "posix":
+            import stat
+            reference = root / "reference.txt"
+            reference.touch()
+            self.assertEqual(stat.S_IMODE((root / "forge.toml").stat().st_mode),
+                             stat.S_IMODE(reference.stat().st_mode))
         self.assertFalse(list(root.glob(".forge.toml.*.tmp")))
 
     def test_gui_and_cli_generate_identical_projects(self):  # AT-002
