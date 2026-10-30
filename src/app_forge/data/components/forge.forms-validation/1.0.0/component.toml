@@ -1,0 +1,71 @@
+schema_version = 1
+
+[component]
+id = "forge.forms-validation"
+name = "Forms and validation"
+version = "1.0.0"
+summary = "Schema-driven field validation with required/range/pattern/choice rules and per-field messages."
+category = "input"
+artifact_type = "generated-project-component"
+keywords = ["forms", "validation", "schema"]
+documentation = "Contributes pure-Python source and unit tests to the target project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web", "cli", "service"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["input.forms@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/forms.py"
+dest = "src/{{package}}/forms.py"
+
+[[integration.files]]
+src = "files/tests/test_forms.py"
+dest = "tests/test_forms.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_forms.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:e251cdf355e21dc607126663826afa4455d687c0eae1e79bde9d58f46f33b35a"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = []

@@ -1,0 +1,16 @@
+schema_version = 1
+
+[template]
+id = "desktop-pyside6"
+name = "Desktop application (PySide6)"
+version = "1.0.0"
+archetype = "desktop"
+summary = "PySide6 desktop shell with GUI-independent core logic that is testable without a display."
+
+[dependencies]
+python_packages = ["PySide6>=6.6"]
+dev_packages = ["pytest>=8"]
+
+[entry]
+module = "app"
+function = "main"

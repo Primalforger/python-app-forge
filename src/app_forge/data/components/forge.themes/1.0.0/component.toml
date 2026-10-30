@@ -1,0 +1,71 @@
+schema_version = 1
+
+[component]
+id = "forge.themes"
+name = "Themes (light/dark)"
+version = "1.0.0"
+summary = "Accessible light and dark theme tokens with WCAG contrast validation and a Qt style-sheet generator."
+category = "ui"
+artifact_type = "generated-project-component"
+keywords = ["theme", "dark mode", "accessibility", "contrast"]
+documentation = "Contributes pure-Python source and unit tests to the target project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["ui.themes@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/themes.py"
+dest = "src/{{package}}/themes.py"
+
+[[integration.files]]
+src = "files/tests/test_themes.py"
+dest = "tests/test_themes.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_themes.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:92b869c78afbd76a509e319f79e98c1644102df7c808d9be8ebc856e91b3738c"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["Qt style sheet generator targets QSS; other toolkits should consume the raw tokens."]

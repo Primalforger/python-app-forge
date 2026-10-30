@@ -1,0 +1,72 @@
+schema_version = 1
+
+[component]
+id = "forge.advanced-table"
+name = "Advanced table model"
+version = "1.0.0"
+summary = "Framework-independent table model: multi-column sort, multi-filter (AND/OR), search, pagination, selection, CSV export, loading/empty/error states."
+category = "data-presentation"
+artifact_type = "generated-project-component"
+keywords = ["table", "sort", "filter", "pagination", "csv"]
+documentation = "Contributes pure-Python source and unit tests to the target project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+"forge.themes" = "^1.0"
+
+[interfaces]
+provides = ["ui.table@1.0"]
+requires = ["ui.themes"]
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/table_model.py"
+dest = "src/{{package}}/table_model.py"
+
+[[integration.files]]
+src = "files/tests/test_table_model.py"
+dest = "tests/test_table_model.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_table_model.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:4f334e204af44a5aab5d478c56a49509c4dff2fb1caba4c99bd6ff260663666b"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["Ships the model only; a Qt view adapter is not included in 1.0.0.", "Large datasets need server-side filtering supplied by the host application."]

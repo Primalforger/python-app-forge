@@ -1,0 +1,87 @@
+schema_version = 1
+
+[component]
+id = "forge.cli-version-command"
+name = "CLI version command"
+version = "1.0.0"
+summary = "Adds a `version` command to a Forge CLI project by inserting it at the cli.py commands anchor."
+category = "tooling"
+artifact_type = "generated-project-component"
+keywords = ["cli","version"]
+documentation = "Adds files and patches existing project files at marked anchors."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["cli"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["cli.version@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/version_info.py"
+dest = "src/{{package}}/version_info.py"
+
+[[integration.files]]
+src = "files/tests/test_version_info.py"
+dest = "tests/test_version_info.py"
+
+[[integration.patches]]
+id = "register-version"
+file = "src/{{package}}/cli.py"
+kind = "insert"
+anchor = "commands"
+position = "after"
+content = '''
+@app.command()
+def version() -> None:
+    """Print the version."""
+    from {{package}} import __version__
+    from {{package}}.version_info import version_line
+
+    typer.echo(version_line("{{package}}", __version__))
+'''
+
+[lifecycle]
+install = "copy-files-and-patch"
+removal = true
+upgrade = "replace-managed-blocks"
+migrations = []
+
+[verification]
+tests = ["tests/test_version_info.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:b68763e3168964b5458ad73d0949dc8cf286c2fd286454250baf78b01981c0c0"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["Requires the `forge:anchor commands` marker that Forge CLI templates 1.0.0 contain."]

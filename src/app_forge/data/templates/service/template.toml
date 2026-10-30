@@ -1,0 +1,16 @@
+schema_version = 1
+
+[template]
+id = "service-worker"
+name = "Background service (stdlib)"
+version = "1.0.0"
+archetype = "service"
+summary = "Scheduled jobs with retries, graceful shutdown and health reporting. Standard library only."
+
+[dependencies]
+python_packages = []
+dev_packages = ["pytest>=8"]
+
+[entry]
+module = "service"
+function = "main"

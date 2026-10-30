@@ -1,0 +1,71 @@
+schema_version = 1
+
+[component]
+id = "forge.config-profiles"
+name = "Configuration profiles"
+version = "1.0.0"
+summary = "TOML profiles with environment overrides; secrets are accepted from the environment only and redacted in views."
+category = "operations"
+artifact_type = "generated-project-component"
+keywords = ["config", "profiles", "secrets"]
+documentation = "Contributes pure-Python source and unit tests to the target project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web", "cli", "service"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["config.profiles@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/settings.py"
+dest = "src/{{package}}/settings.py"
+
+[[integration.files]]
+src = "files/tests/test_settings.py"
+dest = "tests/test_settings.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_settings.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:49a14b2e8a22bd0ead12b397896763ef209b641ffb663db622bf6c9aecb19d0e"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = []

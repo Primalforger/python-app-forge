@@ -1,0 +1,16 @@
+schema_version = 1
+
+[template]
+id = "web-fastapi"
+name = "Web application / API (FastAPI)"
+version = "1.0.0"
+archetype = "web"
+summary = "FastAPI service with validated models, OpenAPI docs and a framework-independent item store."
+
+[dependencies]
+python_packages = ["fastapi>=0.110", "uvicorn>=0.29"]
+dev_packages = ["pytest>=8", "httpx>=0.27"]
+
+[entry]
+module = "api"
+function = "main"

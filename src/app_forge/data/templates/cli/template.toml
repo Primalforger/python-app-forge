@@ -1,0 +1,16 @@
+schema_version = 1
+
+[template]
+id = "cli-typer"
+name = "Command-line application (Typer + Rich)"
+version = "1.0.0"
+archetype = "cli"
+summary = "Typer/Rich CLI with JSON output mode, stable exit codes and GUI-free core logic."
+
+[dependencies]
+python_packages = ["typer>=0.12", "rich>=13"]
+dev_packages = ["pytest>=8"]
+
+[entry]
+module = "cli"
+function = "main"

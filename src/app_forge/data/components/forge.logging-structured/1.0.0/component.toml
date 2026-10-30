@@ -1,0 +1,71 @@
+schema_version = 1
+
+[component]
+id = "forge.logging-structured"
+name = "Structured logging"
+version = "1.0.0"
+summary = "JSON log formatter with secret redaction and operation correlation IDs."
+category = "operations"
+artifact_type = "generated-project-component"
+keywords = ["logging", "json", "observability"]
+documentation = "Contributes pure-Python source and unit tests to the target project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web", "cli", "service"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["logging.structured@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/logging_setup.py"
+dest = "src/{{package}}/logging_setup.py"
+
+[[integration.files]]
+src = "files/tests/test_logging_setup.py"
+dest = "tests/test_logging_setup.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_logging_setup.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:8a50a1793c503da5d6b9d49035473eea3d0c32e0b098e82e230fbaebebcb5129"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = []

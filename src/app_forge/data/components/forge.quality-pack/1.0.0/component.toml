@@ -1,0 +1,71 @@
+schema_version = 1
+
+[component]
+id = "forge.quality-pack"
+name = "Quality pack"
+version = "1.0.0"
+summary = "Runs ruff, mypy and pip-audit when installed; missing tools are reported as NOT RUN."
+category = "quality"
+artifact_type = "generated-project-component"
+keywords = ["lint", "typing", "audit", "quality"]
+documentation = "Contributes pure-Python source and unit tests to the target project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web", "cli", "service"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["quality.checks@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/scripts/check_quality.py"
+dest = "scripts/check_quality.py"
+
+[[integration.files]]
+src = "files/tests/test_check_quality.py"
+dest = "tests/test_check_quality.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_check_quality.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:467b116cbeec9b1fab1b5c81d2696d246ef07bcfc69654496822e9e2ee90012c"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["pip-audit needs network access to query advisories."]

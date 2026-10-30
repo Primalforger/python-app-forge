@@ -1,0 +1,83 @@
+schema_version = 1
+
+[component]
+id = "forge.ruff-config"
+name = "Ruff configuration"
+version = "1.0.0"
+summary = "Appends [tool.ruff] tables to pyproject.toml (never edits existing tables)."
+category = "quality"
+artifact_type = "generated-project-component"
+keywords = ["ruff","lint","style"]
+documentation = "Adds files and patches existing project files at marked anchors."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web", "cli", "service"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["quality.ruff-config@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/docs/STYLE.md"
+dest = "docs/STYLE.md"
+
+[[integration.files]]
+src = "files/tests/test_style_config.py"
+dest = "tests/test_style_config.py"
+
+[[integration.patches]]
+id = "ruff-tables"
+file = "pyproject.toml"
+kind = "toml-table"
+content = '''
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+'''
+
+[lifecycle]
+install = "copy-files-and-patch"
+removal = true
+upgrade = "replace-managed-blocks"
+migrations = []
+
+[verification]
+tests = ["tests/test_style_config.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:e4071eee26df6e520a70ece45a730c066467e788ad0b11222f2e6295c3297caf"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["Fails with a conflict if a [tool.ruff] table already exists with different values."]

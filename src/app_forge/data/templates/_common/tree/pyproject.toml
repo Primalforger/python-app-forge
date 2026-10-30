@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{dist}}"
+version = "0.1.0"
+description = "{{description}}"
+requires-python = ">={{python_version}}"
+authors = [{ name = "{{author}}" }]
+dependencies = [
+{{dependencies_block}}]
+
+[project.optional-dependencies]
+dev = [
+{{dev_dependencies_block}}]
+
+[project.scripts]
+{{dist}} = "{{package}}.{{entry_module}}:{{entry_function}}"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

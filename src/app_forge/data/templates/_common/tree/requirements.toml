@@ -1,0 +1,11 @@
+# Requirements register for {{name}}. Verified status comes from test evidence (forge compliance check).
+[[requirement]]
+id = "REQ-001"
+title = "Core application logic behaves as specified"
+description = "The framework-independent core module is unit tested."
+priority = "P0"
+method = "test"
+acceptance = "All tests in tests/test_core.py pass."
+modules = ["{{package}}.core"]
+verified_by = ["tests/test_core.py"]
+implemented = true

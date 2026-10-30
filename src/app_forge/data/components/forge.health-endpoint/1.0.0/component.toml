@@ -1,0 +1,84 @@
+schema_version = 1
+
+[component]
+id = "forge.health-endpoint"
+name = "Health endpoint"
+version = "1.0.0"
+summary = "Adds a /healthz route to a Forge web project by inserting it at the api.py router anchor."
+category = "operations"
+artifact_type = "generated-project-component"
+keywords = ["health","readiness","fastapi"]
+documentation = "Adds files and patches existing project files at marked anchors."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["web"]
+platform_api = "1"
+
+[dependencies]
+python_packages = []
+
+[dependencies.components]
+
+[interfaces]
+provides = ["api.health@1.0"]
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/health.py"
+dest = "src/{{package}}/health.py"
+
+[[integration.files]]
+src = "files/tests/test_health.py"
+dest = "tests/test_health.py"
+
+[[integration.patches]]
+id = "register-healthz"
+file = "src/{{package}}/api.py"
+kind = "insert"
+anchor = "routers"
+position = "after"
+content = '''
+@app.get("/healthz")
+def healthz() -> dict:
+    from {{package}}.health import health_payload
+    return health_payload()
+'''
+
+[lifecycle]
+install = "copy-files-and-patch"
+removal = true
+upgrade = "replace-managed-blocks"
+migrations = []
+
+[verification]
+tests = ["tests/test_health.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project"]
+network = false
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:fe2d669aaaa9e5c62bc21d34b5a0ecd2bb1e8f3ba4b5a62caded4289d6e3ba3a"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["Requires the `forge:anchor routers` marker that Forge web templates 1.0.0 contain."]
