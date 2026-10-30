@@ -38,6 +38,7 @@ from app_forge.projectmeta import components_text, forge_toml_text, read_compone
 from app_forge.resolver import resolve
 from app_forge.security import safe_join, sha256_text
 from app_forge.settings import ForgeSettings
+from app_forge.templates.baseline import BASELINE_PATH, create_baseline
 from app_forge.templates.engine import (TEMPLATES_ROOT, TemplateEngine, add_dependencies,
                                         package_name_problems)
 from app_forge.verification import ALL_CHECKS, VerificationEngine, compare_evidence
@@ -138,6 +139,9 @@ class ForgeServices:
             info = self.templates.get(template)
             variables = self.templates.validate_inputs(info, options)
             files = self.templates.render(info, variables)
+            # Preserve the exact rendered template as the three-way merge base.
+            # Component contributions and Forge metadata have independent ownership.
+            template_baseline = create_baseline(info.id, info.version, info.archetype, files)
             package = variables["package"]
             res = resolve(self.registry, {c: "*" for c in components}, archetype=info.archetype)
             res.raise_if_failed()
@@ -173,6 +177,9 @@ class ForgeServices:
                         patch_records.append({"component": entry.manifest.id, "id": patch.id, "file": rel,
                                               "kind": patch.kind, "sha256": pr.sha256})
             files["forge.toml"] = forge_toml_text(variables, info.id, info.version)
+            if BASELINE_PATH in files:
+                raise ConflictFailure(f"Template output reserves {BASELINE_PATH}")
+            files[BASELINE_PATH] = template_baseline
             if comps:
                 files[".forge/components.toml"] = components_text({"components": comps, "managed_files": managed,
                                                                    "patches": patch_records})
