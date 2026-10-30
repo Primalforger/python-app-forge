@@ -37,18 +37,49 @@ class ProjectScopedPipAuditTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0], ["/tools/pip-audit", "--locked", str(root)])
         self.assertIn("pylock.toml", rows[0][2])
 
-    def test_requirements_files_are_all_passed_explicitly(self):
+    def test_requirements_files_are_audited_independently(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "requirements.txt").write_text("requests==2.31.0\n", encoding="utf-8")
+            (root / "requirements.txt").write_text("urllib3==1.26.18\n", encoding="utf-8")
+            (root / "requirements-dev.txt").write_text("urllib3==2.2.0\n", encoding="utf-8")
             (root / "requirements").mkdir()
-            (root / "requirements" / "dev.txt").write_text("pytest==8.0.0\n", encoding="utf-8")
-            rows, run = self._run(root)
-        self.assertEqual(run.call_args.args[0], [
-            "/tools/pip-audit", "--requirement", "requirements.txt",
-            "--requirement", "requirements/dev.txt",
+            (root / "requirements" / "test.txt").write_text("pytest==8.0.0\n", encoding="utf-8")
+            rows = []
+            with patch("app_forge.verification.shutil.which", return_value="/tools/pip-audit"), \
+                 patch("app_forge.verification.run_command", side_effect=[
+                     SimpleNamespace(returncode=0, stdout="runtime clean", stderr=""),
+                     SimpleNamespace(returncode=0, stdout="dev clean", stderr=""),
+                     SimpleNamespace(returncode=0, stdout="tests clean", stderr=""),
+                 ]) as run:
+                VerificationEngine()._tool(root, "pip-audit", lambda *row: rows.append(row), 30)
+
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands, [
+            ["/tools/pip-audit", "--requirement", "requirements-dev.txt"],
+            ["/tools/pip-audit", "--requirement", "requirements.txt"],
+            ["/tools/pip-audit", "--requirement", "requirements/test.txt"],
         ])
-        self.assertIn("requirements/dev.txt", rows[0][2])
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(rows[0][1], "passed")
+        self.assertIn("requirements-dev.txt", rows[0][2])
+        self.assertIn("requirements.txt", rows[0][2])
+        self.assertIn("requirements/test.txt", rows[0][2])
+
+    def test_failure_in_one_requirements_environment_fails_aggregate_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "requirements.txt").write_text("urllib3==1.26.18\n", encoding="utf-8")
+            (root / "requirements-dev.txt").write_text("urllib3==2.2.0\n", encoding="utf-8")
+            rows = []
+            with patch("app_forge.verification.shutil.which", return_value="/tools/pip-audit"), \
+                 patch("app_forge.verification.run_command", side_effect=[
+                     SimpleNamespace(returncode=0, stdout="clean", stderr=""),
+                     SimpleNamespace(returncode=1, stdout="", stderr="vulnerability found"),
+                 ]) as run:
+                VerificationEngine()._tool(root, "pip-audit", lambda *row: rows.append(row), 30)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(rows[0][1], "failed")
+        self.assertIn("vulnerability found", rows[0][2])
 
     def test_no_manifest_is_not_run_and_never_audits_forge_environment(self):
         with tempfile.TemporaryDirectory() as tmp:
