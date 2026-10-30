@@ -208,6 +208,38 @@ class IntegrationTests(ForgeTestCase):
         self.assertEqual(r["status"], "applied")
         self.assertEqual((root / "pyproject.toml").read_text(), before_pp)  # never edited automatically
 
+    def test_apply_does_not_follow_planted_predictable_temp_symlink(self):
+        outside = self.tmp / "outside.txt"
+        outside.write_text("must remain untouched", encoding="utf-8")
+        target = self.proj / "src" / "target_app" / "forms.py"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        planted = target.with_name(target.name + ".forge-tmp")
+        try:
+            planted.symlink_to(outside)
+        except OSError:
+            self.skipTest("file symlinks unavailable")
+        p = self.s.plan_add(self.proj, {"forge.forms-validation": "*"})
+        self.s.approve_plan(p["plan_id"], "tester")
+        result = self.s.apply_plan(p["plan_id"], verify=False)
+        self.assertEqual(result["status"], "applied")
+        self.assertEqual(outside.read_text(encoding="utf-8"), "must remain untouched")
+        self.assertTrue(planted.is_symlink())
+        self.assertTrue(target.is_file())
+
+    def test_apply_detects_file_changed_after_preflight_before_write(self):
+        p = self.approved()
+        victim = self.proj / "src" / "target_app" / "forms.py"
+
+        def edit_before_write(path, index):
+            if index == 0:
+                victim.parent.mkdir(parents=True, exist_ok=True)
+                victim.write_text("# user change\n", encoding="utf-8")
+
+        result = self.s.integration.apply(p["plan_id"], verify=False, fault=edit_before_write)
+        self.assertFalse(result["ok"])
+        self.assertIn("changed while the plan was being applied", result["error"])
+        self.assertEqual(victim.read_text(encoding="utf-8"), "# user change\n")
+
     def test_path_traversal_component_is_blocked(self):
         v = self.custom_component("acme.slip")
         t = (v / "component.toml").read_text().replace('dest = "src/{{package}}/slip.py"', 'dest = "src/{{package}}/../../../escape.py"')

@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import uuid
 from pathlib import Path
 from typing import Callable
@@ -657,14 +658,64 @@ class IntegrationEngine:
 
     @staticmethod
     def _apply_one(root: Path, c: FileChange) -> None:
+        """Apply one change using an exclusive, unpredictable sibling file.
+
+        Predictable temporary names are unsafe in project-controlled directories: a planted
+        symlink could redirect the write. Recheck the planned before-state immediately before
+        mutation and again after staging the replacement.
+        """
         target = safe_join(root, c.path)
+
+        def check_expected_state() -> None:
+            current = safe_join(root, c.path)
+            if current.is_symlink():
+                raise SecurityBlock(f"Refusing to replace symlink target {c.path!r}")
+            if _sha(current) != c.before_sha:
+                raise ConflictFailure(f"{c.path} changed while the plan was being applied; "
+                                      "the change was not overwritten")
+
+        check_expected_state()
         if c.action == "delete":
             target.unlink()
             return
+
         target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_name(target.name + ".forge-tmp")
-        tmp.write_bytes((c.content or "").encode("utf-8"))
-        os.replace(tmp, target)
+        payload = (c.content or "").encode("utf-8")
+        mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else None
+        tmp: Path | None = None
+        fd: int | None = None
+        try:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+            for _ in range(10):
+                candidate = target.with_name(f".{target.name}.forge-{uuid.uuid4().hex}.tmp")
+                try:
+                    fd = os.open(candidate, flags, 0o666)  # honours umask; never follows an existing link
+                    tmp = candidate
+                    break
+                except FileExistsError:
+                    continue
+            if fd is None or tmp is None:
+                raise FileExistsError(f"Could not allocate a unique temporary file for {c.path}")
+
+            if mode is not None:
+                os.chmod(tmp, mode)
+            with os.fdopen(fd, "wb") as stream:
+                fd = None
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+
+            check_expected_state()
+            os.replace(tmp, target)
+            tmp = None
+        finally:
+            if fd is not None:
+                os.close(fd)
+            if tmp is not None:
+                try:
+                    tmp.unlink()
+                except FileNotFoundError:
+                    pass
 
     def recover(self, plan_id: str) -> dict:
         plan = self.load_plan(plan_id)
