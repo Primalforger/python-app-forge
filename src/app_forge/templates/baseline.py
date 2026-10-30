@@ -7,6 +7,7 @@ per-file hashes detect accidental or untrusted edits before merge planning.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from pathlib import PurePosixPath
 from typing import Any
@@ -81,7 +82,7 @@ def load_baseline(text: str) -> dict[str, Any]:
         if not isinstance(content, str) or not isinstance(digest, str):
             raise ValueError(f"invalid template baseline content for {path!r}")
         actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        if not hashlib.compare_digest(actual, digest):
+        if not hmac.compare_digest(actual, digest):
             raise ValueError(f"template baseline content checksum mismatch for {path!r}")
     payload = {key: envelope[key] for key in ("schema_version", "template", "files")}
     expected = hashlib.sha256(_canonical(payload)).hexdigest()
