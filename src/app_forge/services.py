@@ -4,12 +4,17 @@ Every user-visible operation is a method here; shells only parse input and rende
 """
 from __future__ import annotations
 
+import ctypes
+import errno
 import importlib.util
 import json
+import os
 import platform
+import secrets
 import shutil
 import sys
 import tempfile
+import tomllib
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -24,7 +29,7 @@ from app_forge.table_designer import normalize_definition, to_python
 from app_forge.domain.errors import ConflictFailure, ForgeError, SecurityBlock, ValidationFailure
 from app_forge.domain.models import ChangePlan
 from app_forge.extensions import ExtensionHost
-from app_forge.locks import lock_path, read_lock
+from app_forge.locks import lock_path, project_lock, read_lock
 from app_forge.integration import IntegrationEngine, component_contributions
 from app_forge.observability import get_logger, new_operation_id, utcnow
 from app_forge.patching import PatchConflict, apply_patch, target_path
@@ -33,8 +38,48 @@ from app_forge.projectmeta import components_text, forge_toml_text, read_compone
 from app_forge.resolver import resolve
 from app_forge.security import safe_join, sha256_text
 from app_forge.settings import ForgeSettings
-from app_forge.templates.engine import TEMPLATES_ROOT, TemplateEngine, add_dependencies
+from app_forge.templates.engine import (TEMPLATES_ROOT, TemplateEngine, add_dependencies,
+                                        package_name_problems)
 from app_forge.verification import ALL_CHECKS, VerificationEngine, compare_evidence
+
+
+def _rename_directory_noreplace(source: Path, destination: Path) -> None:
+    """Atomically rename a directory without ever replacing an existing destination."""
+    if os.name == "nt":
+        # Windows rename fails when the destination already exists.
+        os.rename(source, destination)
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if sys.platform.startswith("linux") and hasattr(libc, "renameat2"):
+        renameat2 = libc.renameat2
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)  # RENAME_NOREPLACE
+    elif sys.platform == "darwin" and hasattr(libc, "renamex_np"):
+        renamex_np = libc.renamex_np
+        renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(os.fsencode(source), os.fsencode(destination), 0x00000004)  # RENAME_EXCL
+    else:
+        raise OSError(errno.ENOTSUP, "atomic no-clobber directory rename is unavailable", str(destination))
+    if result != 0:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(destination))
+
+
+def _set_default_directory_mode(directory: Path) -> None:
+    """Give a staged directory the same umask-filtered mode as Path.mkdir()."""
+    if os.name != "posix":
+        return
+    probe = directory / f".forge-mode-{secrets.token_hex(8)}"
+    fd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+    try:
+        file_mode = os.fstat(fd).st_mode & 0o777
+    finally:
+        os.close(fd)
+        probe.unlink(missing_ok=True)
+    umask = 0o666 & ~file_mode
+    os.chmod(directory, 0o777 & ~umask)
 
 
 class ForgeServices:
@@ -138,17 +183,37 @@ class ForgeServices:
                     "files": [{"path": p, "bytes": len(c.encode())} for p, c in files.items()],
                     "configuration": {k: variables[k] for k in ("name", "package", "description", "author",
                                                                "python_version")}}
-            out = Path(out_dir).resolve()
+            # Keep the final path itself unresolved so a symlink at that path is rejected,
+            # rather than silently redirecting generation to its target.
+            out = Path(os.path.abspath(os.fspath(out_dir)))
             if dry_run:
                 op["summary"] = {"dry_run": True, "files": len(files)}
                 return {"operation_id": op["operation_id"], "dry_run": True, "path": str(out), **plan}
-            if out.exists() and (not out.is_dir() or any(out.iterdir())):
-                raise ConflictFailure(f"Target directory {out} exists and is not empty")
-            out.mkdir(parents=True, exist_ok=True)
-            for rel, content in files.items():
-                target = safe_join(out, rel)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(content.encode("utf-8"))
+            # Render and validate the complete tree in a private sibling directory. Only
+            # promote it after every file has been written and the generated metadata parses.
+            out.parent.mkdir(parents=True, exist_ok=True)
+            if out.exists() or out.is_symlink():
+                raise ConflictFailure(f"Target directory {out} already exists")
+            stage = Path(tempfile.mkdtemp(prefix=f".{out.name}.forge-create-", dir=out.parent))
+            try:
+                for rel, content in files.items():
+                    target = safe_join(stage, rel)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(content.encode("utf-8"))
+                if set(p.relative_to(stage).as_posix() for p in stage.rglob("*") if p.is_file()) != set(files):
+                    raise ValidationFailure("Staged project does not match the rendered file manifest")
+                tomllib.loads((stage / "forge.toml").read_text(encoding="utf-8"))
+                if "pyproject.toml" in files:
+                    tomllib.loads((stage / "pyproject.toml").read_text(encoding="utf-8"))
+                # Keep the staging tree private until validation is complete, then apply
+                # the normal umask-filtered root mode immediately before promotion.
+                _set_default_directory_mode(stage)
+                # No-clobber rename closes the check/promote race: a destination created
+                # after preflight is never replaced, even if it is an empty directory.
+                _rename_directory_noreplace(stage, out)
+            except Exception:
+                shutil.rmtree(stage, ignore_errors=True)
+                raise
             op["summary"] = {"files": len(files), "template": info.id}
             return {"operation_id": op["operation_id"], "dry_run": False, "path": str(out), **plan}
 
@@ -237,15 +302,52 @@ class ForgeServices:
             raise ConflictFailure("Project already has a forge.toml")
         if archetype not in ("desktop", "web", "cli", "service"):
             raise ValidationFailure("archetype must be desktop|web|cli|service")
+        package_problems = package_name_problems(package)
+        if package_problems:
+            raise ValidationFailure("Invalid package identifier", details=package_problems)
+        if package not in a["packages"]:
+            raise ValidationFailure(
+                f"Package {package!r} was not discovered in this project",
+                details=[f"discovered packages: {a['packages']}"])
         text = forge_toml_text({"name": a["name"], "package": package, "archetype": archetype,
                                 "python_version": "3.11", "description": "", "author": "",
                                 "forge_version": __version__}, "adopted", "0.0.0")
         if not confirm:
             return {"preview": True, "writes": ["forge.toml"], "content": text}
         with self.operation("adopt_project", root):
-            if a["git"]["state"] == "dirty" and "forge.toml" in a["git"]["dirty_paths"]:
-                raise ConflictFailure("forge.toml has uncommitted changes")
-            (root / "forge.toml").write_text(text, encoding="utf-8")
+            with project_lock(self.settings.locks_dir, root, "adopt_project"):
+                # Re-analyze while holding the lock: the preview may have gone stale.
+                current = self.analyzer.analyze(root)
+                if current["forge_project"]:
+                    raise ConflictFailure("Project already has a forge.toml")
+                if package not in current["packages"]:
+                    raise ConflictFailure("The selected package changed after adoption preview")
+                if current["git"]["state"] == "dirty" and "forge.toml" in current["git"]["dirty_paths"]:
+                    raise ConflictFailure("forge.toml has uncommitted changes")
+                target = root / "forge.toml"
+                if target.exists() or target.is_symlink():
+                    raise ConflictFailure("forge.toml already exists")
+                # Use O_EXCL with mode 0666 so the process umask determines the
+                # resulting metadata permissions, as it did with Path.write_text().
+                for _ in range(10):
+                    tmp = root / f".forge.toml.{secrets.token_hex(8)}.tmp"
+                    try:
+                        fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+                        break
+                    except FileExistsError:
+                        continue
+                else:
+                    raise ConflictFailure("Could not allocate a temporary forge.toml file")
+                try:
+                    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+                        fh.write(text)
+                        fh.flush()
+                        os.fsync(fh.fileno())
+                    if target.exists() or target.is_symlink():
+                        raise ConflictFailure("forge.toml appeared while adoption was being committed")
+                    os.replace(tmp, target)
+                finally:
+                    tmp.unlink(missing_ok=True)
         return {"preview": False, "writes": ["forge.toml"]}
 
     def plan_add(self, project: str | Path, requested: dict[str, str]) -> dict:

@@ -47,6 +47,10 @@ forge template export cli --out ./my-template         # then edit and: forge tem
 
 # Existing third-party project: analysis is read-only and never runs project code
 forge project analyze /path/to/repo
+
+# Adopt an existing package: preview first, then explicitly write forge.toml
+forge project adopt /path/to/repo --package my_package --archetype cli
+forge project adopt /path/to/repo --package my_package --archetype cli --yes
 ```
 `forge --json ...` gives machine-readable output (`{"ok": ..., "result"|"error": ...}`). Add `--non-interactive` in automation.
 
