@@ -27,6 +27,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 app_forge = ["data/**/*"]
 
+[tool.ruff]
+# Built-in templates intentionally contain unresolved placeholders and are not valid Python/TOML yet.
+extend-exclude = ["src/app_forge/data/**"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
