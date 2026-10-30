@@ -72,8 +72,11 @@ def remove_dependencies(pyproject_text: str, packages: list[str]) -> str | None:
     m = re.search(r"(?ms)^dependencies\s*=\s*\[\n(.*?)^\]", pyproject_text)
     if not m:
         return None
-    kept = [ln for ln in m.group(1).splitlines(keepends=True)
-            if not (re.search(r'"([^"]+)"', ln) and package_names([re.search(r'"([^"]+)"', ln).group(1)])[0] in names)]
+    kept = []
+    for line in m.group(1).splitlines(keepends=True):
+        match = re.search(r'"([^"]+)"', line)
+        if match is None or package_names([match.group(1)])[0] not in names:
+            kept.append(line)
     return pyproject_text[:m.start(1)] + "".join(kept) + pyproject_text[m.end(1):]
 
 

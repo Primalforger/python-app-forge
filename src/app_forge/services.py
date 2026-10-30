@@ -17,7 +17,7 @@ import tempfile
 import tomllib
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, Sequence
 
 from app_forge import __version__
 from app_forge.analyzer import ProjectAnalyzer
@@ -102,7 +102,7 @@ class ForgeServices:
     # ------------------------------------------------------------------ operations
     @contextmanager
     def operation(self, kind: str, target: object = "") -> Iterator[dict]:
-        op = {"operation_id": new_operation_id(), "kind": kind, "target": str(target), "status": "running",
+        op: dict[str, Any] = {"operation_id": new_operation_id(), "kind": kind, "target": str(target), "status": "running",
               "started": utcnow(), "summary": {}}
         self.log.info("started", extra={"operation_id": op["operation_id"], "operation": kind, "target": str(target)})
         try:
@@ -133,7 +133,7 @@ class ForgeServices:
 
     # ------------------------------------------------------------------ project creation (FR-001/002)
     def create_project(self, template: str, options: dict, out_dir: str | Path, *,
-                       components: list[str] = (), dry_run: bool = False) -> dict:
+                       components: Sequence[str] = (), dry_run: bool = False) -> dict:
         with self.operation("create_project", out_dir) as op:
             info = self.templates.get(template)
             variables = self.templates.validate_inputs(info, options)
@@ -560,7 +560,7 @@ class ForgeServices:
     # ------------------------------------------------------------------ table designer (UI-014)
     def design_table(self, definition: dict, import_path: str | None = None) -> dict:
         d = normalize_definition(definition)
-        out = {"definition": d}
+        out: dict[str, Any] = {"definition": d}
         if import_path:
             out["python"] = to_python(d, import_path)
         return out

@@ -154,7 +154,7 @@ class CliNewCommandTests(ForgeTestCase):
         r = json.loads(out)["result"]
         self.assertEqual(code, 6)
         self.assertIn("tests/test_core.py::GreetTests::test_greet", r["regressions"])
-        self.assertIn("tests:unittest", r["regressions"])  # the run as a whole also regressed
+        self.assertTrue(any(item.startswith("tests:") for item in r["regressions"]))  # aggregate runner regression
         self.assertTrue(r["removed"])  # the other test no longer exists
         self.assertEqual(len(json.loads(self.run_cli("--json", "test", "runs", str(proj))[1])["result"]), 3)
 

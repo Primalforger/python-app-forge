@@ -27,6 +27,19 @@ where = ["src"]
 [tool.setuptools.package-data]
 app_forge = ["data/**/*"]
 
+[tool.ruff]
+# Built-in templates intentionally contain unresolved placeholders and are not valid Python/TOML yet.
+extend-exclude = ["src/app_forge/data/**"]
+
+[tool.ruff.lint]
+# Enforce high-confidence correctness checks first; adopt style rules incrementally.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.mypy]
+# Component payloads are templates/artifacts, not Python source for the platform.
+exclude = ["src/app_forge/data/"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]

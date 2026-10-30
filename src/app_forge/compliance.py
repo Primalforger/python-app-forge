@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tomllib
 from datetime import date
+from typing import Any
 from pathlib import Path
 
 from app_forge.domain.errors import ValidationFailure
@@ -62,7 +63,7 @@ def evaluate(reqs: list[Requirement], evidence: list[dict], today: date | None =
     today = today or date.today()
     out = []
     for r in reqs:
-        rec = {"id": r.id, "title": r.title, "priority": r.priority, "modules": r.modules,
+        rec: dict[str, Any] = {"id": r.id, "title": r.title, "priority": r.priority, "modules": r.modules,
                "components": r.components, "verified_by": r.verified_by, "evidence": 0, "missing": [],
                "reason": ""}
         exc = r.exception
@@ -75,10 +76,14 @@ def evaluate(reqs: list[Requirement], evidence: list[dict], today: date | None =
         else:
             if exc and not exc_valid:
                 rec["reason"] = "exception is incomplete or expired; ignored. "
-            matched, missing = [], []
+            matched: list[dict[str, Any]] = []
+            missing: list[str] = []
             for tok in r.verified_by:
                 m = [e for e in evidence if _matches(tok, e["check_id"])]
-                (matched if m else missing).extend(m if m else [tok])
+                if m:
+                    matched.extend(m)
+                else:
+                    missing.append(tok)
             rec["evidence"] = len([m for m in matched if isinstance(m, dict)])
             rec["missing"] = [m for m in missing if isinstance(m, str)]
             dicts = [m for m in matched if isinstance(m, dict)]
