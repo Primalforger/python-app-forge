@@ -23,7 +23,8 @@ def _valid_path(path: str) -> bool:
     if not path or "\\" in path or "\x00" in path:
         return False
     candidate = PurePosixPath(path)
-    return (not candidate.is_absolute() and all(part not in ("", ".", "..") for part in candidate.parts)
+    return (bool(candidate.parts) and not candidate.is_absolute()
+            and all(part not in ("", ".", "..") for part in candidate.parts)
             and candidate.as_posix() == path and path != BASELINE_PATH)
 
 
@@ -34,6 +35,8 @@ def create_baseline(template_id: str, template_version: str, archetype: str,
         raise ValueError("template identity, version, and archetype must be non-empty strings")
     if not isinstance(files, dict):
         raise ValueError("baseline files must be a mapping")
+    if any(not isinstance(path, str) for path in files):
+        raise ValueError("template baseline paths must be strings")
     snapshot: dict[str, dict[str, str]] = {}
     for path, content in sorted(files.items()):
         if not isinstance(path, str) or not _valid_path(path):
