@@ -31,6 +31,10 @@ app_forge = ["data/**/*"]
 # Built-in templates intentionally contain unresolved placeholders and are not valid Python/TOML yet.
 extend-exclude = ["src/app_forge/data/**"]
 
+[tool.ruff.lint]
+# Start with Ruff's core correctness rules; broader style cleanup can be adopted deliberately.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
