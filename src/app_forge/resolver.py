@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from app_forge.catalog.registry import CatalogEntry, ComponentRegistry
 from app_forge.domain.errors import ConflictFailure
+from app_forge.domain.interfaces import parse_interface
 from app_forge.domain.versioning import Constraint, Version
 
 
@@ -82,13 +83,36 @@ def resolve(registry: ComponentRegistry, requested: dict[str, str], *, archetype
     for cid, cstr in requested.items():
         visit(cid, "request", Constraint.parse(cstr), ())
 
-    # interface requirements must be provided by a selected or already-installed component
-    provided = {cap for e in chosen.values() for cap in e.manifest.capabilities()}
-    for e in chosen.values():
-        for need in e.manifest.requires_interfaces:
-            if need.split("@")[0] not in provided:
-                problem("missing-interface", f"{e.manifest.id} requires interface {need} which nothing provides",
-                        e.manifest.id)
+    # Interface requirements are contracts, not just names: validate the requested
+    # version against providers selected in this resolution or already in the project.
+    providers: dict[str, list[Version]] = {}
+    for entry in chosen.values():
+        for declaration in entry.manifest.provides:
+            spec = parse_interface(declaration, provider=True)
+            if spec.version is not None:
+                providers.setdefault(spec.name, []).append(spec.version)
+    for component_id, component_version in already.items():
+        existing = registry.get(component_id, component_version)
+        if existing is None:
+            continue
+        for declaration in existing.manifest.provides:
+            spec = parse_interface(declaration, provider=True)
+            if spec.version is not None:
+                providers.setdefault(spec.name, []).append(spec.version)
+
+    for entry in chosen.values():
+        for need in entry.manifest.requires_interfaces:
+            spec = parse_interface(need)
+            available = providers.get(spec.name, [])
+            if not available:
+                problem("missing-interface",
+                        f"{entry.manifest.id} requires interface {need} which nothing provides",
+                        entry.manifest.id)
+            elif spec.constraint and not any(spec.constraint.allows(v) for v in available):
+                versions = ", ".join(str(v) for v in sorted(set(available)))
+                problem("incompatible-interface",
+                        f"{entry.manifest.id} requires interface {need}, available versions: {versions}",
+                        entry.manifest.id)
 
     if not res.problems:  # topological order, deterministic (sorted ids as tie-breaker)
         done: list[str] = []
