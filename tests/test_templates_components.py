@@ -54,6 +54,49 @@ class TemplateTests(ForgeTestCase):
         with self.assertRaises(ConflictFailure):
             s.create_project("cli", {"name": "Ok App"}, self.tmp / "full")
 
+    def test_failed_promotion_leaves_no_partial_project_or_stage(self):
+        from unittest import mock
+        s = self.services()
+        out = self.tmp / "rollback"
+        with mock.patch("app_forge.services.os.replace", side_effect=OSError("promotion failed")):
+            with self.assertRaises(OSError):
+                s.create_project("cli", {"name": "Rollback App"}, out)
+        self.assertFalse(out.exists())
+        self.assertEqual(list(self.tmp.glob(".rollback.forge-create-*")), [])
+
+    def test_adoption_rejects_invalid_or_undiscovered_package(self):
+        root = self.tmp / "legacy"
+        pkg = root / "src" / "legacy_pkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (root / "pyproject.toml").write_text('[project]\\nname = "legacy"\\nversion = "1.0"\\n',
+                                             encoding="utf-8")
+        s = self.services()
+        with self.assertRaises(ValidationFailure):
+            s.adopt_project(root, package="class", archetype="cli")
+        with self.assertRaises(ValidationFailure):
+            s.adopt_project(root, package="other_pkg", archetype="cli")
+        preview = s.adopt_project(root, package="legacy_pkg", archetype="cli")
+        self.assertTrue(preview["preview"])
+        self.assertFalse((root / "forge.toml").exists())
+
+    def test_adoption_uses_project_lock_and_commits_metadata(self):
+        from app_forge.locks import project_lock
+        root = self.tmp / "adoptable"
+        pkg = root / "src" / "adoptable"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (root / "pyproject.toml").write_text('[project]\\nname = "adoptable"\\nversion = "1.0"\\n',
+                                             encoding="utf-8")
+        s = self.services()
+        with project_lock(s.settings.locks_dir, root, "another operation"):
+            with self.assertRaises(ConflictFailure):
+                s.adopt_project(root, package="adoptable", archetype="cli", confirm=True)
+        result = s.adopt_project(root, package="adoptable", archetype="cli", confirm=True)
+        self.assertFalse(result["preview"])
+        self.assertEqual(s.analyzer.analyze(root)["package"], "adoptable")
+        self.assertFalse(list(root.glob(".forge.toml.*.tmp")))
+
     def test_gui_and_cli_generate_identical_projects(self):  # AT-002
         # The GUI calls ForgeServices.create_project; the CLI must produce the same tree.
         self.services().create_project("desktop", {"name": "Parity App"}, self.tmp / "svc",
