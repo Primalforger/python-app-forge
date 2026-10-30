@@ -196,7 +196,6 @@ class ForgeServices:
                 raise ConflictFailure(f"Target directory {out} already exists")
             stage = Path(tempfile.mkdtemp(prefix=f".{out.name}.forge-create-", dir=out.parent))
             try:
-                _set_default_directory_mode(stage)
                 for rel, content in files.items():
                     target = safe_join(stage, rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -206,6 +205,9 @@ class ForgeServices:
                 tomllib.loads((stage / "forge.toml").read_text(encoding="utf-8"))
                 if "pyproject.toml" in files:
                     tomllib.loads((stage / "pyproject.toml").read_text(encoding="utf-8"))
+                # Keep the staging tree private until validation is complete, then apply
+                # the normal umask-filtered root mode immediately before promotion.
+                _set_default_directory_mode(stage)
                 # No-clobber rename closes the check/promote race: a destination created
                 # after preflight is never replaced, even if it is an empty directory.
                 _rename_directory_noreplace(stage, out)
