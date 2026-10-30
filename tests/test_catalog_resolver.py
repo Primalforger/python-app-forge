@@ -106,6 +106,32 @@ class ResolverTests(ForgeTestCase):
         r = self.services().resolve_dependencies({"acme.lib": "^1.0"})
         self.assertEqual(r["install_order"], ["acme.lib@1.4.0"])
 
+    def test_interface_version_constraint_is_enforced(self):
+        self.custom_component("acme.provider", provides=("ui.theme@2.0",))
+        self.custom_component("acme.consumer", requires_if=("ui.theme@^1.0",))
+        result = self.services().resolve_dependencies({"acme.provider": "*", "acme.consumer": "*"})
+        self.assertIn("incompatible-interface", {p["code"] for p in result["problems"]})
+
+    def test_interface_requirement_accepts_matching_provider_version(self):
+        self.custom_component("acme.provider", provides=("ui.theme@2.1",))
+        self.custom_component("acme.consumer", requires_if=("ui.theme@>=2.0",))
+        result = self.services().resolve_dependencies({"acme.provider": "*", "acme.consumer": "*"})
+        self.assertTrue(result["ok"], result["problems"])
+
+    def test_interface_requirement_can_be_satisfied_by_existing_project_component(self):
+        self.custom_component("acme.provider", provides=("ui.theme@2.1",))
+        self.custom_component("acme.consumer", requires_if=("ui.theme@^2.0",))
+        s = self.services()
+        project = self.make_project(s, components=["acme.provider"])
+        result = s.resolve_dependencies({"acme.consumer": "*"}, project=project)
+        self.assertTrue(result["ok"], result["problems"])
+
+    def test_invalid_interface_declaration_quarantines_component(self):
+        v = self.custom_component("acme.invalid-interface", provides=("ui theme@1.0",))
+        result = self.services(builtin=False).validate_catalog()
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("interface name" in item["error"] for item in result["quarantined"]))
+
 
 if __name__ == "__main__":
     unittest.main()
