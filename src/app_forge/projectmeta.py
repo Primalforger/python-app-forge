@@ -23,7 +23,7 @@ def read_components(root: Path) -> dict:
 
 
 def components_text(data: dict) -> str:
-    body: dict[str, object] = {"schema_version": 1}
+    body: dict = {"schema_version": 1}
     if data["components"]:
         body["components"] = sorted(data["components"], key=lambda c: c["id"])
     if data["managed_files"]:
