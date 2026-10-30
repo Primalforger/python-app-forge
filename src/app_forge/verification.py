@@ -228,7 +228,7 @@ class VerificationEngine:
             # Each file can define a distinct environment (runtime, dev, platform, etc.).
             # Audit independently so incompatible pins across files are not conflated.
             return [
-                (["pip-audit", "--requirement", str(path.relative_to(root))],
+                (["pip-audit", "--requirement", path.relative_to(root).as_posix()],
                  f"requirements file: {path.relative_to(root).as_posix()}")
                 for path in files
             ], ""
