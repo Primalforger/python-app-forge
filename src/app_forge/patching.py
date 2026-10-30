@@ -86,7 +86,8 @@ def _apply_block(text: str, patch: Patch, comp: str, content: str, *, replace: b
     if existing:
         s, e = existing
         current = "".join(lines[s:e + 1])
-        indent = re.match(r"\s*", lines[s]).group(0)
+        indent_match = re.match(r"\s*", lines[s])
+        indent = indent_match.group(0) if indent_match else ""
         block = _build_block(comp, patch.id, patch.comment, content, indent, nl)
         new_block = "".join(block)
         if _n(current) == _n(new_block):
@@ -115,7 +116,8 @@ def _locate_anchor(patch: Patch):
         if len(hits) > 1:
             raise PatchConflict("anchor-ambiguous", f"anchor {patch.anchor!r} appears {len(hits)} times in {patch.file}")
         i = hits[0]
-        return (i if patch.position == "before" else i + 1), re.match(r"\s*", lines[i]).group(0)
+        indent_match = re.match(r"\s*", lines[i])
+        return (i if patch.position == "before" else i + 1), indent_match.group(0) if indent_match else ""
     return locate
 
 
