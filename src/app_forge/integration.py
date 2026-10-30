@@ -13,6 +13,7 @@ import os
 import shutil
 import stat
 import uuid
+from typing import Any
 from pathlib import Path
 from typing import Callable
 
@@ -139,7 +140,9 @@ class IntegrationEngine:
         new_entries = [e for e in res.order if e.manifest.id not in already]
         if not new_entries:
             plan.warnings.append("All requested components are already installed; nothing to do.")
-        new_components, managed, dest_owner = [], [], {}
+        new_components: list[dict[str, Any]] = []
+        managed: list[dict[str, Any]] = []
+        dest_owner: dict[str, str] = {}
         py_packages: list[tuple[str, str]] = []
         for entry in new_entries:
             m = entry.manifest
@@ -202,7 +205,7 @@ class IntegrationEngine:
         Existing requirements are compared with what components need: incompatible ones block the plan,
         looser-than-needed ones are flagged for review (never silently rewritten), absent ones are added.
         """
-        existing = {}
+        existing: dict[str, Any] = {}
         for raw in analysis.get("dependency_specs", []):
             r = parse_requirement(raw)
             existing.setdefault(r.name, r)
