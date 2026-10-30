@@ -195,8 +195,8 @@ class ForgeServices:
             if out.exists() or out.is_symlink():
                 raise ConflictFailure(f"Target directory {out} already exists")
             stage = Path(tempfile.mkdtemp(prefix=f".{out.name}.forge-create-", dir=out.parent))
-            _set_default_directory_mode(stage)
             try:
+                _set_default_directory_mode(stage)
                 for rel, content in files.items():
                     target = safe_join(stage, rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
