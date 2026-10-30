@@ -4,10 +4,13 @@ Every user-visible operation is a method here; shells only parse input and rende
 """
 from __future__ import annotations
 
+import ctypes
+import errno
 import importlib.util
 import json
 import os
 import platform
+import secrets
 import shutil
 import sys
 import tempfile
@@ -38,6 +41,45 @@ from app_forge.settings import ForgeSettings
 from app_forge.templates.engine import (TEMPLATES_ROOT, TemplateEngine, add_dependencies,
                                         package_name_problems)
 from app_forge.verification import ALL_CHECKS, VerificationEngine, compare_evidence
+
+
+def _rename_directory_noreplace(source: Path, destination: Path) -> None:
+    """Atomically rename a directory without ever replacing an existing destination."""
+    if os.name == "nt":
+        # Windows rename fails when the destination already exists.
+        os.rename(source, destination)
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if sys.platform.startswith("linux") and hasattr(libc, "renameat2"):
+        renameat2 = libc.renameat2
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)  # RENAME_NOREPLACE
+    elif sys.platform == "darwin" and hasattr(libc, "renamex_np"):
+        renamex_np = libc.renamex_np
+        renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(os.fsencode(source), os.fsencode(destination), 0x00000004)  # RENAME_EXCL
+    else:
+        raise OSError(errno.ENOTSUP, "atomic no-clobber directory rename is unavailable", str(destination))
+    if result != 0:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(destination))
+
+
+def _set_default_directory_mode(directory: Path) -> None:
+    """Give a staged directory the same umask-filtered mode as Path.mkdir()."""
+    if os.name != "posix":
+        return
+    probe = directory / f".forge-mode-{secrets.token_hex(8)}"
+    fd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+    try:
+        file_mode = os.fstat(fd).st_mode & 0o777
+    finally:
+        os.close(fd)
+        probe.unlink(missing_ok=True)
+    umask = 0o666 & ~file_mode
+    os.chmod(directory, 0o777 & ~umask)
 
 
 class ForgeServices:
@@ -141,16 +183,19 @@ class ForgeServices:
                     "files": [{"path": p, "bytes": len(c.encode())} for p, c in files.items()],
                     "configuration": {k: variables[k] for k in ("name", "package", "description", "author",
                                                                "python_version")}}
-            out = Path(out_dir).resolve()
+            # Keep the final path itself unresolved so a symlink at that path is rejected,
+            # rather than silently redirecting generation to its target.
+            out = Path(os.path.abspath(os.fspath(out_dir)))
             if dry_run:
                 op["summary"] = {"dry_run": True, "files": len(files)}
                 return {"operation_id": op["operation_id"], "dry_run": True, "path": str(out), **plan}
             # Render and validate the complete tree in a private sibling directory. Only
             # promote it after every file has been written and the generated metadata parses.
             out.parent.mkdir(parents=True, exist_ok=True)
-            if out.exists() and (not out.is_dir() or any(out.iterdir())):
-                raise ConflictFailure(f"Target directory {out} exists and is not empty")
+            if out.exists() or out.is_symlink():
+                raise ConflictFailure(f"Target directory {out} already exists")
             stage = Path(tempfile.mkdtemp(prefix=f".{out.name}.forge-create-", dir=out.parent))
+            _set_default_directory_mode(stage)
             try:
                 for rel, content in files.items():
                     target = safe_join(stage, rel)
@@ -161,12 +206,9 @@ class ForgeServices:
                 tomllib.loads((stage / "forge.toml").read_text(encoding="utf-8"))
                 if "pyproject.toml" in files:
                     tomllib.loads((stage / "pyproject.toml").read_text(encoding="utf-8"))
-                # Preserve the existing behavior that permits an empty destination directory.
-                # Removing it immediately before same-filesystem promotion keeps partial output
-                # out of the destination if staging or validation fails.
-                if out.exists():
-                    out.rmdir()
-                os.replace(stage, out)
+                # No-clobber rename closes the check/promote race: a destination created
+                # after preflight is never replaced, even if it is an empty directory.
+                _rename_directory_noreplace(stage, out)
             except Exception:
                 shutil.rmtree(stage, ignore_errors=True)
                 raise
@@ -283,8 +325,17 @@ class ForgeServices:
                 target = root / "forge.toml"
                 if target.exists() or target.is_symlink():
                     raise ConflictFailure("forge.toml already exists")
-                fd, tmp_name = tempfile.mkstemp(prefix=".forge.toml.", suffix=".tmp", dir=root)
-                tmp = Path(tmp_name)
+                # Use O_EXCL with mode 0666 so the process umask determines the
+                # resulting metadata permissions, as it did with Path.write_text().
+                for _ in range(10):
+                    tmp = root / f".forge.toml.{secrets.token_hex(8)}.tmp"
+                    try:
+                        fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+                        break
+                    except FileExistsError:
+                        continue
+                else:
+                    raise ConflictFailure("Could not allocate a temporary forge.toml file")
                 try:
                     with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
                         fh.write(text)
