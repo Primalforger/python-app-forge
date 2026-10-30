@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-app-forge"
+version = "0.1.0"
+description = "Local-first, componentized Python application engineering platform (CLI + optional PySide6 GUI)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []          # the core platform is standard-library only
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=8", "ruff", "mypy"]
+
+[project.scripts]
+forge = "app_forge.cli.main:main"
+
+[project.gui-scripts]
+forge-gui = "app_forge.gui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+app_forge = ["data/**/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+
+[tool.forge.verify]
+# Template and component payloads contain {{placeholders}}; they are not importable Python until rendered.
+exclude = ["src/app_forge/data/"]

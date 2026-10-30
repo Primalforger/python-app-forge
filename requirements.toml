@@ -1,0 +1,453 @@
+# Requirements register for Python App Forge (subset implemented and verified by this repository's tests).
+# Status is computed from test evidence:  forge test run . && forge compliance check --requirements requirements.toml
+
+[[requirement]]
+id = "FR-001"
+title = "Project creation"
+description = "Generate applications from versioned templates and validated configuration."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.domain", "app_forge.templates.engine", "app_forge.services"]
+verified_by = ["tests/test_templates_components.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-002"
+title = "Multiple archetypes"
+description = "Desktop, web/API, CLI and background-service templates."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.templates.engine"]
+verified_by = ["tests/test_templates_components.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-003"
+title = "GUI and CLI parity"
+description = "Both shells use the same application-service layer."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.services", "app_forge.cli", "app_forge.gui"]
+verified_by = ["tests/test_templates_components.py", "tests/test_cli_architecture.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-004"
+title = "Component discovery"
+description = "Search and filter components by category, capability, archetype, state."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.catalog.registry"]
+verified_by = ["tests/test_catalog_resolver.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-005"
+title = "Component management"
+description = "Install, verify, disable/enable and remove components."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.integration", "app_forge.catalog.registry"]
+verified_by = ["tests/test_templates_components.py", "tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-006"
+title = "Existing-project analysis"
+description = "Identify metadata, dependencies, entry points, architecture indicators."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.analyzer"]
+verified_by = ["tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-007"
+title = "Change planning"
+description = "Reviewable integration plan before any modification."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.integration"]
+verified_by = ["tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-008"
+title = "Dependency resolution"
+description = "Detect missing, incompatible, conflicting and cyclic dependencies."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.resolver"]
+verified_by = ["tests/test_catalog_resolver.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-009"
+title = "Verification"
+description = "Run syntax, test and optional static checks; emit evidence."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.verification"]
+verified_by = ["tests/test_security_compliance.py", "tests/test_templates_components.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-010"
+title = "Traceability"
+description = "Link requirements to modules, tests and evidence."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.compliance"]
+verified_by = ["tests/test_security_compliance.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-011"
+title = "Offline operation"
+description = "Catalog search, creation and verification need no network."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.catalog.registry", "app_forge.settings"]
+verified_by = ["tests/test_catalog_resolver.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-012"
+title = "Recovery"
+description = "Recoverable integration; partial failures reported explicitly."
+priority = "P0"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.integration"]
+verified_by = ["tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-013"
+title = "Export"
+description = "Export inventory, plans and compliance evidence with integrity manifest."
+priority = "P1"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.services"]
+verified_by = ["tests/test_security_compliance.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-014"
+title = "Extensibility"
+description = "Separately packaged extensions via entry points and trust policy."
+priority = "P1"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.extensions"]
+verified_by = ["tests/test_security_compliance.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-001"
+title = "Maintainability"
+description = "Documented dependency direction enforced automatically."
+priority = "P0"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.architecture"]
+verified_by = ["tests/test_cli_architecture.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-002"
+title = "Reliability"
+description = "Failures give actionable errors and preserve recoverable state."
+priority = "P0"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.domain.errors", "app_forge.integration"]
+verified_by = ["tests/test_analyzer_integration.py", "tests/test_cli_architecture.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-004"
+title = "Security"
+description = "Safe paths, no shell, redaction, no implicit extension execution."
+priority = "P0"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.security", "app_forge.extensions"]
+verified_by = ["tests/test_security_compliance.py", "tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-006"
+title = "Reproducibility"
+description = "Deterministic generation with recorded template/component versions."
+priority = "P0"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.templates.engine", "app_forge.projectmeta"]
+verified_by = ["tests/test_templates_components.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-008"
+title = "Observability"
+description = "Operation IDs, structured redacted logs, operation history."
+priority = "P1"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.observability", "app_forge.persistence"]
+verified_by = ["tests/test_cli_architecture.py", "tests/test_security_compliance.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-010"
+title = "Offline resilience"
+description = "No remote service required for local operations."
+priority = "P0"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.catalog.registry"]
+verified_by = ["tests/test_catalog_resolver.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-012"
+title = "Safe change"
+description = "Reviewable and recoverable modifications; incomplete rollback defined."
+priority = "P0"
+source = "spec 2.2"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.integration"]
+verified_by = ["tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "AT-007"
+title = "Analysis does not modify the project"
+description = "Filesystem identical before/after analysis; no project code executed."
+priority = "P0"
+source = "spec 11.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.analyzer"]
+verified_by = ["tests/test_analyzer_integration.py"]
+implemented = true
+
+[[requirement]]
+id = "AT-011"
+title = "Reject malformed manifests"
+description = "Schema and compatibility validation of manifests."
+priority = "P0"
+source = "spec 11.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.domain.models"]
+verified_by = ["tests/test_versioning_manifest.py", "tests/test_catalog_resolver.py"]
+implemented = true
+
+[[requirement]]
+id = "AT-012"
+title = "Unapproved extensions cannot execute"
+description = "Untrusted extensions are never loaded."
+priority = "P0"
+source = "spec 11.1"
+method = "test"
+acceptance = "All tests in the linked files pass in the release environment."
+modules = ["app_forge.extensions"]
+verified_by = ["tests/test_security_compliance.py"]
+implemented = true
+
+[[requirement]]
+id = "FR-005U"
+title = "Component upgrade"
+description = "Upgrade installed components via a reviewed plan; user-edited files are never overwritten; recoverable."
+priority = "P1"
+source = "spec 2.1"
+method = "test"
+acceptance = "All tests in the linked file pass."
+modules = ["app_forge.integration"]
+verified_by = ["tests/test_upgrade_cli_gui.py"]
+implemented = true
+
+[[requirement]]
+id = "NFR-003"
+title = "Performance"
+description = "Responsiveness on representative catalogs; thresholds undefined.  Gap: thresholds must be set from baseline measurements."
+priority = "P1"
+source = "spec 2.2"
+method = "test"
+acceptance = "To be defined in the verification plan."
+verified_by = ["tests/NOT_WRITTEN_YET.py"]
+implemented = false
+
+[[requirement]]
+id = "NFR-005"
+title = "Portability"
+description = "Windows/Linux/macOS matrix.  Gap: only the development Linux environment has been exercised."
+priority = "P1"
+source = "spec 2.2"
+method = "test"
+acceptance = "To be defined in the verification plan."
+verified_by = ["tests/NOT_WRITTEN_YET.py"]
+implemented = false
+
+[[requirement]]
+id = "NFR-007"
+title = "Accessibility"
+description = "GUI keyboard navigation and contrast.  Gap: theme contrast is unit tested, but keyboard navigation and focus rendering have never been exercised in real Qt."
+priority = "P1"
+source = "spec 2.2"
+method = "test"
+acceptance = "To be defined in the verification plan."
+verified_by = ["tests/NOT_WRITTEN_YET.py"]
+implemented = false
+
+[[requirement]]
+id = "NFR-009"
+title = "Compatibility"
+description = "Python version matrix in CI.  Gap: CI matrix not executed here."
+priority = "P1"
+source = "spec 2.2"
+method = "test"
+acceptance = "To be defined in the verification plan."
+verified_by = ["tests/NOT_WRITTEN_YET.py"]
+implemented = false
+
+[[requirement]]
+id = "UI-LOGIC"
+title = "GUI screen logic calls application services correctly"
+description = "All 12 GUI screens build, load and drive services (incl. upgrade, table designer, extension trust) when executed against a Qt stand-in. Does not cover real Qt rendering."
+priority = "P1"
+source = "spec 5.2"
+method = "test"
+acceptance = "GUI stub tests pass and every service method the GUI calls exists with valid arguments."
+modules = ["app_forge.gui"]
+verified_by = ["tests/test_upgrade_cli_gui.py"]
+implemented = true
+
+[[requirement]]
+id = "UI-QT"
+title = "GUI renders and behaves correctly in real PySide6"
+description = "Gap: the GUI has never been run against real PySide6; layout, signals and accessibility are unverified."
+priority = "P0"
+source = "spec 5"
+method = "demonstration"
+acceptance = "tests/test_gui_qt.py passes headlessly under real PySide6 (python scripts/verify_gui.py). The tests exist but have not been executed yet; status stays Implemented until evidence is recorded."
+verified_by = ["tests/test_gui_qt.py"]
+implemented = true
+
+[[requirement]]
+id = "CLI-INV"
+title = "CLI command inventory"
+description = "Spec 6 command groups, including architecture diagram, test compare, history compare, template import/export, component upgrade."
+priority = "P1"
+source = "spec 6"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.cli"]
+verified_by = ["tests/test_cli_architecture.py", "tests/test_upgrade_cli_gui.py"]
+implemented = true
+
+[[requirement]]
+id = "G-01"
+title = "Patch engine and extension points"
+description = "Components can insert at anchors, append TOML tables and merge JSON; idempotent, reviewable, byte-exact recoverable; user edits never overwritten."
+priority = "P0"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.patching", "app_forge.integration"]
+verified_by = ["tests/test_patching.py"]
+implemented = true
+
+[[requirement]]
+id = "G-02"
+title = "Digest covers the manifest"
+description = "Editing any manifest field after sealing quarantines the component."
+priority = "P0"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.catalog.registry"]
+verified_by = ["tests/test_hardening.py"]
+implemented = true
+
+[[requirement]]
+id = "G-03"
+title = "Safe and accurate verification environment"
+description = "Scrubbed environment, project interpreter, missing dependencies reported as blocked, incomplete runs never reported as passed."
+priority = "P0"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.verification", "app_forge.security"]
+verified_by = ["tests/test_hardening.py"]
+implemented = true
+
+[[requirement]]
+id = "G-04"
+title = "Python dependency resolution"
+description = "Existing requirements are compared with component needs: incompatible blocks, looser flagged, none silently skipped."
+priority = "P0"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.domain.pydeps", "app_forge.integration"]
+verified_by = ["tests/test_pydeps.py"]
+implemented = true
+
+[[requirement]]
+id = "G-05"
+title = "Project lock"
+description = "One mutating operation per project; stale locks recovered; foreign-host locks never assumed stale."
+priority = "P0"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.locks", "app_forge.integration"]
+verified_by = ["tests/test_hardening.py"]
+implemented = true
+
+[[requirement]]
+id = "G-07"
+title = "Component authoring CLI"
+description = "new, validate, seal, pack and catalog add work from the CLI; hostile archives rejected; packing reproducible."
+priority = "P0"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All tests in the linked files pass."
+modules = ["app_forge.catalog.authoring"]
+verified_by = ["tests/test_authoring.py"]
+implemented = true
