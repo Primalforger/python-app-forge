@@ -8,6 +8,7 @@ user edits made in the meantime are preserved and reported.
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
 import os
@@ -131,7 +132,7 @@ def _change_payload(c: FileChange) -> bytes:
     if c.content_encoding == "base64":
         try:
             return base64.b64decode(c.content, validate=True)
-        except (ValueError, base64.binascii.Error):
+        except (ValueError, binascii.Error):
             raise SecurityBlock(f"Plan payload for {c.path!r} is not valid base64") from None
     if c.content_encoding != "utf-8":
         raise SecurityBlock(f"Plan payload encoding for {c.path!r} is unsupported")
@@ -497,13 +498,16 @@ class IntegrationEngine:
             m = entry.manifest
             old_files = ({f["path"]: f["sha256"] for f in installed["managed_files"] if f["component"] == m.id}
                          if m.id in targets else {})
-            new_files: dict[str, str] = {}
-            for dest, content in component_contributions(entry, package):
+            new_files: dict[str, tuple[str, str, int, str]] = {}
+            for dest, content, encoding, mode in component_contributions(entry, package):
                 if analysis["layout"] == "flat" and not forge and dest.startswith(f"src/{package}/"):
                     dest = dest[len("src/"):]
-                new_files[safe_join(root, dest).relative_to(root.resolve()).as_posix()] = content
-            for rel, content in new_files.items():
-                current, after = _sha(safe_join(root, rel)), sha256_text(content)
+                payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
+                after = sha256_bytes(payload)
+                new_files[safe_join(root, dest).relative_to(root.resolve()).as_posix()] = (
+                    content, encoding, mode, after)
+            for rel, (content, encoding, mode, after) in new_files.items():
+                current = _sha(safe_join(root, rel))
                 cur_n = _nsha(safe_join(root, rel))
                 action = None
                 if rel in old_files:
@@ -528,7 +532,7 @@ class IntegrationEngine:
                         conflict("dirty-overlap", rel, f"{rel} has uncommitted changes")
                     else:
                         plan.changes.append(FileChange(action, rel, f"{m.id} {have.get(m.id, {}).get('version', 'new')}"
-                                                       f" -> {m.version}", m.id, content, current, after))
+                                                       f" -> {m.version}", m.id, content, current, after, encoding, mode))
                         managed.append({"path": rel, "sha256": after, "component": m.id})
             for rel, recorded in old_files.items():
                 if rel in new_files:
