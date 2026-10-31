@@ -51,6 +51,97 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         with self.assertRaises(ConflictFailure):
             services.approve_plan(plan["plan_id"], "test maintainer")
 
+
+    def test_update_plan_handles_upstream_additions_and_deletions(self):
+        services = self.services()
+        project = self.make_project(services)
+        baseline = load_baseline((project / BASELINE_PATH).read_text(encoding="utf-8"))
+        self.assertTrue(baseline["files"])
+        exported = self._install_version(services, "2.0.0")
+        # Add a template-owned file and remove one from the incoming tree.
+        (exported / "tree" / "docs" / "upstream-added.md").parent.mkdir(parents=True, exist_ok=True)
+        (exported / "tree" / "docs" / "upstream-added.md").write_text("new upstream file\n", encoding="utf-8")
+        removed = next(iter(baseline["files"]))
+        (exported / "tree" / removed).unlink(missing_ok=True)
+        manifest = exported / "template.toml"
+        manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+            'version = "2.0.0"', 'version = "3.0.0"'), encoding="utf-8")
+        exported = exported.rename(self.tmp / "cli-3.0.0")
+        services.import_template(exported)
+        plan = services.plan_template_update(project, "cli-typer@3.0.0")
+        self.assertFalse(plan["conflicts"])
+        actions = {(c["path"], c["action"]) for c in services.preview_plan(plan["plan_id"], True)["changes"]}
+        self.assertIn(("docs/upstream-added.md", "create"), actions)
+        if (project / removed).exists():
+            self.assertIn((removed, "delete"), actions)
+
+    def test_unowned_path_collision_is_reviewable_and_blocks_approval(self):
+        services = self.services()
+        project = self.make_project(services)
+        exported = self._install_version(services, "2.0.0")
+        added = exported / "tree" / "docs" / "new-upstream.md"
+        added.parent.mkdir(parents=True, exist_ok=True)
+        added.write_text("upstream\n", encoding="utf-8")
+        manifest = exported / "template.toml"
+        manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+            'version = "2.0.0"', 'version = "3.0.0"'), encoding="utf-8")
+        exported = exported.rename(self.tmp / "cli-3.0.0")
+        services.import_template(exported)
+        (project / "docs").mkdir(exist_ok=True)
+        (project / "docs" / "new-upstream.md").write_text("user-owned\n", encoding="utf-8")
+        plan = services.plan_template_update(project, "cli-typer@3.0.0")
+        self.assertIn("unowned-path-collision", [c["code"] for c in plan["conflicts"]])
+        with self.assertRaises(ConflictFailure):
+            services.approve_plan(plan["plan_id"], "test maintainer")
+
+    def test_stale_template_update_plan_is_rejected_before_any_write(self):
+        services = self.services()
+        project = self.make_project(services)
+        self._install_version(services, "2.0.0")
+        plan = services.plan_template_update(project, "cli-typer@2.0.0")
+        preview = services.preview_plan(plan["plan_id"], True)
+        services.approve_plan(plan["plan_id"], "test maintainer")
+        change = next(c for c in preview["changes"] if c["action"] in ("create", "modify", "delete"))
+        target = project / change["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("changed after planning\n", encoding="utf-8")
+        with self.assertRaises(ConflictFailure):
+            services.apply_plan(plan["plan_id"], verify=False)
+        self.assertEqual(target.read_text(encoding="utf-8"), "changed after planning\n")
+
+    def test_interrupted_template_update_rolls_back_prior_writes(self):
+        services = self.services()
+        project = self.make_project(services)
+        before = {p: (project / p).read_bytes() for p in load_baseline(
+            (project / BASELINE_PATH).read_text(encoding="utf-8"))["files"]}
+        self._install_version(services, "2.0.0")
+        plan = services.plan_template_update(project, "cli-typer@2.0.0")
+        services.approve_plan(plan["plan_id"], "test maintainer")
+        def interrupt(path, index):
+            if index == 1:
+                raise RuntimeError("simulated process interruption")
+        report = services.integration.apply(plan["plan_id"], verify=False, fault=interrupt)
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "rolled_back")
+        for path, content in before.items():
+            self.assertEqual((project / path).read_bytes(), content)
+
+    def test_recovery_preserves_a_user_edit_made_after_partial_apply(self):
+        services = self.services()
+        project = self.make_project(services)
+        self._install_version(services, "2.0.0")
+        plan = services.plan_template_update(project, "cli-typer@2.0.0")
+        services.approve_plan(plan["plan_id"], "test maintainer")
+        def interrupt(path, index):
+            if index == 1:
+                # The first path is already changed; simulate a concurrent user edit before recovery.
+                first = next(c.path for c in plan.changes if c.action in ("create", "modify", "delete"))
+                (project / first).write_text("concurrent user edit\n", encoding="utf-8")
+                raise RuntimeError("simulated interruption")
+        report = services.integration.apply(plan["plan_id"], verify=False, fault=interrupt)
+        self.assertEqual(report["status"], "partially_recovered")
+        self.assertTrue(report["recovery"]["preserved_user_changes"])
+
     def test_missing_baseline_blocks_update(self):
         services = self.services()
         project = self.make_project(services)
