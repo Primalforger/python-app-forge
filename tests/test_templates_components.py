@@ -248,7 +248,8 @@ class ComponentTests(ForgeTestCase):
         applied = s.apply_plan(plan["plan_id"], verify=False)
         self.assertTrue(applied["ok"], applied)
         self.assertEqual((out / "assets" / "icon.bin").read_bytes(), binary)
-        self.assertEqual(stat.S_IMODE((out / "scripts" / "tool").stat().st_mode), 0o751)
+        if __import__("os").name == "posix":
+            self.assertEqual(stat.S_IMODE((out / "scripts" / "tool").stat().st_mode), 0o751)
 
     def test_interrupted_binary_install_rolls_back_created_assets(self):
         from app_forge.catalog.registry import seal_component
