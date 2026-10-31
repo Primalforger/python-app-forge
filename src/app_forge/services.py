@@ -25,7 +25,9 @@ from app_forge.analyzer import ProjectAnalyzer
 from app_forge.architecture import check_rules, graph_to_mermaid, graph_to_text, module_graph
 from app_forge.catalog import authoring
 from app_forge.catalog.registry import BUILTIN_COMPONENTS, ComponentRegistry, current_platform, seal_component
-from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements\nfrom app_forge.compliance_artifacts import load_artifacts, save_artifact\nfrom app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
+from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements
+from app_forge.compliance_artifacts import load_artifacts, save_artifact
+from app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
 from app_forge.table_designer import normalize_definition, to_python
 from app_forge.domain.errors import ConflictFailure, ForgeError, SecurityBlock, ValidationFailure
 from app_forge.domain.models import ChangePlan
