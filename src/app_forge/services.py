@@ -181,7 +181,6 @@ class ForgeServices:
                     try:
                         pr = apply_patch(files[rel], patch, entry.manifest.id, package)
                     except PatchConflict as exc:
-                    except PatchConflict as exc:
                         raise ConflictFailure(f"{entry.manifest.id}:{patch.id}: [{exc.code}] {exc.message}") from None
                     files[rel] = pr.new_text
                     if pr.status == "applied":
