@@ -47,7 +47,10 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         exported = exported.rename(self.tmp / "cli-3.0.0")
         services.import_template(exported)
         plan = services.plan_template_update(project, "cli-typer@3.0.0")
-        self.assertIn("template-content-conflict", [c["code"] for c in plan["conflicts"]])
+        conflict = next(c for c in plan["conflicts"] if c["code"] == "template-content-conflict")
+        self.assertIn("overlapping local/upstream change", conflict["message"])
+        self.assertIn("Reconcile the local and upstream edits", conflict["resolution"])
+        self.assertEqual(conflict["path"], owned)
         with self.assertRaises(ConflictFailure):
             services.approve_plan(plan["plan_id"], "test maintainer")
 
@@ -92,7 +95,9 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         (project / "docs").mkdir(exist_ok=True)
         (project / "docs" / "new-upstream.md").write_text("user-owned\n", encoding="utf-8")
         plan = services.plan_template_update(project, "cli-typer@3.0.0")
-        self.assertIn("unowned-path-collision", [c["code"] for c in plan["conflicts"]])
+        conflict = next(c for c in plan["conflicts"] if c["code"] == "unowned-path-collision")
+        self.assertIn("will not overwrite", conflict["resolution"])
+        self.assertEqual(conflict["path"], "docs/new-upstream.md")
         with self.assertRaises(ConflictFailure):
             services.approve_plan(plan["plan_id"], "test maintainer")
 

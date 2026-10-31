@@ -27,3 +27,17 @@ The merge policy also covers independent upstream additions and removals, local 
 The approval digest binds each change's content hash as well as its path and before/after hashes. Before creating a checkpoint, apply verifies that every create/modify payload matches its recorded after hash and that create/modify/delete records have consistent hash/content fields. A malformed or edited plan is rejected before project files are touched.
 
 If a target no longer matches the plan's recorded before-state, the plan is marked `stale` and cannot be applied again; create a fresh update plan against the current project. After a successful update, the new baseline and `forge.toml` identity become the starting point for the next versioned update. Successive updates therefore continue to use three-way merge against the most recently applied template version.
+
+## Understanding and resolving conflicts
+
+A conflicted update plan includes a `resolution` field for each conflict in both the normal preview and JSON output. It identifies the affected path, explains the conflict category, and suggests a safe manual resolution. Guidance is advisory: Forge does not choose between competing local and upstream content or rewrite the project to clear a conflict.
+
+Typical resolutions are:
+
+- **Content conflict:** reconcile the local and upstream edits in the affected file.
+- **Delete/modify:** decide whether the local deletion or upstream modification should win.
+- **Modify/delete:** preserve the customization elsewhere or confirm the upstream removal.
+- **Add/add:** rename one file or manually combine the two additions.
+- **Unowned path collision:** move the user-owned file or change the incoming template path; Forge never overwrites it.
+
+After resolving a conflict, run `forge project update` again. The old conflicted plan remains a record of the original review and is not converted into an approval by editing its output.

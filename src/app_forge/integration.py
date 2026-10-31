@@ -38,6 +38,49 @@ from app_forge.verification import VerificationEngine
 
 FaultHook = Callable[[str, int], None]
 
+_TEMPLATE_CONFLICT_GUIDANCE = {
+    "non-text-template-file": (
+        "Restore this path as readable UTF-8 text, or move the binary/custom file out of the "
+        "template-owned path; then create a fresh update plan."
+    ),
+    "unowned-path-collision": (
+        "Move or rename the existing user-owned file, or choose a different path in the incoming "
+        "template; then create a fresh update plan. Forge will not overwrite the unowned file."
+    ),
+    "content-conflict": (
+        "Reconcile the local and upstream edits manually in this file, preserving the intended "
+        "parts of both; then create a fresh update plan against the reconciled project."
+    ),
+    "delete-modify": (
+        "The local file was deleted while the template changed it. Restore the file and reconcile "
+        "the upstream changes, or confirm the deletion by removing the path from the incoming "
+        "template; then create a fresh update plan."
+    ),
+    "modify-delete": (
+        "The local file was edited while the template removed it. Move the customization to another "
+        "path or confirm the upstream removal by deleting the local file; then create a fresh plan."
+    ),
+    "add-add": (
+        "Both the project and incoming template added different content at this path. Rename or "
+        "merge one copy manually; then create a fresh update plan."
+    ),
+}
+
+
+def _template_conflict(code: str, path: str, message: str) -> dict[str, str]:
+    """Return a reviewable conflict with safe, concrete remediation guidance."""
+    return {
+        "code": code,
+        "path": path,
+        "message": message,
+        "resolution": _TEMPLATE_CONFLICT_GUIDANCE.get(
+            code.removeprefix("template-"),
+            "Resolve the reported issue manually, then create a fresh template update plan.",
+        ),
+    }
+
+
+
 
 
 def _sha(path: Path) -> str | None:
@@ -157,19 +200,24 @@ class IntegrationEngine:
                     with target.open("r", encoding="utf-8", newline="") as stream:
                         local[path] = stream.read()
                 except (OSError, UnicodeError):
-                    plan.conflicts.append({"code": "non-text-template-file", "path": path,
-                                           "message": f"{path} is no longer readable UTF-8 text"})
+                    plan.conflicts.append(_template_conflict(
+                        "non-text-template-file", path, f"{path} is no longer readable UTF-8 text"))
         for path in sorted(set(incoming) - set(base)):
             target = safe_join(root, path)
             if target.is_symlink():
                 raise SecurityBlock(f"Refusing to update symlink target {path!r}")
             if target.exists():
-                plan.conflicts.append({"code": "unowned-path-collision", "path": path,
-                                       "message": f"{path} exists but was not owned by the previous template"})
+                plan.conflicts.append(_template_conflict(
+                    "unowned-path-collision", path,
+                    f"{path} exists but was not owned by the previous template"))
         merged = merge_file_maps(base, local, incoming)
-        plan.conflicts.extend({"code": f"template-{c.kind}", "path": c.path,
-                               "message": f"{c.path} has an overlapping local/upstream change ({c.kind})"}
-                              for c in merged.conflicts)
+        plan.conflicts.extend(
+            _template_conflict(
+                f"template-{c.kind}", c.path,
+                f"{c.path} has an overlapping local/upstream change ({c.kind})",
+            )
+            for c in merged.conflicts
+        )
         if plan.conflicts:
             return self._finish(plan)
         new_baseline = create_baseline(info.id, info.version, info.archetype, incoming)
