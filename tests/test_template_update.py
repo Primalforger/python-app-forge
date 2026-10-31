@@ -44,6 +44,7 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         manifest = exported / "template.toml"
         manifest.write_text(manifest.read_text(encoding="utf-8").replace(
             'version = "2.0.0"', 'version = "3.0.0"'), encoding="utf-8")
+        exported = exported.rename(self.tmp / "cli-3.0.0")
         services.import_template(exported)
         plan = services.plan_template_update(project, "cli-typer@3.0.0")
         self.assertIn("template-content-conflict", [c["code"] for c in plan["conflicts"]])
