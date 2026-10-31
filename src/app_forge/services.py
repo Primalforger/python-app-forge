@@ -143,10 +143,11 @@ class ForgeServices:
         with self.operation("create_project", out_dir) as op:
             info = self.templates.get(template)
             variables = self.templates.validate_inputs(info, options)
-            files: dict[str, str | bytes] = self.templates.render(info, variables)
+            template_files = self.templates.render(info, variables)
             # Preserve the exact rendered template as the three-way merge base.
             # Component contributions and Forge metadata have independent ownership.
-            template_baseline = create_baseline(info.id, info.version, info.archetype, files)
+            template_baseline = create_baseline(info.id, info.version, info.archetype, template_files)
+            files: dict[str, str | bytes] = dict(template_files)
             package = variables["package"]
             res = resolve(self.registry, {c: "*" for c in components}, archetype=info.archetype)
             res.raise_if_failed()
