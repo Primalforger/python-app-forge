@@ -396,7 +396,7 @@ class ForgeServices:
         for action in actions:
             entries = []
             for change in sorted((c for c in plan.changes if c.action == action), key=lambda c: c.path):
-                item = {"path": change.path, "reason": change.reason}
+                item: dict[str, Any] = {"path": change.path, "reason": change.reason}
                 if with_content:
                     target = root / change.path
                     before_text = ""
