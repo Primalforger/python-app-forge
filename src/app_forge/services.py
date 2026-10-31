@@ -602,8 +602,8 @@ class ForgeServices:
             if any(p.is_symlink() for p in src.rglob("*")):
                 raise SecurityBlock("Templates containing symlinks are not imported")
             info = self.templates._load(src)
-            if info.id in {t.id for t in self.templates.list()}:
-                raise ConflictFailure(f"A template with id {info.id!r} already exists")
+            if any(t.id == info.id and t.version == info.version for t in self.templates.list()):
+                raise ConflictFailure(f"Template {info.id}@{info.version} is already installed")
             self.templates.render(info, self.templates.validate_inputs(info, {"name": "Import Probe"}))  # must render
             dest = self.settings.home / "templates" / src.name
             if dest.exists():
