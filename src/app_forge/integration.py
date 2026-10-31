@@ -26,11 +26,14 @@ from app_forge.domain.versioning import Constraint, Version
 from app_forge.locks import project_lock
 from app_forge.observability import utcnow
 from app_forge.patching import PatchConflict, apply_patch, remove_patch, target_path
-from app_forge.projectmeta import COMPONENTS_TOML, FORGE_TOML, components_text, read_components, read_forge_toml
+from app_forge.projectmeta import (COMPONENTS_TOML, FORGE_TOML, components_text, forge_toml_text,
+                                   read_components, read_forge_toml)
+from app_forge.templates.baseline import BASELINE_PATH, create_baseline, load_baseline
+from app_forge.templates.merge import merge_file_maps
 from app_forge.resolver import resolve
 from app_forge.security import safe_join, sha256_bytes, sha256_text
 from app_forge.settings import ForgeSettings
-from app_forge.templates.engine import add_dependencies, render_text
+from app_forge.templates.engine import TemplateEngine, add_dependencies, render_text
 from app_forge.verification import VerificationEngine
 
 FaultHook = Callable[[str, int], None]
@@ -75,12 +78,14 @@ def plan_digest(plan: ChangePlan) -> str:
 
 class IntegrationEngine:
     def __init__(self, settings: ForgeSettings, registry: ComponentRegistry, store, *,
-                 analyzer: ProjectAnalyzer | None = None, verifier: VerificationEngine | None = None):
+                 analyzer: ProjectAnalyzer | None = None, verifier: VerificationEngine | None = None,
+                 templates: TemplateEngine | None = None):
         self._s = settings
         self._registry = registry
         self._store = store
         self._analyzer = analyzer or ProjectAnalyzer()
         self._verifier = verifier or VerificationEngine()
+        self._templates = templates or TemplateEngine()
 
     # ------------------------------------------------------------------ plan persistence
     def _plan_path(self, plan_id: str) -> Path:
@@ -103,6 +108,88 @@ class IntegrationEngine:
     def _new_plan(self, analysis: dict, kind: str, comps: list[str]) -> ChangePlan:
         return ChangePlan(plan_id="plan-" + uuid.uuid4().hex[:12], project_path=analysis["path"], kind=kind,
                           level=analysis["level"], components=comps, created_at=utcnow())
+
+    def plan_template_update(self, project: str | Path, template: str | None = None) -> ChangePlan:
+        """Plan a three-way update of template-owned files; never mutate the project here."""
+        analysis = self._analyzer.analyze(project)
+        if analysis["level"] == 4:
+            raise ConflictFailure("Project not supported for automated changes (integration level 4)")
+        root = Path(analysis["path"])
+        forge = read_forge_toml(root)
+        if not forge or not isinstance(forge.get("template"), dict):
+            raise ValidationFailure("Project has no Forge template identity; adopted projects cannot be template-updated")
+        baseline_path = safe_join(root, BASELINE_PATH)
+        if baseline_path.is_symlink() or not baseline_path.is_file():
+            raise ValidationFailure("Project has no readable template baseline; template update is unavailable")
+        try:
+            baseline = load_baseline(baseline_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise ValidationFailure(f"Cannot use the project template baseline: {exc}") from None
+        old = baseline["template"]
+        if (forge["template"].get("id"), forge["template"].get("version")) != (old["id"], old["version"]):
+            raise ConflictFailure("forge.toml template identity does not match the stored template baseline")
+        info = self._templates.get(template or old["id"])
+        if info.id != old["id"]:
+            raise ValidationFailure(f"Template update must retain template ID {old['id']!r}, not {info.id!r}")
+        if info.archetype != old["archetype"]:
+            raise ConflictFailure("Template archetype changed; automated project update cannot change project archetype")
+        plan = self._new_plan(analysis, "template-update", [f"{old['id']}@{old['version']}", f"{info.id}@{info.version}"])
+        plan.warnings += analysis["warnings"]
+        if Version.parse(info.version) <= Version.parse(old["version"]):
+            raise ValidationFailure(f"Target template {info.id}@{info.version} is not newer than project baseline {old['version']}")
+        meta = forge.get("project", {})
+        variables = self._templates.validate_inputs(info, {
+            "name": meta.get("name", analysis["name"]), "package": meta.get("package", analysis.get("package") or ""),
+            "description": meta.get("description", ""), "author": meta.get("author", ""),
+            "python_version": meta.get("python", "3.11"),
+        })
+        incoming = self._templates.render(info, variables)
+        base = {p: record["content"] for p, record in baseline["files"].items()}
+        local: dict[str, str] = {}
+        for path in sorted(base):
+            target = safe_join(root, path)
+            if target.is_symlink():
+                raise SecurityBlock(f"Refusing to update symlink template file {path!r}")
+            if target.is_file():
+                try:
+                    with target.open("r", encoding="utf-8", newline="") as stream:
+                        local[path] = stream.read()
+                except (OSError, UnicodeError):
+                    plan.conflicts.append({"code": "non-text-template-file", "path": path,
+                                           "message": f"{path} is no longer readable UTF-8 text"})
+        for path in sorted(set(incoming) - set(base)):
+            target = safe_join(root, path)
+            if target.is_symlink():
+                raise SecurityBlock(f"Refusing to update symlink target {path!r}")
+            if target.exists():
+                plan.conflicts.append({"code": "unowned-path-collision", "path": path,
+                                       "message": f"{path} exists but was not owned by the previous template"})
+        merged = merge_file_maps(base, local, incoming)
+        plan.conflicts.extend({"code": f"template-{c.kind}", "path": c.path,
+                               "message": f"{c.path} has an overlapping local/upstream change ({c.kind})"}
+                              for c in merged.conflicts)
+        if plan.conflicts:
+            return self._finish(plan)
+        new_baseline = create_baseline(info.id, info.version, info.archetype, incoming)
+        for path in sorted(set(base) | set(merged.files)):
+            target = safe_join(root, path)
+            before, content = _sha(target), merged.files.get(path)
+            if content is None:
+                if before is not None:
+                    plan.changes.append(FileChange("delete", path, "removed by template update", "", None, before, None))
+            else:
+                after = sha256_text(content)
+                if before != after:
+                    plan.changes.append(FileChange("modify" if before else "create", path,
+                                                   "three-way template update", "", content, before, after))
+        plan.changes.append(FileChange("modify", BASELINE_PATH, "advance template merge baseline", "",
+                                       new_baseline, _sha(baseline_path), sha256_text(new_baseline)))
+        variables["forge_version"] = forge.get("generator", {}).get("forge_version", variables["forge_version"])
+        forge_text = forge_toml_text(variables, info.id, info.version)
+        forge_target = safe_join(root, FORGE_TOML)
+        plan.changes.append(FileChange("modify", FORGE_TOML, "record updated template version", "",
+                                       forge_text, _sha(forge_target), sha256_text(forge_text)))
+        return self._finish(plan)
 
     def plan_add(self, project: str | Path, requested: dict[str, str]) -> ChangePlan:
         analysis = self._analyzer.analyze(project)
