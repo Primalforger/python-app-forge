@@ -624,7 +624,7 @@ class IntegrationEngine:
             change.content, change.after_sha = new_text, _payload_sha(new_text.encode("utf-8"))
         else:
             plan.changes.append(FileChange("modify", rel, reason, comp, new_text, _sha(safe_join(root, rel)),
-                                           sha256_text(new_text)))
+                                           _payload_sha(new_text.encode("utf-8"))))
 
     def _plan_patch(self, plan, root, analysis, forge, package, comp_id, patch, dirty, conflict, *,
                     replace=False, expect_sha=None):
