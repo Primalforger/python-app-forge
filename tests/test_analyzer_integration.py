@@ -139,7 +139,7 @@ class IntegrationTests(ForgeTestCase):
 
     def test_drift_after_planning_blocks_apply(self):
         p = self.approved()
-        (self.proj / ".forge").mkdir()
+        (self.proj / ".forge").mkdir(exist_ok=True)
         (self.proj / ".forge" / "components.toml").write_text("schema_version = 1\n# edited\n")
         with self.assertRaises(ConflictFailure):
             self.s.apply_plan(p["plan_id"])
@@ -158,7 +158,7 @@ class IntegrationTests(ForgeTestCase):
         if not shutil.which("git"):
             self.skipTest("git not installed")
         self.git_init(self.proj)
-        (self.proj / ".forge").mkdir()
+        (self.proj / ".forge").mkdir(exist_ok=True)
         (self.proj / ".forge" / "components.toml").write_text("schema_version = 1\n")
         p = self.plan()
         self.assertIn("dirty-overlap", {c["code"] for c in p["conflicts"]})
