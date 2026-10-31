@@ -6,7 +6,7 @@ from tests.helpers import ForgeTestCase
 class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
     def _install_version(self, services, version):
         exported = self.tmp / f"cli-{version}"
-        services.export_template("cli", exported)
+        services.export_template("cli-typer@1.0.0", exported)
         manifest = exported / "template.toml"
         manifest.write_text(manifest.read_text(encoding="utf-8").replace(
             'version = "1.0.0"', f'version = "{version}"'), encoding="utf-8")
