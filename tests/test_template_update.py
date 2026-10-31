@@ -25,11 +25,11 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         self.assertTrue(compact["review"])
         self.assertEqual(
             sum(group["count"] for group in compact["review"]),
-            len(plan.changes),
+            len(plan["changes"]),
         )
         self.assertNotIn("diff", compact["review"][0]["files"][0])
 
-        detailed = services.preview_plan(plan.plan_id, with_content=True)
+        detailed = services.preview_plan(plan["plan_id"], with_content=True)
         files = [item for group in detailed["review"] for item in group["files"]]
         changed = next(item for item in files if item.get("diff"))
         self.assertIn("--- a/", changed["diff"])
