@@ -86,6 +86,6 @@ def load_baseline(text: str) -> dict[str, Any]:
             raise ValueError(f"template baseline content checksum mismatch for {path!r}")
     payload = {key: envelope[key] for key in ("schema_version", "template", "files")}
     expected = hashlib.sha256(_canonical(payload)).hexdigest()
-    if not isinstance(envelope["sha256"], str) or not hashlib.compare_digest(expected, envelope["sha256"]):
+    if not isinstance(envelope["sha256"], str) or not hmac.compare_digest(expected, envelope["sha256"]):
         raise ValueError("template baseline checksum mismatch")
     return payload
