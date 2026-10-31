@@ -68,6 +68,14 @@ class VersionedTemplateCatalogTests(ForgeTestCase):
         second = self.tmp / "template-copy-b"
         services.export_template("cli", first)
         services.export_template("cli", second)
+        for template_path in (first, second):
+            manifest = template_path / "template.toml"
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8").replace(
+                    'version = "1.0.0"', 'version = "2.0.0"'
+                ),
+                encoding="utf-8",
+            )
         services.import_template(first)
         with self.assertRaises(ConflictFailure):
             services.import_template(second)
