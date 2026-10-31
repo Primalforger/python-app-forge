@@ -41,3 +41,9 @@ Typical resolutions are:
 - **Unowned path collision:** move the user-owned file or change the incoming template path; Forge never overwrites it.
 
 After resolving a conflict, run `forge project update` again. The old conflicted plan remains a record of the original review and is not converted into an approval by editing its output.
+
+## Reviewing the change preview
+
+For template-update plans, `forge integrate preview PLAN_ID` includes a change summary and files grouped by action (create, modify, delete, and manual). The counts include Forge's baseline and project metadata changes as well as template-owned files.
+
+Add `--content` to include concise unified diffs with three lines of context. Before showing a diff, Forge checks that the current file still matches the plan's recorded before-state. If it has drifted, become unreadable, or been replaced by a symlink, the preview labels that state and omits the potentially misleading diff. Previewing never updates the project or changes plan approval state.

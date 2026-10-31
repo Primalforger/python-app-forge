@@ -13,6 +13,29 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         services.import_template(exported)
         return exported
 
+    def test_template_update_preview_groups_changes_and_shows_review_diffs(self):
+        services = self.services()
+        project = self.make_project(services)
+        self._install_version(services, "2.0.0")
+        plan = services.plan_template_update(project, "cli-typer@2.0.0")
+
+        compact = services.preview_plan(plan["plan_id"])
+        self.assertEqual(compact["change_summary"]["total"], len(plan["changes"]))
+        self.assertGreater(compact["change_summary"]["modify"], 0)
+        self.assertTrue(compact["review"])
+        self.assertEqual(
+            sum(group["count"] for group in compact["review"]),
+            len(plan["changes"]),
+        )
+        self.assertNotIn("diff", compact["review"][0]["files"][0])
+
+        detailed = services.preview_plan(plan["plan_id"], with_content=True)
+        files = [item for group in detailed["review"] for item in group["files"]]
+        changed = next(item for item in files if item.get("diff"))
+        self.assertIn("--- a/", changed["diff"])
+        self.assertIn("+++ b/", changed["diff"])
+        self.assertEqual(changed["before_state"], "matches-plan")
+
     def test_update_plan_preserves_local_edits_and_uses_approval_lifecycle(self):
         services = self.services()
         project = self.make_project(services)
