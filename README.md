@@ -92,4 +92,4 @@ where this was built), extension **process isolation** and **signature verificat
 implemented, only 6 of the spec's component families exist, and performance/portability/CI-matrix requirements are unverified.
 Nothing in this project is a compliance or certification claim.
 
-Docs: `docs/component-authoring.md`, `docs/TODO.md` (open gaps and planned components), `docs/architecture.md`, `docs/adr/` (ADR-001..012), `docs/standards-applicability.md`.
+Docs: `docs/component-authoring.md`, `docs/compliance-artifacts.md` (compliance records and SBOM), `docs/TODO.md` (open gaps and planned components), `docs/architecture.md`, `docs/adr/` (ADR-001..012), `docs/standards-applicability.md`.
