@@ -47,3 +47,5 @@ After resolving a conflict, run `forge project update` again. The old conflicted
 For template-update plans, `forge integrate preview PLAN_ID` includes a change summary and files grouped by action (create, modify, delete, and manual). The counts include Forge's baseline and project metadata changes as well as template-owned files.
 
 Add `--content` to include concise unified diffs with three lines of context. Before showing a diff, Forge checks that the current file still matches the plan's recorded before-state. If it has drifted, become unreadable, or been replaced by a symlink, the preview labels that state and omits the potentially misleading diff. Previewing never updates the project or changes plan approval state.
+
+For terminal users, `forge integrate preview PLAN_ID` renders the summary and grouped file list as a focused review report. Add `--content` to show the bounded unified diffs inline. Paths whose before-state has drifted or cannot be read are labeled and their diffs are omitted. The `--json` output remains the complete machine-readable preview structure.
