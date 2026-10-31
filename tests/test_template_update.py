@@ -134,7 +134,8 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
     def test_successive_template_updates_advance_the_baseline(self):
         services = self.services()
         project = self.make_project(services)
-        owned = "README.md"
+        owned = "tests/__init__.py"
+        self.assertIn(owned, load_baseline((project / BASELINE_PATH).read_text(encoding="utf-8"))["files"])
         target = project / owned
         target.write_text(target.read_text(encoding="utf-8") + "\n# local customization\n", encoding="utf-8")
         self._install_version(services, "2.0.0")
