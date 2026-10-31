@@ -83,7 +83,7 @@ security boundaries, compliance statuses and CLI exit codes.
 
 ## Continuous integration
 
-GitHub Actions runs automatically on pushes to `main`, pull requests targeting `main`, and manual dispatches. The workflow tests Python 3.11–3.14 on Ubuntu, Windows, and macOS, then runs Ruff linting, mypy type checks, a `pip-audit` dependency scan, and a source/wheel build on Ubuntu. A failed job is reported on the pull request; configure branch protection in GitHub repository settings if these checks should be required before merging.
+GitHub Actions runs on pushes to `main`, pull requests targeting `main`, a nightly schedule, and manual dispatches. To keep pull-request feedback quick, PRs run a four-job test matrix: Python 3.11 on Ubuntu, Windows, and macOS, plus Python 3.14 on Ubuntu. Pushes to `main`, nightly runs, and manual dispatches run the full 12-job matrix (Python 3.11–3.14 on all three operating systems). Every trigger also runs Ruff linting, mypy type checks, a `pip-audit` dependency scan, and a source/wheel build on Ubuntu. A failed job is reported on the pull request; configure branch protection in GitHub repository settings if these checks should be required before merging.
 
 ## What is and is not done
 
