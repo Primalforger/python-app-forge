@@ -222,6 +222,60 @@ class ComponentTests(ForgeTestCase):
         out = self.make_project(s, "service", components=["acme.rich"])
         self.assertIn('"rich>=13"', (out / "pyproject.toml").read_text())
 
+    def test_component_binary_assets_and_executable_modes_survive_install(self):
+        import stat
+        from app_forge.catalog.registry import seal_component
+
+        component = self.custom_component(
+            "acme.assets",
+            files={"assets/icon.bin": "placeholder", "scripts/tool": "placeholder"},
+        )
+        binary = bytes(range(256)) + b"\\x00forge\\xff"
+        (component / "files" / "assets" / "icon.bin").write_bytes(binary)
+        script = component / "files" / "scripts" / "tool"
+        script.chmod(0o751)
+        seal_component(component)
+
+        s = self.services()
+        out = self.make_project(s, "cli")
+        plan = s.plan_add(out, {"acme.assets": "*"})
+        self.assertFalse(plan["conflicts"])
+        s.approve_plan(plan["plan_id"], "test")
+        applied = s.apply_plan(plan["plan_id"], verify=False)
+        self.assertTrue(applied["ok"], applied)
+        self.assertEqual((out / "assets" / "icon.bin").read_bytes(), binary)
+        self.assertEqual(stat.S_IMODE((out / "scripts" / "tool").stat().st_mode), 0o751)
+
+    def test_interrupted_binary_install_recovers_original_bytes_and_mode(self):
+        import stat
+        from app_forge.catalog.registry import seal_component
+
+        component = self.custom_component(
+            "acme.recovery",
+            files={"assets/first.bin": "placeholder", "assets/second.bin": "placeholder"},
+        )
+        original = b"\\x00original binary\\xff"
+        (component / "files" / "assets" / "first.bin").write_bytes(original)
+        (component / "files" / "assets" / "second.bin").write_bytes(b"second")
+        (component / "files" / "assets" / "first.bin").chmod(0o640)
+        seal_component(component)
+
+        s = self.services()
+        out = self.make_project(s, "cli")
+        plan = s.plan_add(out, {"acme.recovery": "*"})
+        self.assertFalse(plan["conflicts"])
+        s.approve_plan(plan["plan_id"], "test")
+
+        def interrupt_before_second(path, index):
+            if index == 1:
+                raise RuntimeError("simulated interruption")
+
+        applied = s.integration.apply(plan["plan_id"], verify=False, fault=interrupt_before_second)
+        self.assertFalse(applied["ok"])
+        self.assertEqual(applied["status"], "rolled_back")
+        self.assertFalse((out / "assets" / "first.bin").exists())
+        self.assertFalse((out / "assets" / "second.bin").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
