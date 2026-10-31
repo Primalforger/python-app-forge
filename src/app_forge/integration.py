@@ -148,7 +148,9 @@ def _change_payload(c: FileChange) -> bytes:
 
 
 def _change_content_sha(c: FileChange) -> str | None:
-    return sha256_bytes(_change_payload(c)) if c.content is not None else None
+    if c.content is None:
+        return None
+    return _payload_sha(_change_payload(c))
 
 
 def plan_digest(plan: ChangePlan) -> str:
