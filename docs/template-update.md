@@ -20,3 +20,10 @@ The update plan is still subject to apply-time drift checks: every changed path 
 Apply creates a checkpoint before writing. If a write is interrupted, Forge restores only files whose current bytes still match the exact post-write hash recorded in the checkpoint. Files changed independently after the interruption are preserved and reported for manual review. Recovery validates backup content hashes and refuses to write through symlink targets. A complete rollback marks the plan `rolled_back`; incomplete recovery marks it `partially_recovered`.
 
 The merge policy also covers independent upstream additions and removals, local deletion versus upstream modification, local modification versus upstream deletion, and collisions where an incoming template path is already occupied by an unowned project file. Conflicts remain reviewable but cannot be approved.
+
+ 
+## Plan integrity and repeated updates
+
+The approval digest binds each change's content hash as well as its path and before/after hashes. Before creating a checkpoint, apply verifies that every create/modify payload matches its recorded after hash and that create/modify/delete records have consistent hash/content fields. A malformed or edited plan is rejected before project files are touched.
+
+If a target no longer matches the plan's recorded before-state, the plan is marked `stale` and cannot be applied again; create a fresh update plan against the current project. After a successful update, the new baseline and `forge.toml` identity become the starting point for the next versioned update. Successive updates therefore continue to use three-way merge against the most recently applied template version.

@@ -1,4 +1,4 @@
-from app_forge.domain.errors import ConflictFailure, ValidationFailure
+from app_forge.domain.errors import ConflictFailure, SecurityBlock, ValidationFailure
 from app_forge.templates.baseline import BASELINE_PATH, load_baseline
 from tests.helpers import ForgeTestCase
 
@@ -110,6 +110,47 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         with self.assertRaises(ConflictFailure):
             services.apply_plan(plan["plan_id"], verify=False)
         self.assertEqual(target.read_text(encoding="utf-8"), "changed after planning\n")
+        self.assertEqual(services.integration.status(plan["plan_id"])["status"], "stale")
+
+    def test_approved_plan_rejects_content_tampering_before_writing(self):
+        services = self.services()
+        project = self.make_project(services)
+        self._install_version(services, "2.0.0")
+        plan = services.plan_template_update(project, "cli-typer@2.0.0")
+        services.approve_plan(plan["plan_id"], "test maintainer")
+        saved = services.integration.load_plan(plan["plan_id"])
+        change = next(c for c in saved.changes if c.action in ("create", "modify"))
+        target = project / change.path
+        original = target.read_bytes() if target.exists() else None
+        change.content = "tampered content\n"
+        services.integration.save_plan(saved)
+        with self.assertRaises(SecurityBlock):
+            services.integration.apply(plan["plan_id"], verify=False)
+        if original is None:
+            self.assertFalse(target.exists())
+        else:
+            self.assertEqual(target.read_bytes(), original)
+
+    def test_successive_template_updates_advance_the_baseline(self):
+        services = self.services()
+        project = self.make_project(services)
+        owned = "README.md"
+        target = project / owned
+        target.write_text(target.read_text(encoding="utf-8") + "\n# local customization\n", encoding="utf-8")
+        self._install_version(services, "2.0.0")
+        first = services.plan_template_update(project, "cli-typer@2.0.0")
+        services.approve_plan(first["plan_id"], "test maintainer")
+        self.assertTrue(services.apply_plan(first["plan_id"], verify=False)["ok"])
+        self.assertEqual(load_baseline((project / BASELINE_PATH).read_text(encoding="utf-8"))["template"]["version"],
+                         "2.0.0")
+        self._install_version(services, "3.0.0")
+        second = services.plan_template_update(project, "cli-typer@3.0.0")
+        self.assertFalse(second["conflicts"])
+        services.approve_plan(second["plan_id"], "test maintainer")
+        self.assertTrue(services.apply_plan(second["plan_id"], verify=False)["ok"])
+        self.assertEqual(load_baseline((project / BASELINE_PATH).read_text(encoding="utf-8"))["template"]["version"],
+                         "3.0.0")
+        self.assertIn("# local customization", target.read_text(encoding="utf-8"))
 
     def test_interrupted_template_update_rolls_back_prior_writes(self):
         services = self.services()
