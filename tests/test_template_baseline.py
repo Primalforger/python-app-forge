@@ -39,3 +39,36 @@ class GeneratedTemplateBaselineTests(ForgeTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VersionedTemplateCatalogTests(ForgeTestCase):
+    def test_import_keeps_multiple_versions_and_resolves_exact_or_latest(self):
+        import shutil
+
+        services = self.services()
+        first = self.tmp / "template-v2"
+        services.export_template("cli", first)
+        manifest = first / "template.toml"
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace('version = "1.0.0"', 'version = "2.0.0"'),
+            encoding="utf-8",
+        )
+        services.import_template(first)
+
+        self.assertEqual(services.templates.get("cli-typer").version, "2.0.0")
+        self.assertEqual(services.templates.get("cli-typer@1.0.0").version, "1.0.0")
+        self.assertEqual(services.templates.get("cli-typer@2.0.0").version, "2.0.0")
+        self.assertEqual(services.templates.get("cli").version, "2.0.0")
+
+        with self.assertRaises(Exception):
+            services.templates.get("cli-typer@9.9.9")
+
+    def test_import_rejects_duplicate_template_version(self):
+        services = self.services()
+        first = self.tmp / "template-copy-a"
+        second = self.tmp / "template-copy-b"
+        services.export_template("cli", first)
+        services.export_template("cli", second)
+        services.import_template(first)
+        with self.assertRaises(Exception):
+            services.import_template(second)
