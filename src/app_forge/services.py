@@ -25,7 +25,7 @@ from app_forge.analyzer import ProjectAnalyzer
 from app_forge.architecture import check_rules, graph_to_mermaid, graph_to_text, module_graph
 from app_forge.catalog import authoring
 from app_forge.catalog.registry import BUILTIN_COMPONENTS, ComponentRegistry, current_platform, seal_component
-from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements
+from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements\nfrom app_forge.compliance_artifacts import load_artifacts, save_artifact
 from app_forge.table_designer import normalize_definition, to_python
 from app_forge.domain.errors import ConflictFailure, ForgeError, SecurityBlock, ValidationFailure
 from app_forge.domain.models import ChangePlan
@@ -499,23 +499,31 @@ class ForgeServices:
             op["summary"] = {"summary": rep["summary"]}
             return {"operation_id": op["operation_id"], **rep}
 
+    def create_compliance_artifact(self, code: str, project: str | Path, payload: dict) -> dict:
+        with self.operation("compliance_artifact", project) as op:
+            result = save_artifact(project, code, payload)
+            op["summary"] = {"artifact": code, "path": result["path"]}
+            return {"operation_id": op["operation_id"], **result}
+
     def export_evidence(self, requirements: str | Path | None, project: str | Path, out_dir: str | Path) -> dict:
-        """Write report.json, report.md, evidence.json and inventory.json (evidence package)."""
+        """Write compliance reports, evidence, inventory and validated compliance artifacts."""
         report = self.compliance_report(requirements, project)
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
         ev = self.store.list_evidence(str(Path(project).resolve()))
+        artifacts = load_artifacts(project)
         files = {"compliance-report.json": json.dumps(report, indent=1, sort_keys=True),
                  "compliance-report.md": to_markdown(report),
                  "evidence.json": json.dumps(ev, indent=1, sort_keys=True),
-                 "inventory.json": json.dumps(self.project_inventory(project), indent=1, sort_keys=True)}
+                 "inventory.json": json.dumps(self.project_inventory(project), indent=1, sort_keys=True),
+                 "compliance-artifacts.json": json.dumps(artifacts, indent=1, sort_keys=True)}
         manifest = {}
         for name, text in files.items():
             (out / name).write_text(text, encoding="utf-8")
             manifest[name] = sha256_text(text)
         (out / "MANIFEST.sha256.json").write_text(json.dumps(manifest, indent=1, sort_keys=True), encoding="utf-8")
         return {"directory": str(out), "files": sorted([*files, "MANIFEST.sha256.json"]),
-                "evidence_records": len(ev), "gaps": report["gaps"]}
+                "evidence_records": len(ev), "compliance_artifacts": len(artifacts), "gaps": report["gaps"]}
 
     # ------------------------------------------------------------------ misc
     def history(self, limit: int = 50) -> list[dict]:
