@@ -150,7 +150,7 @@ def _change_payload(c: FileChange) -> bytes:
 def _change_content_sha(c: FileChange) -> str | None:
     if c.content is None:
         return None
-    return _payload_sha(_change_payload(c))
+    return sha256_bytes(_change_payload(c)) if c.content_encoding == "base64" else _payload_sha(_change_payload(c))
 
 
 def plan_digest(plan: ChangePlan) -> str:
@@ -432,7 +432,7 @@ class IntegrationEngine:
                     conflict("dirty-overlap", "pyproject.toml", "pyproject.toml has uncommitted changes")
                 else:
                     plan.changes.append(FileChange("modify", "pyproject.toml", "add component dependencies",
-                                                   "", new_text, sha256_bytes(old.encode()), sha256_text(new_text)))
+                                                   "", new_text, sha256_bytes(old.encode()), _payload_sha(new_text.encode("utf-8"))))
                 plan.dependency_changes += [{"package": parse_requirement(p).name, "action": "add", "mode": "auto",
                                              "spec": p} for p in added]
         if not auto:
@@ -621,7 +621,7 @@ class IntegrationEngine:
     @staticmethod
     def _stage_write(plan: ChangePlan, root: Path, rel: str, change, new_text: str, reason: str, comp: str) -> None:
         if change is not None:
-            change.content, change.after_sha = new_text, sha256_text(new_text)
+            change.content, change.after_sha = new_text, _payload_sha(new_text.encode("utf-8"))
         else:
             plan.changes.append(FileChange("modify", rel, reason, comp, new_text, _sha(safe_join(root, rel)),
                                            sha256_text(new_text)))
@@ -812,6 +812,7 @@ class IntegrationEngine:
                 (ck / "blobs" / c.before_sha).write_bytes(tgt.read_bytes())
             entries.append({"path": c.path, "action": c.action, "before_sha": c.before_sha, "after_sha": c.after_sha,
                             "before_mode": stat.S_IMODE(tgt.stat().st_mode) if tgt.is_file() else None,
+                            "after_encoding": c.content_encoding,
                             "existed_dirs": [p.relative_to(root).as_posix() for p in
                                              [tgt.parent, *tgt.parents] if p != root and root in p.parents and p.exists()]})
         (ck / "manifest.json").write_text(json.dumps({"plan_id": plan_id, "entries": entries}, indent=1),
@@ -952,12 +953,14 @@ class IntegrationEngine:
                     errors.append(f"{rel}: refusing to recover through a symlink")
                     continue
                 current = _sha(tgt)
+                applied_sha = (sha256_bytes(tgt.read_bytes()) if e.get("after_encoding") == "base64"
+                               else _nsha(tgt)) if tgt.is_file() else None
                 if current == before:
                     unchanged.append(rel)
-                elif current == after:
+                elif applied_sha == after:
                     if before is None:
                         self._apply_one(root, FileChange("delete", rel, "recover interrupted apply", "",
-                                                         None, after, None))
+                                                         None, current, None))
                         deleted.append(rel)
                         self._prune_empty_dirs(root, tgt.parent, e.get("existed_dirs", []))
                     else:
@@ -965,14 +968,9 @@ class IntegrationEngine:
                         payload = blob.read_bytes()
                         if sha256_bytes(payload) != before:
                             raise ValidationFailure(f"Checkpoint backup for {rel!r} failed its SHA-256 check")
-                        try:
-                            content = payload.decode("utf-8")
-                            encoding = "utf-8"
-                        except UnicodeDecodeError:
-                            content = base64.b64encode(payload).decode("ascii")
-                            encoding = "base64"
+                        content = base64.b64encode(payload).decode("ascii")
                         self._apply_one(root, FileChange("modify", rel, "recover interrupted apply", "",
-                                                         content, after, before, encoding, e.get("before_mode")))
+                                                         content, before, current, "base64", e.get("before_mode")))
                         restored.append(rel)
                 else:
                     preserved.append(rel)  # edited by someone since: do not overwrite their work
