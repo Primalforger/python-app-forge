@@ -41,7 +41,10 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
             self.skipTest("selected file is not in the template baseline")
         (project / owned).write_text("local replacement\n", encoding="utf-8")
         upstream.write_text("upstream replacement\n", encoding="utf-8")
-        self._install_version(services, "3.0.0")
+        manifest = exported / "template.toml"
+        manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+            'version = "2.0.0"', 'version = "3.0.0"'), encoding="utf-8")
+        services.import_template(exported)
         plan = services.plan_template_update(project, "cli-typer@3.0.0")
         self.assertIn("template-content-conflict", [c["code"] for c in plan["conflicts"]])
         with self.assertRaises(ConflictFailure):
