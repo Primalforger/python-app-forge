@@ -326,7 +326,7 @@ class IntegrationEngine:
                 dest_owner[rel] = m.id
                 current = _sha(target)
                 payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
-                after = sha256_bytes(payload)
+                after = _payload_sha(payload)
                 if current is not None:
                     if _nsha(target) == after:
                         plan.warnings.append(f"{rel} already exists with identical content; left unmanaged")
@@ -503,7 +503,7 @@ class IntegrationEngine:
                 if analysis["layout"] == "flat" and not forge and dest.startswith(f"src/{package}/"):
                     dest = dest[len("src/"):]
                 payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
-                after = sha256_bytes(payload)
+                after = _payload_sha(payload)
                 new_files[safe_join(root, dest).relative_to(root.resolve()).as_posix()] = (
                     content, encoding, mode, after)
             for rel, (content, encoding, mode, after) in new_files.items():
