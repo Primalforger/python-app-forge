@@ -71,7 +71,9 @@ def component_contributions(entry: CatalogEntry, package: str) -> list[tuple[str
 
 def plan_digest(plan: ChangePlan) -> str:
     body = {"project": plan.project_path, "kind": plan.kind, "components": plan.components,
-            "changes": [(c.action, c.path, c.before_sha, c.after_sha) for c in plan.changes],
+            "changes": [(c.action, c.path, c.before_sha, c.after_sha,
+                          sha256_text(c.content) if c.content is not None else None)
+                         for c in plan.changes],
             "conflicts": plan.conflicts}
     return sha256_text(json.dumps(body, sort_keys=True))
 
@@ -689,8 +691,21 @@ class IntegrationEngine:
         if not root.is_dir():
             raise ValidationFailure(f"Project directory {root} no longer exists")
         actionable = [c for c in plan.changes if c.action in ("create", "modify", "delete")]
+        for c in actionable:
+            if c.action in ("create", "modify"):
+                if (not isinstance(c.content, str) or not isinstance(c.after_sha, str)
+                        or sha256_text(c.content) != c.after_sha):
+                    raise SecurityBlock(f"Plan content for {c.path!r} does not match its recorded after hash")
+                if c.action == "create" and c.before_sha is not None:
+                    raise SecurityBlock(f"Create change for {c.path!r} has an unexpected before hash")
+                if c.action == "modify" and not isinstance(c.before_sha, str):
+                    raise SecurityBlock(f"Modify change for {c.path!r} has no valid before hash")
+            elif c.content is not None or c.after_sha is not None or not isinstance(c.before_sha, str):
+                raise SecurityBlock(f"Delete change for {c.path!r} has an invalid hash/content shape")
         for c in actionable:  # drift detection: the project must still match what was planned against
             if _sha(safe_join(root, c.path)) != c.before_sha:
+                plan.status = "stale"
+                self.save_plan(plan)
                 raise ConflictFailure(f"{c.path} changed since the plan was created; create a new plan")
 
         # checkpoint: record before-state (content for modify/delete) without touching Git
