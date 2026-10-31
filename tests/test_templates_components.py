@@ -230,11 +230,11 @@ class ComponentTests(ForgeTestCase):
             "acme.assets",
             files={"assets/icon.bin": "placeholder", "scripts/tool": "placeholder"},
         )
-        binary = bytes(range(256)) + b"\\x00forge\\xff"
+        binary = bytes(range(256)) + b"\x00forge\xff"
         (component / "files" / "assets" / "icon.bin").write_bytes(binary)
         manifest = component / "component.toml"
         manifest.write_text(manifest.read_text(encoding="utf-8").replace(
-            'dest = "assets/icon.bin"', 'dest = "assets/icon.bin"\\nbinary = true'
+            'dest = "assets/icon.bin"', 'dest = "assets/icon.bin"\nbinary = true'
         ), encoding="utf-8")
         script = component / "files" / "scripts" / "tool"
         script.chmod(0o751)
@@ -257,11 +257,11 @@ class ComponentTests(ForgeTestCase):
             "acme.recovery",
             files={"assets/first.bin": "placeholder", "assets/second.bin": "placeholder"},
         )
-        original = b"\\x00original binary\\xff"
+        original = b"\x00original binary\xff"
         (component / "files" / "assets" / "first.bin").write_bytes(original)
         manifest = component / "component.toml"
         manifest.write_text(manifest.read_text(encoding="utf-8").replace(
-            'dest = "assets/first.bin"', 'dest = "assets/first.bin"\\nbinary = true'
+            'dest = "assets/first.bin"', 'dest = "assets/first.bin"\nbinary = true'
         ), encoding="utf-8")
         (component / "files" / "assets" / "second.bin").write_bytes(b"second")
         (component / "files" / "assets" / "first.bin").chmod(0o640)
