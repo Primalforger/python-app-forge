@@ -880,11 +880,11 @@ class IntegrationEngine:
             if fd is None or tmp is None:
                 raise FileExistsError(f"Could not allocate a unique temporary file for {c.path}")
 
-            if mode is not None:
-                os.chmod(tmp, mode)
             with os.fdopen(fd, "wb") as stream:
                 fd = None
                 stream.write(payload)
+                if mode is not None:
+                    os.chmod(tmp, mode)
                 stream.flush()
                 os.fsync(stream.fileno())
 
