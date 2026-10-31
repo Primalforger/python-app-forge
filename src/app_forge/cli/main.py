@@ -339,8 +339,21 @@ def c_trace(s, a):
 
 
 def c_compliance(s, a):
+    if a.action == "artifact":
+        if not a.input:
+            raise ValidationFailure("usage: forge compliance artifact CMP-05 --input RECORD.json")
+        try:
+            payload = json.loads(Path(a.input).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValidationFailure(f"Cannot read compliance artifact input: {exc}") from None
+        return s.create_compliance_artifact(a.target, a.project, payload), 0
     if a.action == "package-evidence":
         return s.export_evidence(a.requirements, a.project, a.out), 0
+    if a.action == "sbom":
+        return s.export_sbom(a.project, a.out), 0
+    if a.action == "licenses":
+        report = s.supply_chain_report(a.project, a.deny_license)["license_policy"]
+        return report, 0 if report["ok"] else EXIT_VALIDATION
     rep = s.compliance_report(a.requirements, a.project)
     if a.action == "report" and a.markdown:
         print(s.compliance_markdown(rep))
@@ -496,12 +509,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--format", choices=["text", "mermaid", "json"], default="text")
 
     for name, fn, names in (("trace", c_trace, ["show", "validate", "export"]),
-                            ("compliance", c_compliance, ["check", "report", "package-evidence"])):
+                            ("compliance", c_compliance, ["check", "report", "artifact", "licenses", "sbom", "package-evidence"])):
         sp = acts(grp(name, fn, f"{name} requirements and evidence"), names)
         sp.add_argument("--project", default=".")
         sp.add_argument("--requirements")
         sp.add_argument("--out", default="evidence-package")
         sp.add_argument("--markdown", action="store_true")
+        sp.add_argument("--input", help="artifact: JSON record to validate and store")
+        sp.add_argument("target", nargs="?", help="artifact: CMP-05, CMP-08, CMP-09, CMP-10 or CMP-11")
+        sp.add_argument("--deny-license", action="append", default=[],
+                        help="licenses: denied SPDX licence identifier (repeatable)")
 
     sp = acts(grp("table", c_table, "table designer: validate a definition, generate code"), ["design"])
     sp.add_argument("definition", help="JSON table definition file")
