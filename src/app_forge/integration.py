@@ -104,6 +104,14 @@ def _nsha(path: Path) -> str | None:
         return sha256_bytes(data)
 
 
+def _payload_sha(payload: bytes) -> str:
+    """Hash UTF-8 text consistently across platforms, preserving binary bytes exactly."""
+    try:
+        return sha256_text(payload.decode("utf-8").replace("\r\n", "\n"))
+    except UnicodeDecodeError:
+        return sha256_bytes(payload)
+
+
 def component_contributions(entry: CatalogEntry, package: str) -> list[tuple[str, str, str, int]]:
     """Return destination, serialized payload, encoding, and source permission bits."""
     out = []
