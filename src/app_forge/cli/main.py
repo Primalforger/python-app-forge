@@ -155,6 +155,8 @@ def c_catalog(s, a):
 
 
 def c_project(s, a):
+    if a.action == "update":
+        return _plan_result(s.plan_template_update(a.path, a.template))
     if a.action in ("inspect", "analyze"):
         return s.analyze_project(a.path), 0
     if a.action == "inventory":
@@ -374,11 +376,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("path", nargs="?")
 
     sp = acts(grp("project", c_project, "inspect and analyze projects"),
-              ["inspect", "analyze", "inventory", "validate", "adopt", "lock-status", "unlock"])
+              ["inspect", "analyze", "inventory", "validate", "adopt", "lock-status", "unlock", "update"])
     sp.add_argument("path", nargs="?", default=".")
     sp.add_argument("--package")
     sp.add_argument("--archetype")
     sp.add_argument("--yes", action="store_true")
+    sp.add_argument("--template", help="update target template ID or ID@VERSION")
 
     sp = acts(grp("integrate", c_integrate, "plan, apply and recover project changes"),
               ["plan", "preview", "approve", "apply", "status", "recover"])

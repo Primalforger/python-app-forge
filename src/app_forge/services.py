@@ -97,7 +97,8 @@ class ForgeServices:
         self.analyzer = ProjectAnalyzer()
         self.verifier = VerificationEngine()
         self.integration = IntegrationEngine(self.settings, self.registry, self.store,
-                                             analyzer=self.analyzer, verifier=self.verifier)
+                                             analyzer=self.analyzer, verifier=self.verifier,
+                                             templates=self.templates)
         self.extensions = ExtensionHost(self.store)
 
     # ------------------------------------------------------------------ operations
@@ -356,6 +357,12 @@ class ForgeServices:
                 finally:
                     tmp.unlink(missing_ok=True)
         return {"preview": False, "writes": ["forge.toml"]}
+
+    def plan_template_update(self, project: str | Path, template: str | None = None) -> dict:
+        with self.operation("plan_template_update", project) as op:
+            plan = self.integration.plan_template_update(project, template)
+            op["summary"] = {"plan_id": plan.plan_id, "conflicts": len(plan.conflicts)}
+            return {"operation_id": op["operation_id"], **plan.to_dict(include_content=False)}
 
     def plan_add(self, project: str | Path, requested: dict[str, str]) -> dict:
         with self.operation("plan_add", project) as op:
