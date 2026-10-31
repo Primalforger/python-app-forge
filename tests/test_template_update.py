@@ -135,7 +135,7 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         def interrupt(path, index):
             if index == 1:
                 # The first path is already changed; simulate a concurrent user edit before recovery.
-                first = next(c.path for c in plan.changes if c.action in ("create", "modify", "delete"))
+                first = next(c["path"] for c in plan["changes"] if c["action"] in ("create", "modify", "delete"))
                 (project / first).write_text("concurrent user edit\n", encoding="utf-8")
                 raise RuntimeError("simulated interruption")
         report = services.integration.apply(plan["plan_id"], verify=False, fault=interrupt)
