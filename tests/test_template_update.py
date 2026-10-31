@@ -61,8 +61,11 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         # Add a template-owned file and remove one from the incoming tree.
         (exported / "tree" / "docs" / "upstream-added.md").parent.mkdir(parents=True, exist_ok=True)
         (exported / "tree" / "docs" / "upstream-added.md").write_text("new upstream file\n", encoding="utf-8")
-        removed = next(iter(baseline["files"]))
-        (exported / "tree" / removed).unlink(missing_ok=True)
+        removed = "README.md"
+        self.assertIn(removed, baseline["files"])
+        incoming_removed = exported / "tree" / removed
+        self.assertTrue(incoming_removed.is_file())
+        incoming_removed.unlink()
         manifest = exported / "template.toml"
         manifest.write_text(manifest.read_text(encoding="utf-8").replace(
             'version = "2.0.0"', 'version = "3.0.0"'), encoding="utf-8")
@@ -72,8 +75,7 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         self.assertFalse(plan["conflicts"])
         actions = {(c["path"], c["action"]) for c in services.preview_plan(plan["plan_id"], True)["changes"]}
         self.assertIn(("docs/upstream-added.md", "create"), actions)
-        if (project / removed).exists():
-            self.assertIn((removed, "delete"), actions)
+        self.assertIn((removed, "delete"), actions)
 
     def test_unowned_path_collision_is_reviewable_and_blocks_approval(self):
         services = self.services()
