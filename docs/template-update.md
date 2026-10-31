@@ -12,3 +12,11 @@ Use the normal integration lifecycle:
 4. `forge integrate apply PLAN_ID`
 
 Adopted projects and projects without a valid baseline are not eligible. This increment plans template-owned files; component contributions remain separately owned.
+
+## Safety and recovery
+
+The update plan is still subject to apply-time drift checks: every changed path must match its recorded pre-update hash when the approved plan is applied. If any target has changed since planning, apply stops before the first write and asks for a new plan.
+
+Apply creates a checkpoint before writing. If a write is interrupted, Forge restores only files whose current bytes still match the exact post-write hash recorded in the checkpoint. Files changed independently after the interruption are preserved and reported for manual review. Recovery validates backup content hashes and refuses to write through symlink targets. A complete rollback marks the plan `rolled_back`; incomplete recovery marks it `partially_recovered`.
+
+The merge policy also covers independent upstream additions and removals, local deletion versus upstream modification, local modification versus upstream deletion, and collisions where an incoming template path is already occupied by an unowned project file. Conflicts remain reviewable but cannot be approved.

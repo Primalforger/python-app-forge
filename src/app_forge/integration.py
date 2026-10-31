@@ -821,26 +821,47 @@ class IntegrationEngine:
         root = Path(plan.project_path)
         entries = json.loads(mf.read_text(encoding="utf-8"))["entries"]
         restored, deleted, unchanged, preserved, errors = [], [], [], [], []
+        seen_paths: set[str] = set()
         for e in reversed(entries):
-            tgt = safe_join(root, e["path"])
-            current = _sha(tgt)
-            before, after = e["before_sha"], e["after_sha"]
+            rel = e.get("path", "")
             try:
+                if not isinstance(rel, str) or not rel or rel in seen_paths:
+                    raise ValidationFailure("Checkpoint contains an invalid or duplicate path")
+                seen_paths.add(rel)
+                if e.get("action") not in ("create", "modify", "delete"):
+                    raise ValidationFailure(f"Checkpoint action for {rel!r} is invalid")
+                before, after = e.get("before_sha"), e.get("after_sha")
+                if before is not None and (not isinstance(before, str) or len(before) != 64):
+                    raise ValidationFailure(f"Checkpoint before hash for {rel!r} is invalid")
+                if after is not None and (not isinstance(after, str) or len(after) != 64):
+                    raise ValidationFailure(f"Checkpoint after hash for {rel!r} is invalid")
+                tgt = safe_join(root, rel)
+                if tgt.is_symlink():
+                    preserved.append(rel)
+                    errors.append(f"{rel}: refusing to recover through a symlink")
+                    continue
+                current = _sha(tgt)
                 if current == before:
-                    unchanged.append(e["path"])
+                    unchanged.append(rel)
                 elif current == after:
                     if before is None:
-                        tgt.unlink()
-                        deleted.append(e["path"])
-                        self._prune_empty_dirs(root, tgt.parent, e["existed_dirs"])
+                        self._apply_one(root, FileChange("delete", rel, "recover interrupted apply", "",
+                                                         None, after, None))
+                        deleted.append(rel)
+                        self._prune_empty_dirs(root, tgt.parent, e.get("existed_dirs", []))
                     else:
-                        tgt.parent.mkdir(parents=True, exist_ok=True)
-                        tgt.write_bytes((ck / "blobs" / before).read_bytes())
-                        restored.append(e["path"])
+                        blob = ck / "blobs" / before
+                        payload = blob.read_bytes()
+                        if sha256_bytes(payload) != before:
+                            raise ValidationFailure(f"Checkpoint backup for {rel!r} failed its SHA-256 check")
+                        content = payload.decode("utf-8")
+                        self._apply_one(root, FileChange("modify", rel, "recover interrupted apply", "",
+                                                         content, after, before))
+                        restored.append(rel)
                 else:
-                    preserved.append(e["path"])  # edited by someone since: do not overwrite their work
-            except OSError as exc:
-                errors.append(f"{e['path']}: {exc}")
+                    preserved.append(rel)  # edited by someone since: do not overwrite their work
+            except (OSError, UnicodeError, ValueError, ValidationFailure, SecurityBlock, ConflictFailure) as exc:
+                errors.append(f"{rel}: {exc}")
         complete = not preserved and not errors
         status = "rolled_back" if complete else "partially_recovered"
         report = {"status": status, "restored": restored, "deleted": deleted, "unchanged": unchanged,
