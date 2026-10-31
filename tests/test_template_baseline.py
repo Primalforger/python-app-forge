@@ -1,5 +1,6 @@
 import unittest
 
+from app_forge.domain.errors import ConflictFailure, ValidationFailure
 from app_forge.templates.baseline import BASELINE_PATH, load_baseline
 from tests.helpers import ForgeTestCase
 
@@ -43,8 +44,6 @@ if __name__ == "__main__":
 
 class VersionedTemplateCatalogTests(ForgeTestCase):
     def test_import_keeps_multiple_versions_and_resolves_exact_or_latest(self):
-        import shutil
-
         services = self.services()
         first = self.tmp / "template-v2"
         services.export_template("cli", first)
@@ -60,7 +59,7 @@ class VersionedTemplateCatalogTests(ForgeTestCase):
         self.assertEqual(services.templates.get("cli-typer@2.0.0").version, "2.0.0")
         self.assertEqual(services.templates.get("cli").version, "2.0.0")
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationFailure):
             services.templates.get("cli-typer@9.9.9")
 
     def test_import_rejects_duplicate_template_version(self):
@@ -70,5 +69,5 @@ class VersionedTemplateCatalogTests(ForgeTestCase):
         services.export_template("cli", first)
         services.export_template("cli", second)
         services.import_template(first)
-        with self.assertRaises(Exception):
+        with self.assertRaises(ConflictFailure):
             services.import_template(second)
