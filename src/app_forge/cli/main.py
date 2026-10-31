@@ -35,9 +35,56 @@ def _fmt(value, indent=0) -> str:
     return f"{pad}{value}"
 
 
+def _emit_template_update_preview(result: dict) -> None:
+    summary = result.get("change_summary", {})
+    print(f"Template update preview: {result.get('plan_id', '(unknown plan)')}")
+    if result.get("project_path"):
+        print(f"Project: {result['project_path']}")
+    print(
+        "Changes: "
+        f"{summary.get('total', 0)} total | "
+        f"+{summary.get('create', 0)} create | "
+        f"~{summary.get('modify', 0)} modify | "
+        f"-{summary.get('delete', 0)} delete | "
+        f"{summary.get('manual', 0)} manual"
+    )
+    print(f"Review: {summary.get('conflicts', 0)} conflicts, {summary.get('warnings', 0)} warnings")
+
+    for group in result.get("review", []):
+        print(f"\\n{group.get('action', 'changes').upper()} ({group.get('count', len(group.get('files', [])))})")
+        for item in group.get("files", []):
+            print(f"  {item.get('path', '(unknown path)')}")
+            if item.get("reason"):
+                print(f"    Reason: {item['reason']}")
+            if "before_state" in item and item["before_state"] != "matches-plan":
+                print(f"    Before-state: {item['before_state']}; diff omitted")
+            diff = item.get("diff")
+            if diff:
+                print("".join(f"    {line}" for line in diff.splitlines(keepends=True)), end="")
+
+    for label in ("conflicts", "warnings"):
+        entries = result.get(label, [])
+        if entries:
+            print(f"\\n{label.capitalize()}:")
+            for entry in entries:
+                if isinstance(entry, dict):
+                    path = entry.get("path")
+                    code = entry.get("code")
+                    message = entry.get("message") or entry.get("resolution") or ""
+                    prefix = f"{code}: " if code else ""
+                    location = f" [{path}]" if path else ""
+                    print(f"  - {prefix}{message}{location}".rstrip())
+                    if entry.get("resolution") and entry.get("message"):
+                        print(f"      Resolution: {entry['resolution']}")
+                else:
+                    print(f"  - {entry}")
+
+
 def _emit(args, result) -> None:
     if args.json:
         print(json.dumps({"ok": True, "result": result}, indent=2, sort_keys=True, default=str))
+    elif isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
+        _emit_template_update_preview(result)
     else:
         print(_fmt(result))
 
