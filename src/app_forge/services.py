@@ -25,7 +25,7 @@ from app_forge.analyzer import ProjectAnalyzer
 from app_forge.architecture import check_rules, graph_to_mermaid, graph_to_text, module_graph
 from app_forge.catalog import authoring
 from app_forge.catalog.registry import BUILTIN_COMPONENTS, ComponentRegistry, current_platform, seal_component
-from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements\nfrom app_forge.compliance_artifacts import load_artifacts, save_artifact
+from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements\nfrom app_forge.compliance_artifacts import load_artifacts, save_artifact\nfrom app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
 from app_forge.table_designer import normalize_definition, to_python
 from app_forge.domain.errors import ConflictFailure, ForgeError, SecurityBlock, ValidationFailure
 from app_forge.domain.models import ChangePlan
@@ -499,6 +499,33 @@ class ForgeServices:
             op["summary"] = {"summary": rep["summary"]}
             return {"operation_id": op["operation_id"], **rep}
 
+    def supply_chain_report(self, project: str | Path, denied_licenses: list[str] | None = None) -> dict:
+        inventory = self.project_inventory(project)
+        return {
+            "cyclonedx": build_cyclonedx(inventory),
+            "spdx": build_spdx(inventory),
+            "license_policy": check_license_policy(inventory, denied_licenses),
+        }
+
+    def export_sbom(self, project: str | Path, out_dir: str | Path) -> dict:
+        report = self.supply_chain_report(project)
+        out = Path(out_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        files = {
+            "sbom.cyclonedx.json": json.dumps(report["cyclonedx"], indent=2, sort_keys=True),
+            "sbom.spdx.json": json.dumps(report["spdx"], indent=2, sort_keys=True),
+            "license-policy.json": json.dumps(report["license_policy"], indent=2, sort_keys=True),
+        }
+        manifest = {}
+        for name, content in files.items():
+            (out / name).write_text(content + "\\n", encoding="utf-8")
+            manifest[name] = sha256_text(content + "\\n")
+        (out / "MANIFEST.sha256.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+        return {"directory": str(out), "files": sorted([*files, "MANIFEST.sha256.json"]),
+                "license_policy_ok": report["license_policy"]["ok"],
+                "unknown_licenses": len(report["license_policy"]["unknown"])}
+
     def create_compliance_artifact(self, code: str, project: str | Path, payload: dict) -> dict:
         with self.operation("compliance_artifact", project) as op:
             result = save_artifact(project, code, payload)
@@ -512,11 +539,15 @@ class ForgeServices:
         out.mkdir(parents=True, exist_ok=True)
         ev = self.store.list_evidence(str(Path(project).resolve()))
         artifacts = load_artifacts(project)
+        supply_chain = self.supply_chain_report(project)
         files = {"compliance-report.json": json.dumps(report, indent=1, sort_keys=True),
                  "compliance-report.md": to_markdown(report),
                  "evidence.json": json.dumps(ev, indent=1, sort_keys=True),
                  "inventory.json": json.dumps(self.project_inventory(project), indent=1, sort_keys=True),
-                 "compliance-artifacts.json": json.dumps(artifacts, indent=1, sort_keys=True)}
+                 "compliance-artifacts.json": json.dumps(artifacts, indent=1, sort_keys=True),
+                 "sbom.cyclonedx.json": json.dumps(supply_chain["cyclonedx"], indent=2, sort_keys=True),
+                 "sbom.spdx.json": json.dumps(supply_chain["spdx"], indent=2, sort_keys=True),
+                 "license-policy.json": json.dumps(supply_chain["license_policy"], indent=2, sort_keys=True)}
         manifest = {}
         for name, text in files.items():
             (out / name).write_text(text, encoding="utf-8")
