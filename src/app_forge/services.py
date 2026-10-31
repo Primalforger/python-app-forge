@@ -5,6 +5,7 @@ Every user-visible operation is a method here; shells only parse input and rende
 from __future__ import annotations
 
 import ctypes
+import difflib
 import errno
 import importlib.util
 import json
@@ -377,7 +378,64 @@ class ForgeServices:
             return {"operation_id": op["operation_id"], **plan.to_dict(include_content=False)}
 
     def preview_plan(self, plan_id: str, with_content: bool = False) -> dict:
-        return self.integration.load_plan(plan_id).to_dict(include_content=with_content)
+        plan = self.integration.load_plan(plan_id)
+        preview = plan.to_dict(include_content=with_content)
+        if plan.kind != "template-update":
+            return preview
+
+        actions = ("create", "modify", "delete", "manual")
+        counts = {action: sum(change.action == action for change in plan.changes) for action in actions}
+        preview["change_summary"] = {
+            **counts,
+            "total": len(plan.changes),
+            "conflicts": len(plan.conflicts),
+            "warnings": len(plan.warnings),
+        }
+        root = Path(plan.project_path)
+        grouped = []
+        for action in actions:
+            entries = []
+            for change in sorted((c for c in plan.changes if c.action == action), key=lambda c: c.path):
+                item = {"path": change.path, "reason": change.reason}
+                if with_content:
+                    target = root / change.path
+                    before_text = ""
+                    state = "matches-plan"
+                    if change.before_sha is None:
+                        if target.exists() or target.is_symlink():
+                            state = "drifted"
+                    elif target.is_symlink() or not target.is_file():
+                        state = "drifted"
+                    else:
+                        try:
+                            before_text = target.read_text(encoding="utf-8")
+                        except (OSError, UnicodeError):
+                            state = "unavailable"
+                        else:
+                            if sha256_text(before_text) != change.before_sha:
+                                state = "drifted"
+                    item["before_state"] = state
+                    if state == "matches-plan":
+                        after_text = change.content if change.action != "delete" else ""
+                        if after_text is not None:
+                            lines = list(difflib.unified_diff(
+                                before_text.splitlines(keepends=True),
+                                after_text.splitlines(keepends=True),
+                                fromfile=f"a/{change.path}",
+                                tofile=f"b/{change.path}",
+                                n=3,
+                            ))
+                            truncated = len(lines) > 100
+                            item["diff"] = "".join(lines[:100])
+                            if truncated:
+                                item["diff"] += "\\n... diff truncated (100 lines shown) ...\\n"
+                    else:
+                        item["diff"] = None
+                entries.append(item)
+            if entries:
+                grouped.append({"action": action, "count": len(entries), "files": entries})
+        preview["review"] = grouped
+        return preview
 
     def approve_plan(self, plan_id: str, approver: str) -> dict:
         with self.operation("approve_plan", plan_id):
