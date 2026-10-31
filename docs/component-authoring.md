@@ -31,7 +31,17 @@ Versions are immutable: a released version is never edited, publish a new one.
 src  = "files/src/widget.py"            # under files/
 dest = "src/{{package}}/widget.py"      # {{package}} = the target project's Python package
 ```
-Forge never overwrites an existing file that differs; that is a conflict you must resolve. Contributed files are text (UTF-8).
+Forge never overwrites an existing file that differs; that is a conflict you must resolve. Files are UTF-8 text by default and support `{{package}}` rendering. Mark binary assets explicitly so their bytes are copied unchanged and are never template-rendered:
+
+```toml
+[[integration.files]]
+src = "files/assets/logo.png"
+dest = "assets/logo.png"
+binary = true
+```
+
+Binary declarations also preserve the source file's permission bits when installed (including executable bits). Non-UTF-8 files must be declared with `binary = true`; an undeclared non-UTF-8 contribution is rejected rather than guessed. All contributed payloads are included byte-for-byte in the reviewed plan digest and checkpoint recovery.
+
 Declare tests so the component can prove itself: `[verification] tests = ["tests/test_widget.py"]` (they must also be contributed).
 
 ## Patching existing files

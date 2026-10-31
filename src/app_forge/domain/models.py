@@ -25,6 +25,7 @@ ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{2,63}$")
 class FileContribution:
     src: str
     dest: str  # may contain {{package}}
+    binary: bool = False
 
 
 PATCH_KINDS = ("insert", "toml-table", "json-merge")
@@ -166,7 +167,9 @@ def parse_manifest(data: dict) -> ComponentManifest:
             p.append(f"unsafe integration source path {f['src']!r}")
         if f["dest"].startswith("/") or ".." in f["dest"].replace("\\", "/").split("/"):
             p.append(f"unsafe integration destination path {f['dest']!r}")
-        files.append(FileContribution(f["src"], f["dest"]))
+        if "binary" in f and not isinstance(f["binary"], bool):
+            p.append(f"integration.files binary flag for {f['src']!r} must be boolean")
+        files.append(FileContribution(f["src"], f["dest"], f.get("binary", False)))
     patches, seen_ids = [], set()
     for i, raw in enumerate(integ.get("patches", [])):
         where = f"integration.patches[{i}]"
@@ -249,6 +252,8 @@ class FileChange:
     content: str | None = None
     before_sha: str | None = None
     after_sha: str | None = None
+    content_encoding: str = "utf-8"
+    mode: int | None = None
 
 
 @dataclass

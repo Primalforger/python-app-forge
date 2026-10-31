@@ -7,6 +7,8 @@ user edits made in the meantime are preserved and reported.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -102,20 +104,59 @@ def _nsha(path: Path) -> str | None:
         return sha256_bytes(data)
 
 
-def component_contributions(entry: CatalogEntry, package: str) -> list[tuple[str, str]]:
-    """Render a component's file contributions as [(destination, content)]."""
+def _payload_sha(payload: bytes) -> str:
+    """Hash UTF-8 text consistently across platforms, preserving binary bytes exactly."""
+    try:
+        return sha256_text(payload.decode("utf-8").replace("\r\n", "\n"))
+    except UnicodeDecodeError:
+        return sha256_bytes(payload)
+
+
+def component_contributions(entry: CatalogEntry, package: str) -> list[tuple[str, str, str, int]]:
+    """Return destination, serialized payload, encoding, and source permission bits."""
     out = []
     for f in entry.manifest.files:
         src = safe_join(entry.root, f.src)
-        out.append((render_text(f.dest, {"package": package}),
-                    render_text(src.read_text(encoding="utf-8"), {"package": package})))
+        raw = src.read_bytes()
+        mode = stat.S_IMODE(src.stat().st_mode)
+        if f.binary:
+            out.append((render_text(f.dest, {"package": package}),
+                        base64.b64encode(raw).decode("ascii"), "base64", mode))
+            continue
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValidationFailure(
+                f"Component file {f.src!r} is not UTF-8 text; declare binary = true in integration.files"
+            ) from None
+        rendered = render_text(text, {"package": package})
+        out.append((render_text(f.dest, {"package": package}), rendered, "utf-8", mode))
     return out
+
+
+def _change_payload(c: FileChange) -> bytes:
+    if c.content is None:
+        return b""
+    if c.content_encoding == "base64":
+        try:
+            return base64.b64decode(c.content, validate=True)
+        except (ValueError, binascii.Error):
+            raise SecurityBlock(f"Plan payload for {c.path!r} is not valid base64") from None
+    if c.content_encoding != "utf-8":
+        raise SecurityBlock(f"Plan payload encoding for {c.path!r} is unsupported")
+    return c.content.encode("utf-8")
+
+
+def _change_content_sha(c: FileChange) -> str | None:
+    if c.content is None:
+        return None
+    return sha256_bytes(_change_payload(c)) if c.content_encoding == "base64" else _payload_sha(_change_payload(c))
 
 
 def plan_digest(plan: ChangePlan) -> str:
     body = {"project": plan.project_path, "kind": plan.kind, "components": plan.components,
             "changes": [(c.action, c.path, c.before_sha, c.after_sha,
-                          sha256_text(c.content) if c.content is not None else None)
+                          _change_content_sha(c), c.content_encoding, c.mode)
                          for c in plan.changes],
             "conflicts": plan.conflicts}
     return sha256_text(json.dumps(body, sort_keys=True))
@@ -284,7 +325,7 @@ class IntegrationEngine:
         for entry in new_entries:
             m = entry.manifest
             new_components.append({"id": m.id, "version": m.version, "digest": m.digest})
-            for dest, content in component_contributions(entry, package):
+            for dest, content, encoding, mode in component_contributions(entry, package):
                 if analysis["layout"] == "flat" and not forge and dest.startswith(f"src/{package}/"):
                     dest = dest[len("src/"):]  # flat-layout project: package lives at the repository root
                 target = safe_join(root, dest)  # raises SecurityBlock on traversal / symlink escape
@@ -294,7 +335,8 @@ class IntegrationEngine:
                     continue
                 dest_owner[rel] = m.id
                 current = _sha(target)
-                after = sha256_text(content)
+                payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
+                after = _payload_sha(payload)
                 if current is not None:
                     if _nsha(target) == after:
                         plan.warnings.append(f"{rel} already exists with identical content; left unmanaged")
@@ -304,7 +346,8 @@ class IntegrationEngine:
                 if rel in dirty:
                     conflict("dirty-overlap", rel, f"{rel} has uncommitted changes")
                     continue
-                plan.changes.append(FileChange("create", rel, f"contributed by {m.id}", m.id, content, None, after))
+                plan.changes.append(FileChange("create", rel, f"contributed by {m.id}", m.id,
+                                               content, None, after, encoding, mode))
                 managed.append({"path": rel, "sha256": after, "component": m.id})
             py_packages += [(p, m.id) for p in m.python_packages]
 
@@ -389,7 +432,7 @@ class IntegrationEngine:
                     conflict("dirty-overlap", "pyproject.toml", "pyproject.toml has uncommitted changes")
                 else:
                     plan.changes.append(FileChange("modify", "pyproject.toml", "add component dependencies",
-                                                   "", new_text, sha256_bytes(old.encode()), sha256_text(new_text)))
+                                                   "", new_text, sha256_bytes(old.encode()), _payload_sha(new_text.encode("utf-8"))))
                 plan.dependency_changes += [{"package": parse_requirement(p).name, "action": "add", "mode": "auto",
                                              "spec": p} for p in added]
         if not auto:
@@ -465,13 +508,16 @@ class IntegrationEngine:
             m = entry.manifest
             old_files = ({f["path"]: f["sha256"] for f in installed["managed_files"] if f["component"] == m.id}
                          if m.id in targets else {})
-            new_files: dict[str, str] = {}
-            for dest, content in component_contributions(entry, package):
+            new_files: dict[str, tuple[str, str, int, str]] = {}
+            for dest, content, encoding, mode in component_contributions(entry, package):
                 if analysis["layout"] == "flat" and not forge and dest.startswith(f"src/{package}/"):
                     dest = dest[len("src/"):]
-                new_files[safe_join(root, dest).relative_to(root.resolve()).as_posix()] = content
-            for rel, content in new_files.items():
-                current, after = _sha(safe_join(root, rel)), sha256_text(content)
+                payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
+                after = _payload_sha(payload)
+                new_files[safe_join(root, dest).relative_to(root.resolve()).as_posix()] = (
+                    content, encoding, mode, after)
+            for rel, (content, encoding, mode, after) in new_files.items():
+                current = _sha(safe_join(root, rel))
                 cur_n = _nsha(safe_join(root, rel))
                 action = None
                 if rel in old_files:
@@ -496,7 +542,7 @@ class IntegrationEngine:
                         conflict("dirty-overlap", rel, f"{rel} has uncommitted changes")
                     else:
                         plan.changes.append(FileChange(action, rel, f"{m.id} {have.get(m.id, {}).get('version', 'new')}"
-                                                       f" -> {m.version}", m.id, content, current, after))
+                                                       f" -> {m.version}", m.id, content, current, after, encoding, mode))
                         managed.append({"path": rel, "sha256": after, "component": m.id})
             for rel, recorded in old_files.items():
                 if rel in new_files:
@@ -575,10 +621,10 @@ class IntegrationEngine:
     @staticmethod
     def _stage_write(plan: ChangePlan, root: Path, rel: str, change, new_text: str, reason: str, comp: str) -> None:
         if change is not None:
-            change.content, change.after_sha = new_text, sha256_text(new_text)
+            change.content, change.after_sha = new_text, _payload_sha(new_text.encode("utf-8"))
         else:
             plan.changes.append(FileChange("modify", rel, reason, comp, new_text, _sha(safe_join(root, rel)),
-                                           sha256_text(new_text)))
+                                           _payload_sha(new_text.encode("utf-8"))))
 
     def _plan_patch(self, plan, root, analysis, forge, package, comp_id, patch, dirty, conflict, *,
                     replace=False, expect_sha=None):
@@ -742,7 +788,7 @@ class IntegrationEngine:
         for c in actionable:
             if c.action in ("create", "modify"):
                 if (not isinstance(c.content, str) or not isinstance(c.after_sha, str)
-                        or sha256_text(c.content) != c.after_sha):
+                        or _change_content_sha(c) != c.after_sha):
                     raise SecurityBlock(f"Plan content for {c.path!r} does not match its recorded after hash")
                 if c.action == "create" and c.before_sha is not None:
                     raise SecurityBlock(f"Create change for {c.path!r} has an unexpected before hash")
@@ -765,6 +811,8 @@ class IntegrationEngine:
             if c.before_sha:
                 (ck / "blobs" / c.before_sha).write_bytes(tgt.read_bytes())
             entries.append({"path": c.path, "action": c.action, "before_sha": c.before_sha, "after_sha": c.after_sha,
+                            "before_mode": stat.S_IMODE(tgt.stat().st_mode) if tgt.is_file() else None,
+                            "after_encoding": c.content_encoding,
                             "existed_dirs": [p.relative_to(root).as_posix() for p in
                                              [tgt.parent, *tgt.parents] if p != root and root in p.parents and p.exists()]})
         (ck / "manifest.json").write_text(json.dumps({"plan_id": plan_id, "entries": entries}, indent=1),
@@ -833,8 +881,9 @@ class IntegrationEngine:
             return
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        payload = (c.content or "").encode("utf-8")
-        mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else None
+        payload = _change_payload(c)
+        mode = c.mode if c.mode is not None else (
+            stat.S_IMODE(target.stat().st_mode) if target.exists() else None)
         tmp: Path | None = None
         fd: int | None = None
         try:
@@ -850,11 +899,11 @@ class IntegrationEngine:
             if fd is None or tmp is None:
                 raise FileExistsError(f"Could not allocate a unique temporary file for {c.path}")
 
-            if mode is not None:
-                os.chmod(tmp, mode)
             with os.fdopen(fd, "wb") as stream:
                 fd = None
                 stream.write(payload)
+                if mode is not None:
+                    os.chmod(tmp, mode)
                 stream.flush()
                 os.fsync(stream.fileno())
 
@@ -904,12 +953,14 @@ class IntegrationEngine:
                     errors.append(f"{rel}: refusing to recover through a symlink")
                     continue
                 current = _sha(tgt)
+                applied_sha = (sha256_bytes(tgt.read_bytes()) if e.get("after_encoding") == "base64"
+                               else _nsha(tgt)) if tgt.is_file() else None
                 if current == before:
                     unchanged.append(rel)
-                elif current == after:
+                elif applied_sha == after:
                     if before is None:
                         self._apply_one(root, FileChange("delete", rel, "recover interrupted apply", "",
-                                                         None, after, None))
+                                                         None, current, None))
                         deleted.append(rel)
                         self._prune_empty_dirs(root, tgt.parent, e.get("existed_dirs", []))
                     else:
@@ -917,9 +968,9 @@ class IntegrationEngine:
                         payload = blob.read_bytes()
                         if sha256_bytes(payload) != before:
                             raise ValidationFailure(f"Checkpoint backup for {rel!r} failed its SHA-256 check")
-                        content = payload.decode("utf-8")
+                        content = base64.b64encode(payload).decode("ascii")
                         self._apply_one(root, FileChange("modify", rel, "recover interrupted apply", "",
-                                                         content, after, before))
+                                                         content, current, before, "base64", e.get("before_mode")))
                         restored.append(rel)
                 else:
                     preserved.append(rel)  # edited by someone since: do not overwrite their work
