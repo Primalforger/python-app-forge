@@ -970,7 +970,7 @@ class IntegrationEngine:
                             raise ValidationFailure(f"Checkpoint backup for {rel!r} failed its SHA-256 check")
                         content = base64.b64encode(payload).decode("ascii")
                         self._apply_one(root, FileChange("modify", rel, "recover interrupted apply", "",
-                                                         content, before, current, "base64", e.get("before_mode")))
+                                                         content, current, before, "base64", e.get("before_mode")))
                         restored.append(rel)
                 else:
                     preserved.append(rel)  # edited by someone since: do not overwrite their work
