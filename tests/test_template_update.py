@@ -19,8 +19,8 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         self._install_version(services, "2.0.0")
         plan = services.plan_template_update(project, "cli-typer@2.0.0")
 
-        compact = services.preview_plan(plan.plan_id)
-        self.assertEqual(compact["change_summary"]["total"], len(plan.changes))
+        compact = services.preview_plan(plan["plan_id"])
+        self.assertEqual(compact["change_summary"]["total"], len(plan["changes"]))
         self.assertGreater(compact["change_summary"]["modify"], 0)
         self.assertTrue(compact["review"])
         self.assertEqual(
