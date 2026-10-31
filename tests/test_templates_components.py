@@ -251,7 +251,6 @@ class ComponentTests(ForgeTestCase):
         self.assertEqual(stat.S_IMODE((out / "scripts" / "tool").stat().st_mode), 0o751)
 
     def test_interrupted_binary_install_rolls_back_created_assets(self):
-        import stat
         from app_forge.catalog.registry import seal_component
 
         component = self.custom_component(
