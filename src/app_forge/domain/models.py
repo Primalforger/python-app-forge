@@ -249,6 +249,8 @@ class FileChange:
     content: str | None = None
     before_sha: str | None = None
     after_sha: str | None = None
+    content_encoding: str = "utf-8"
+    mode: int | None = None
 
 
 @dataclass
