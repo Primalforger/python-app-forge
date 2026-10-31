@@ -163,11 +163,14 @@ class ForgeServices:
                     payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
                     files[dest] = payload if encoding == "base64" else content
                     file_modes[dest] = mode
-                    managed.append({"path": dest, "sha256": sha256_bytes(payload), "component": m.id})
+                    managed.append({"path": dest, "sha256": sha256_text(payload.decode("utf-8").replace("\r\n", "\n")) if encoding == "utf-8" else sha256_bytes(payload), "component": m.id})
                 pkgs += list(m.python_packages)
             dep_changes = []
             if pkgs:
-                new_text, added = add_dependencies(files["pyproject.toml"], pkgs)
+                pyproject = files["pyproject.toml"]
+                if not isinstance(pyproject, str):
+                    raise ConflictFailure("pyproject.toml cannot be a binary component asset")
+                new_text, added = add_dependencies(pyproject, pkgs)
                 if new_text is not None:
                     files["pyproject.toml"] = new_text
                 dep_changes = added
@@ -177,10 +180,11 @@ class ForgeServices:
                     rel = target_path(patch, package)
                     if rel not in files:
                         raise ConflictFailure(f"{entry.manifest.id}:{patch.id} patches {rel}, which the project does not have")
-                    if not isinstance(files[rel], str):
+                    patch_text = files[rel]
+                    if not isinstance(patch_text, str):
                         raise ConflictFailure(f"{entry.manifest.id}:{patch.id} cannot patch binary file {rel}")
                     try:
-                        pr = apply_patch(files[rel], patch, entry.manifest.id, package)
+                        pr = apply_patch(patch_text, patch, entry.manifest.id, package)
                     except PatchConflict as exc:
                         raise ConflictFailure(f"{entry.manifest.id}:{patch.id}: [{exc.code}] {exc.message}") from None
                     files[rel] = pr.new_text
@@ -215,10 +219,10 @@ class ForgeServices:
                 raise ConflictFailure(f"Target directory {out} already exists")
             stage = Path(tempfile.mkdtemp(prefix=f".{out.name}.forge-create-", dir=out.parent))
             try:
-                for rel, content in files.items():
+                for rel, file_content in files.items():
                     target = safe_join(stage, rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+                    target.write_bytes(file_content if isinstance(file_content, bytes) else file_content.encode("utf-8"))
                     if rel in file_modes:
                         os.chmod(target, file_modes[rel])
                 if set(p.relative_to(stage).as_posix() for p in stage.rglob("*") if p.is_file()) != set(files):
