@@ -150,15 +150,18 @@ class ForgeServices:
             res = resolve(self.registry, {c: "*" for c in components}, archetype=info.archetype)
             res.raise_if_failed()
             comps, managed, pkgs = [], [], []
+            file_modes: dict[str, int] = {}
             for entry in res.order:
                 m = entry.manifest
                 comps.append({"id": m.id, "version": m.version, "digest": m.digest})
-                for dest, content in component_contributions(entry, package):
+                for dest, content, encoding, mode in component_contributions(entry, package):
                     safe_join(Path(tempfile.gettempdir()), dest)  # path-safety check only
                     if dest in files:
                         raise ConflictFailure(f"Component {m.id} would overwrite template file {dest}")
-                    files[dest] = content
-                    managed.append({"path": dest, "sha256": sha256_text(content), "component": m.id})
+                    payload = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
+                    files[dest] = payload if encoding == "base64" else content
+                    file_modes[dest] = mode
+                    managed.append({"path": dest, "sha256": sha256_bytes(payload), "component": m.id})
                 pkgs += list(m.python_packages)
             dep_changes = []
             if pkgs:
@@ -173,7 +176,9 @@ class ForgeServices:
                     if rel not in files:
                         raise ConflictFailure(f"{entry.manifest.id}:{patch.id} patches {rel}, which the project does not have")
                     try:
-                        pr = apply_patch(files[rel], patch, entry.manifest.id, package)
+                        if not isinstance(files[rel], str):
+                        raise ConflictFailure(f"{entry.manifest.id}:{patch.id} cannot patch binary file {rel}")
+                    pr = apply_patch(files[rel], patch, entry.manifest.id, package)
                     except PatchConflict as exc:
                         raise ConflictFailure(f"{entry.manifest.id}:{patch.id}: [{exc.code}] {exc.message}") from None
                     files[rel] = pr.new_text
@@ -191,7 +196,8 @@ class ForgeServices:
             plan = {"template": f"{info.id}@{info.version}", "archetype": info.archetype, "package": package,
                     "components": [f"{c['id']}@{c['version']}" for c in comps], "added_dependencies": dep_changes,
                     "patches": [f"{r['component']}:{r['id']} -> {r['file']}" for r in patch_records],
-                    "files": [{"path": p, "bytes": len(c.encode())} for p, c in files.items()],
+                    "files": [{"path": p, "bytes": len(c) if isinstance(c, bytes) else len(c.encode())}
+                              for p, c in files.items()],
                     "configuration": {k: variables[k] for k in ("name", "package", "description", "author",
                                                                "python_version")}}
             # Keep the final path itself unresolved so a symlink at that path is rejected,
@@ -210,7 +216,9 @@ class ForgeServices:
                 for rel, content in files.items():
                     target = safe_join(stage, rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(content.encode("utf-8"))
+                    target.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+                    if rel in file_modes:
+                        os.chmod(target, file_modes[rel])
                 if set(p.relative_to(stage).as_posix() for p in stage.rglob("*") if p.is_file()) != set(files):
                     raise ValidationFailure("Staged project does not match the rendered file manifest")
                 tomllib.loads((stage / "forge.toml").read_text(encoding="utf-8"))
