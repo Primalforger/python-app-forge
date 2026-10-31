@@ -80,11 +80,32 @@ def _emit_template_update_preview(result: dict) -> None:
                     print(f"  - {entry}")
 
 
+def _emit_conflict_report(result: dict) -> None:
+    conflicts = result.get("conflicts", [])
+    print(f"Plan conflicts: {result.get('plan_id', '(unknown plan)')} ({len(conflicts)})")
+    if not conflicts:
+        print("No conflicts found.")
+        return
+    for index, conflict in enumerate(conflicts, start=1):
+        if not isinstance(conflict, dict):
+            print(f"\\n{index}. {conflict}")
+            continue
+        code = conflict.get("code") or "conflict"
+        path = conflict.get("path")
+        print(f"\\n{index}. {code}" + (f" — {path}" if path else ""))
+        if conflict.get("message"):
+            print(f"   {conflict['message']}")
+        if conflict.get("resolution"):
+            print(f"   Suggested resolution: {conflict['resolution']}")
+
+
 def _emit(args, result) -> None:
     if args.json:
         print(json.dumps({"ok": True, "result": result}, indent=2, sort_keys=True, default=str))
     elif isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
         _emit_template_update_preview(result)
+    elif isinstance(result, dict) and result.get("kind") == "conflict-report":
+        _emit_conflict_report(result)
     else:
         print(_fmt(result))
 
@@ -235,6 +256,19 @@ def c_integrate(s, a):
         return _plan_result(s.plan_add(a.project, _specs(a.component)))
     if act == "preview":
         return s.preview_plan(a.plan_id, with_content=a.content), 0
+    if act == "conflicts":
+        preview = s.preview_plan(a.plan_id, with_content=False)
+        conflicts = preview.get("conflicts", [])
+        if a.code:
+            conflicts = [item for item in conflicts if isinstance(item, dict) and item.get("code") == a.code]
+        if a.path:
+            conflicts = [item for item in conflicts if isinstance(item, dict) and item.get("path") == a.path]
+        return {
+            "kind": "conflict-report",
+            "plan_id": a.plan_id,
+            "count": len(conflicts),
+            "conflicts": conflicts,
+        }, 0
     if act == "approve":
         return s.approve_plan(a.plan_id, a.by), 0
     if act == "apply":
@@ -431,13 +465,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--template", help="update target template ID or ID@VERSION")
 
     sp = acts(grp("integrate", c_integrate, "plan, apply and recover project changes"),
-              ["plan", "preview", "approve", "apply", "status", "recover"])
+              ["plan", "preview", "conflicts", "approve", "apply", "status", "recover"])
     sp.add_argument("target", nargs="?", help="plan: PROJECT path; others: PLAN_ID")
     sp.add_argument("--component", action="append", default=[])
     sp.add_argument("--remove", action="append", default=[])
     sp.add_argument("--upgrade", action="append", default=[])
     sp.add_argument("--by")
-    sp.add_argument("--content", action="store_true")
+    sp.add_argument("--content", action="store_true", help="preview: include bounded file diffs")
+    sp.add_argument("--code", help="conflicts: filter by conflict code")
+    sp.add_argument("--path", help="conflicts: filter by exact project-relative path")
     sp.add_argument("--no-verify", action="store_true")
     sp.add_argument("--auto-recover", action="store_true")
 
