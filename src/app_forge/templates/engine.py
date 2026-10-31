@@ -127,12 +127,34 @@ class TemplateEngine:
                     out.append(self._load(tdir.parent))
         return out
 
-    def get(self, template_id: str) -> TemplateInfo:
-        for t in self.list():
-            if t.id == template_id or t.archetype == template_id:
-                return t
-        raise ValidationFailure(f"Unknown template or archetype {template_id!r}",
-                                hint="Run: forge template list")
+    def get(self, template_id: str, version: str | None = None) -> TemplateInfo:
+        """Resolve a template by ID, optionally pinning an exact version (ID@VERSION is also accepted).
+
+        An unpinned ID selects the newest available version, so adding a version never makes
+        template selection depend on filesystem traversal order.
+        """
+        if "@" in template_id:
+            if version is not None:
+                raise ValidationFailure("Specify a template version either as ID@VERSION or --version, not both")
+            template_id, version = template_id.rsplit("@", 1)
+            if not version:
+                raise ValidationFailure("Template version after '@' must not be empty")
+        templates = self.list()
+        matches = [t for t in templates if t.id == template_id]
+        if not matches and version is None:
+            matches = [t for t in templates if t.archetype == template_id]
+        if version is not None:
+            matches = [t for t in matches if t.version == version]
+        if not matches:
+            requested = f"{template_id}@{version}" if version else template_id
+            raise ValidationFailure(f"Unknown template or archetype {requested!r}",
+                                    hint="Run: forge template list")
+        def version_key(info: TemplateInfo) -> tuple[int, ...]:
+            try:
+                return tuple(int(part) for part in info.version.split("."))
+            except ValueError:
+                return (0,)
+        return max(matches, key=version_key)
 
     def validate_inputs(self, info: TemplateInfo, raw: dict) -> dict[str, str]:
         p: list[str] = []
