@@ -110,14 +110,18 @@ def component_contributions(entry: CatalogEntry, package: str) -> list[tuple[str
         src = safe_join(entry.root, f.src)
         raw = src.read_bytes()
         mode = stat.S_IMODE(src.stat().st_mode)
+        if f.binary:
+            out.append((render_text(f.dest, {"package": package}),
+                        base64.b64encode(raw).decode("ascii"), "base64", mode))
+            continue
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError:
-            out.append((render_text(f.dest, {"package": package}),
-                        base64.b64encode(raw).decode("ascii"), "base64", mode))
-        else:
-            rendered = render_text(text, {"package": package})
-            out.append((render_text(f.dest, {"package": package}), rendered, "utf-8", mode))
+            raise ValidationFailure(
+                f"Component file {f.src!r} is not UTF-8 text; declare binary = true in integration.files"
+            ) from None
+        rendered = render_text(text, {"package": package})
+        out.append((render_text(f.dest, {"package": package}), rendered, "utf-8", mode))
     return out
 
 
