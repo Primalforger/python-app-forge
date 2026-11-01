@@ -446,12 +446,9 @@ def c_history(s, a):
 
 
 
-def c_audit(_services, a):
-    from app_forge.audit_log import HashChainedAuditLog
-
-    log = HashChainedAuditLog(a.path)
+def c_audit(s, a):
     if a.action == "verify":
-        report = log.verify()
+        report = s.audit_verify(a.path)
         return report, 0 if report["ok"] else EXIT_VERIFICATION
     if not a.actor or not a.event:
         raise ValidationFailure("audit append requires --actor and --event JSON")
@@ -460,7 +457,7 @@ def c_audit(_services, a):
     except json.JSONDecodeError as exc:
         raise ValidationFailure(f"Invalid audit event JSON: {exc.msg}") from None
     try:
-        record = log.append(event, actor=a.actor)
+        record = s.audit_append(a.path, event, actor=a.actor)
     except ValueError as exc:
         raise ValidationFailure(str(exc)) from None
     return {"appended": True, "sequence": record["sequence"], "hash": record["hash"]}, 0
