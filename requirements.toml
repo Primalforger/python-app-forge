@@ -504,3 +504,16 @@ acceptance = "Desktop-worker and web-scheduler projects generate and verify with
 modules = ["app_forge.templates.engine", "app_forge.templates.baseline", "app_forge.resolver", "app_forge.services"]
 verified_by = ["tests/test_templates_components.py", "tests/test_template_baseline.py", "tests/test_template_update.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-10"
+title = "Framework-aware integration adapters"
+description = "Level 2/3 FastAPI, Flask and Django projects support static framework-aware registration patches without requiring Forge-owned anchors; unsupported layouts fail closed."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "A third-party FastAPI project accepts a component router through a reviewed and recoverable plan; Flask and Django adapter contracts are tested; analysis never imports or executes project code."
+modules = ["app_forge.framework_adapters", "app_forge.patching", "app_forge.integration"]
+verified_by = ["tests/test_framework_adapters.py", "tests/test_patching.py"]
+implemented = true
