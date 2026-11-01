@@ -594,3 +594,16 @@ acceptance = "Both templates generate valid project trees; the library has no ru
 modules = ["app_forge.templates.engine", "app_forge.data.templates.library", "app_forge.data.templates.extension-starter"]
 verified_by = ["tests/test_templates_components.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-26"
+title = "Consistent CLI output, completion and progress"
+description = "The CLI supports structured YAML and tabular output alongside text and JSON, shell completion definitions for Bash/Zsh/Fish, and consistent progress messages on stderr."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "YAML output parses to the same structured result, table output renders record collections, legacy --json remains compatible, each supported shell receives a completion definition, and progress messages are emitted only to stderr when requested or attached to a terminal."
+modules = ["app_forge.cli.main"]
+verified_by = ["tests/test_cli_architecture.py"]
+implemented = true
