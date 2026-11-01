@@ -129,3 +129,26 @@ class CancellationServiceTests(ForgeTestCase):
         assert result["verification"]["overall"] == "cancelled"
         assert result["recovery"]["complete"] is True
         assert not (project / "src/cancelled_verify_apply/forms.py").exists()
+
+
+
+class CancellationRecoveryTests(ForgeTestCase):
+    def test_recovery_preserves_user_edit_made_during_apply(self) -> None:
+        services = self.services()
+        project = self.make_project(services, name="Preserve User Edit")
+        plan = services.plan_add(project, {"forge.forms-validation": "*"})
+        services.approve_plan(plan["plan_id"], "test")
+        token = CancellationToken()
+        target = project / "src/preserve_user_edit/forms.py"
+
+        def edit_after_apply(event):
+            if event.get("message") == "Applied src/preserve_user_edit/forms.py":
+                target.write_text("# user edit\\n", encoding="utf-8")
+                token.cancel()
+
+        result = services.apply_plan(plan["plan_id"], verify=False, cancel_token=token, progress=edit_after_apply)
+
+        assert result["cancelled"] is True
+        assert result["recovery"]["complete"] is False
+        assert "src/preserve_user_edit/forms.py" in result["recovery"]["preserved_user_changes"]
+        assert target.read_text(encoding="utf-8") == "# user edit\\n"

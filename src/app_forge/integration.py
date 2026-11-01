@@ -843,6 +843,9 @@ class IntegrationEngine:
                     fault(c.path, i)
                 self._apply_one(root, c)
                 report["changed"].append(c.path)
+                if progress:
+                    progress({"stage": "apply", "message": f"Applied {c.path}",
+                              "current": i + 1, "total": len(actionable)})
                 if cancel_token:
                     cancel_token.raise_if_cancelled()
         except BaseException as exc:  # includes injected faults and KeyboardInterrupt

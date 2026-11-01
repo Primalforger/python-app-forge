@@ -111,6 +111,7 @@ class MainWindow(QMainWindow):
         self._background_label = ""
         self._background_on_success = None
         self._background_on_cancel = None
+        self._closing_after_worker = False
         for build in (self._dashboard, self._templates, self._catalog, self._components, self._workbench,
                       self._design_system, self._table_designer, self._architecture, self._quality,
                       self._extensions, self._settings, self._diagnostics):
@@ -238,6 +239,17 @@ class MainWindow(QMainWindow):
             self.cancel_button.setEnabled(False)
             self.status.setText("Cancellation requested; finishing safe cleanup...")
             self._active_cancel_token.cancel()
+
+    def closeEvent(self, event) -> None:
+        thread = self._background_thread
+        if thread is not None and thread.isRunning():
+            event.ignore()
+            if not self._closing_after_worker:
+                self._closing_after_worker = True
+                thread.finished.connect(self.close)
+            self.cancel_background_operation()
+            return
+        event.accept()
 
     # -- UI-001 Dashboard -----------------------------------------------------------------
     def _dashboard(self) -> QWidget:
