@@ -134,7 +134,8 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
 
 - [x] **G-22 Housekeeping** (S): `forge gc` previews or removes expired terminal plans, old checkpoints, evidence and completed operation history. Retention periods are configurable; dry-run is the default, pending/approved plans are protected, and malformed records are reported rather than silently removed.
   *Done when:* `tests/test_housekeeping.py` proves dry-run safety, retention pruning and preservation of pending plans.
-- [ ] **G-23 Table Designer grid editor** (M): replace the JSON editor with a column grid.
+- [x] **G-23 Table Designer grid editor** (M): replace the raw JSON editor with an accessible editable column grid. Users can add/remove columns, edit keys and select validated data types; existing sort/filter/page/export defaults are preserved when generating code.
+  *Done when:* the real-Qt suite verifies grid editing, add/remove behavior and successful code generation.
 - [ ] **G-24 Dedicated GUI screens** (M): separate Project Wizard, Generation Review, Configuration Center and Diagnostics bundle
   screens (currently merged).
 - [ ] **G-25 More templates** (M): plain library, and a template for writing Forge extensions.

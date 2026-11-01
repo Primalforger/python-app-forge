@@ -311,13 +311,20 @@ class GuiStubTests(ForgeTestCase):
         self.assertEqual(missing, [], "widgets without an accessible name (screen readers cannot announce them)")
 
     def test_table_designer_screen(self):
-        self.win.td_def.setPlainText(json.dumps(TABLE_DEF))
         self.win.td_import.setText("app.table_model")
+        self.win.td_columns.item(0, 0).setText("order_id")
+        self.win.td_columns.cellWidget(0, 1).setCurrentText("number")
+        self.win.add_table_column()
+        self.assertEqual(self.win.td_columns.rowCount(), 4)
+        self.win.td_columns.setCurrentCell(3, 0)
+        self.win.remove_table_column()
+        self.assertEqual(self.win.td_columns.rowCount(), 3)
         self.win.design_table()
         self.assertIn("def build_orders", self.win.td_out.toPlainText())
-        self.win.td_def.setPlainText(json.dumps({**TABLE_DEF, "page_size": 0}))
+        self.assertIn("order_id", self.win.td_out.toPlainText())
+        self.win.td_columns.item(1, 0).setText("order_id")
         self.win.design_table()
-        self.assertTrue(qt_stub.ERRORS and "page_size" in qt_stub.ERRORS[0])
+        self.assertTrue(qt_stub.ERRORS and "duplicated" in qt_stub.ERRORS[0])
 
     def test_component_manager_upgrade_flow(self):
         self.custom_component("acme.lib", "1.0.0")
