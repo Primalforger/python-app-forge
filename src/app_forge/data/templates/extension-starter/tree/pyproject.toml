@@ -14,7 +14,7 @@ dependencies = []
 {{dist}} = "{{package}}.extension:main"
 
 [project.entry-points."app_forge.plugins"]
-{{package}} = "{{package}}.extension:Plugin
+{{package}} = "{{package}}.extension:Plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
