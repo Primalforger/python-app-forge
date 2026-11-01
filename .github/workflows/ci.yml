@@ -39,6 +39,10 @@ jobs:
           enable-cache: true
           cache-dependency-glob: pyproject.toml
 
+      - name: Install Linux sandbox runtime
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
+
       - name: Install project and development dependencies
         run: uv pip install --system -e ".[dev]"
 
