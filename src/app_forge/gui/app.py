@@ -578,7 +578,7 @@ class MainWindow(QMainWindow):
         self.td_columns.setItem(row, 0, QTableWidgetItem(key))
         kind = QComboBox()
         kind.setAccessibleName(f"Data type for column {key or row + 1}")
-        kind.addItems(["text", "number", "category", "date", "boolean"])
+        kind.addItems(["text", "number", "category", "date", "bool"])
         index = kind.findText(data_type)
         kind.setCurrentIndex(index if index >= 0 else 0)
         self.td_columns.setCellWidget(row, 1, kind)
