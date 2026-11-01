@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+import io
+import zipfile
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -53,9 +55,17 @@ class OnlineCatalogRefreshTests(ForgeTestCase):
         sign_component(component, private, key_id="remote-release")
         archive = pack_component(component, self.tmp / "artifact.zip")
         payload = archive.read_bytes()
-        if tamper_archive:
-            payload = payload[:-1] + bytes([payload[-1] ^ 1])
         digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+        if tamper_archive:
+            with zipfile.ZipFile(io.BytesIO(payload)) as source:
+                members = [(name, source.read(name)) for name in source.namelist()]
+            rewritten = io.BytesIO()
+            with zipfile.ZipFile(rewritten, "w", zipfile.ZIP_DEFLATED) as target:
+                for name, data in members:
+                    if name.endswith("/files/src/signed.py"):
+                        data += b"\\n# tampered after signing\\n"
+                    target.writestr(name, data)
+            payload = rewritten.getvalue()
         _Handler.payloads["/artifact.zip"] = payload
         index = {"schema_version": 1, "components": [{
             "id": component_id, "version": "1.0.0", "url": "/artifact.zip", "sha256": digest
