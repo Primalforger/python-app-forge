@@ -570,7 +570,8 @@ class IntegrationEngine:
             for patch in m.patches:
                 old = old_recs.get(patch.id)
                 rec = self._plan_patch(plan, root, analysis, forge, package, m.id, patch, dirty, conflict,
-                                       replace=old is not None, expect_sha=old["sha256"] if old else None)
+                                       replace=old is not None, expect_sha=old["sha256"] if old else None,
+                                       previous_ownership=old.get("ownership") if old else None)
                 if rec:
                     patch_records.append(rec)
             for pid, old in old_recs.items():
@@ -628,7 +629,7 @@ class IntegrationEngine:
                                            _payload_sha(new_text.encode("utf-8"))))
 
     def _plan_patch(self, plan, root, analysis, forge, package, comp_id, patch, dirty, conflict, *,
-                    replace=False, expect_sha=None):
+                    replace=False, expect_sha=None, previous_ownership=None):
         flat = analysis["layout"] == "flat" and not forge
         rel = safe_join(root, target_path(patch, package, flat=flat)).relative_to(root.resolve()).as_posix()
         text, change = self._stage(plan, root, rel)
@@ -646,7 +647,7 @@ class IntegrationEngine:
         except PatchConflict as exc:
             conflict(exc.code, rel, exc.message)
             return None
-        record = {"component": comp_id, "id": patch.id, "file": rel, "kind": patch.kind, "sha256": res.sha256, "ownership": res.ownership}
+        record = {"component": comp_id, "id": patch.id, "file": rel, "kind": patch.kind, "sha256": res.sha256, "ownership": res.ownership or previous_ownership or []}
         if res.status == "unchanged":
             if replace:
                 return record
