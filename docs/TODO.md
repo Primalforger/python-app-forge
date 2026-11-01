@@ -111,7 +111,7 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   Offline-only today. Add an explicit refresh that downloads, verifies and then accepts artifacts (never silently).
   *Done when:* refresh works against a test server, rejects tampered artifacts, and offline mode is unaffected.
 
-- [ ] **G-19 Windows and macOS hardening** (M, best done together with G-06)
+- [x] **G-19 Windows and macOS hardening** (M): manifest path validation rejects Windows-incompatible separators, characters, reserved device names, trailing dots/spaces, oversized segments, and case/Unicode-normalization collisions; the pull-request CI matrix exercises Windows, macOS and Linux.
   Untested: case-insensitive filesystems, CRLF files, long paths, path separators in manifests.
   *Done when:* the CI matrix covers these cases with dedicated tests.
 
