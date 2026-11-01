@@ -196,8 +196,11 @@ class MainWindow(QMainWindow):
 
     def _background_succeeded_event(self, result: object) -> None:
         self.status.setText(f"{self._background_label}: done")
-        if self._background_on_success:
-            self._background_on_success(result)
+        callback = self._background_on_success
+        self._background_on_success = None
+        self._background_on_cancel = None
+        if callback:
+            callback(result)
 
     def _background_failed_event(self, exc: Exception) -> None:
         label = self._background_label
@@ -212,8 +215,11 @@ class MainWindow(QMainWindow):
     def _background_cancelled_event(self, result: object) -> None:
         label = self._background_label
         self.status.setText(f"{label}: cancelled")
-        if self._background_on_cancel:
-            self._background_on_cancel(result)
+        callback = self._background_on_cancel
+        self._background_on_success = None
+        self._background_on_cancel = None
+        if callback:
+            callback(result)
         elif isinstance(result, dict) and result.get("recovery"):
             QMessageBox.information(self, "Operation cancelled",
                                     "The operation was cancelled. Recovery result: " +
@@ -223,8 +229,6 @@ class MainWindow(QMainWindow):
         self._background_thread = None
         self._background_worker = None
         self._active_cancel_token = None
-        self._background_on_success = None
-        self._background_on_cancel = None
         self.nav.setEnabled(True)
         self.stack.setEnabled(True)
         self.cancel_button.setEnabled(False)
