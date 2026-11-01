@@ -169,7 +169,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-16 Hash-chained audit log** (M, lib): append-only canonical JSONL events with sequence numbers, UTC timestamps, actor/event metadata, previous-hash links and SHA-256 record hashes; cross-process append locking; `forge audit append` and `forge audit verify` report tampering and malformed records without repairing them. The chain is tamper-evident, not tamper-proof.
 - [x] **C-17 File store abstraction** (S, lib): root-confined local filesystem with traversal and symlink rejection, bounded reads/writes, atomic replacement, deterministic listing and explicit file deletion. Verified by `tests/test_file_store.py`.
 - [x] **C-18 Retrying HTTP client** (M, lib): dependency-free HTTP client with bounded timeouts and response bodies, conservative retries for idempotent methods, Retry-After support, redacted retry diagnostics and explicit opt-in for unsafe-method retries. Verified by `tests/test_http_client.py`.
-- [ ] **C-19 File watcher and notifier set** (M, lib, automation)
+- [x] **C-19 File watcher and notifier set** (M, lib, automation): bounded cross-platform polling watcher with recursive/non-recursive scans, symlink avoidance, create/modify/delete events, clean thread shutdown, callback/queue/composite notifiers, and explicit queue backpressure. Verified by `tests/test_file_watcher.py`.
 - [x] **C-20 Webhook signature verification** (S, lib): timestamped HMAC-SHA256/SHA-512 over raw request bodies, constant-time comparison, bounded freshness window, and explicit guidance for durable event-ID deduplication. Verified by `tests/test_webhook_signatures.py`.
 
 ### Governance and quality (close compliance gaps; no blockers)
