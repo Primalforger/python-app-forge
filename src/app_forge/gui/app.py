@@ -10,14 +10,15 @@ import json
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
                                QPlainTextEdit, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
 from app_forge import __version__
-from app_forge.domain.errors import ForgeError
+from app_forge.cancellation import CancellationToken
+from app_forge.domain.errors import ForgeError, OperationCancelled
 from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import ForgeServices
 from app_forge.settings import ForgeSettings
@@ -53,6 +54,36 @@ def _fill(t: QTableWidget, rows: list[list[str]]) -> None:
     t.setSortingEnabled(True)
 
 
+class OperationWorker(QObject):
+    """Execute a service operation off the GUI thread and communicate only through signals."""
+
+    progress = Signal(dict)
+    succeeded = Signal(object)
+    failed = Signal(object)
+    cancelled = Signal(object)
+    finished = Signal()
+
+    def __init__(self, operation, cancel_token: CancellationToken):
+        super().__init__()
+        self.operation = operation
+        self.cancel_token = cancel_token
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            result = self.operation(cancel_token=self.cancel_token, progress=self.progress.emit)
+            if isinstance(result, dict) and (result.get("cancelled") or result.get("overall") == "cancelled"):
+                self.cancelled.emit(result)
+            else:
+                self.succeeded.emit(result)
+        except OperationCancelled as exc:
+            self.cancelled.emit({"message": str(exc)})
+        except Exception as exc:  # noqa: BLE001 - reported to the GUI boundary
+            self.failed.emit(exc)
+        finally:
+            self.finished.emit()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, services: ForgeServices):
         super().__init__()
@@ -70,6 +101,13 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.status = QLabel("Ready")
         self.status.setAccessibleName("Operation status")
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setAccessibleName("Cancel background operation")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.clicked.connect(self.cancel_background_operation)
+        self._background_thread = None
+        self._background_worker = None
+        self._active_cancel_token = None
         for build in (self._dashboard, self._templates, self._catalog, self._components, self._workbench,
                       self._design_system, self._table_designer, self._architecture, self._quality,
                       self._extensions, self._settings, self._diagnostics):
@@ -77,7 +115,10 @@ class MainWindow(QMainWindow):
         self.nav.currentRowChanged.connect(self._navigate)
         right = QVBoxLayout()
         right.addWidget(self.stack, 1)
-        right.addWidget(self.status)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status, 1)
+        status_row.addWidget(self.cancel_button)
+        right.addLayout(status_row)
         lay.addWidget(self.nav)
         lay.addLayout(right, 1)
         self.setCentralWidget(root)
@@ -113,6 +154,70 @@ class MainWindow(QMainWindow):
         finally:
             QApplication.restoreOverrideCursor()
         return None
+
+    def _start_background(self, label: str, operation, on_success=None, on_cancel=None) -> bool:
+        if self._background_thread is not None:
+            return False
+        token = CancellationToken()
+        thread = QThread(self)
+        worker = OperationWorker(operation, token)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(lambda event: self._background_progress(label, event))
+        worker.succeeded.connect(lambda result: on_success(result) if on_success else None)
+        worker.failed.connect(lambda exc: self._background_failed(label, exc))
+        worker.cancelled.connect(lambda result: self._background_cancelled(label, result, on_cancel))
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._background_finished)
+        self._background_thread = thread
+        self._background_worker = worker
+        self._active_cancel_token = token
+        self.nav.setEnabled(False)
+        self.stack.setEnabled(False)
+        self.cancel_button.setEnabled(True)
+        self.status.setText(f"{label}: starting")
+        thread.start()
+        return True
+
+    def _background_progress(self, label: str, event: dict) -> None:
+        message = str(event.get("message") or event.get("stage") or label)
+        current, total = event.get("current"), event.get("total")
+        suffix = f" ({current}/{total})" if current is not None and total is not None else ""
+        self.status.setText(f"{label}: {message}{suffix}")
+
+    def _background_failed(self, label: str, exc: Exception) -> None:
+        if isinstance(exc, ForgeError):
+            self.status.setText(f"{label}: failed ({exc.category})")
+            QMessageBox.warning(self, "Operation failed",
+                                "\\n".join([exc.message, *exc.details, exc.hint or ""]).strip())
+        else:
+            self.status.setText(f"{label}: internal error")
+            QMessageBox.critical(self, "Internal error", f"{type(exc).__name__}: {exc}")
+
+    def _background_cancelled(self, label: str, result: object, on_cancel=None) -> None:
+        self.status.setText(f"{label}: cancelled")
+        if on_cancel:
+            on_cancel(result)
+        elif isinstance(result, dict) and result.get("recovery"):
+            QMessageBox.information(self, "Operation cancelled",
+                                    "The operation was cancelled. Recovery result: " +
+                                    str(result["recovery"].get("status", "unknown")))
+
+    def _background_finished(self) -> None:
+        self._background_thread = None
+        self._background_worker = None
+        self._active_cancel_token = None
+        self.nav.setEnabled(True)
+        self.stack.setEnabled(True)
+        self.cancel_button.setEnabled(False)
+
+    def cancel_background_operation(self) -> None:
+        if self._active_cancel_token is not None:
+            self.cancel_button.setEnabled(False)
+            self.status.setText("Cancellation requested; finishing safe cleanup...")
+            self._active_cancel_token.cancel()
 
     # -- UI-001 Dashboard -----------------------------------------------------------------
     def _dashboard(self) -> QWidget:
@@ -263,10 +368,13 @@ class MainWindow(QMainWindow):
     def apply(self) -> None:
         if not self.plan_id:
             return
-        r = self._approve_and_apply(self.plan_id)
-        if r:
-            self.w_out.setPlainText(json.dumps(r, indent=2, default=str))
-            self.w_recover.setEnabled(True)
+        self._approve_and_apply(
+            self.plan_id,
+            on_success=lambda result: (self.w_out.setPlainText(json.dumps(result, indent=2, default=str)),
+                                       self.w_recover.setEnabled(True)),
+            on_cancel=lambda result: (self.w_out.setPlainText(json.dumps(result, indent=2, default=str)),
+                                      self.w_recover.setEnabled(True))
+        )
 
     def recover(self) -> None:
         if self.plan_id:
@@ -275,15 +383,21 @@ class MainWindow(QMainWindow):
                 self.w_out.setPlainText(json.dumps(r, indent=2, default=str))
 
     # -- shared: review a stored plan, ask for approval, apply ------------------------------
-    def _approve_and_apply(self, plan_id: str):
+    def _approve_and_apply(self, plan_id: str, on_success=None, on_cancel=None):
         plan = self.s.preview_plan(plan_id)
         lines = [f"{c['action']:7} {c['path']}" for c in plan["changes"]]
         ok = QMessageBox.question(self, "Approve change plan",
                                   "This will modify the project:\n\n" + "\n".join(lines) +
                                   "\n\nA checkpoint is recorded so the change can be recovered. Approve and apply?")
         if ok != QMessageBox.StandardButton.Yes:
-            return None
-        return self._run("Applying", lambda: (self.s.approve_plan(plan_id, "gui-user"), self.s.apply_plan(plan_id))[1])
+            return False
+        approved = self._run("Approving", lambda: self.s.approve_plan(plan_id, "gui-user"))
+        if not approved:
+            return False
+        return self._start_background("Applying",
+                                      lambda *, cancel_token, progress: self.s.apply_plan(
+                                          plan_id, cancel_token=cancel_token, progress=progress),
+                                      on_success=on_success, on_cancel=on_cancel)
 
     # -- UI-008 Component Manager -----------------------------------------------------------
     def _components(self) -> QWidget:
@@ -339,10 +453,12 @@ class MainWindow(QMainWindow):
 
     def apply_cm_plan(self) -> None:
         if self.cm_plan_id:
-            r = self._approve_and_apply(self.cm_plan_id)
-            if r:
-                self.cm_out.setPlainText(json.dumps(r, indent=2, default=str))
-                self.load_components()
+            self._approve_and_apply(
+                self.cm_plan_id,
+                on_success=lambda result: (self.cm_out.setPlainText(json.dumps(result, indent=2, default=str)),
+                                           self.load_components()),
+                on_cancel=lambda result: self.cm_out.setPlainText(json.dumps(result, indent=2, default=str))
+            )
 
     # -- UI-013 Design System ---------------------------------------------------------------
     def _design_system(self) -> QWidget:
@@ -508,10 +624,17 @@ class MainWindow(QMainWindow):
         return w
 
     def verify(self) -> None:
-        r = self._run("Verifying", lambda: self.s.verify_project(self.q_path.text()))
-        if r:
-            r = {k: r[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}
-            self.q_out.setPlainText(json.dumps(r, indent=2))
+        path = self.q_path.text()
+        self._start_background(
+            "Verifying",
+            lambda *, cancel_token, progress: self.s.verify_project(
+                path, cancel_token=cancel_token, progress=progress),
+            on_success=lambda result: self.q_out.setPlainText(json.dumps(
+                {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2)),
+            on_cancel=lambda result: self.q_out.setPlainText(json.dumps(
+                {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
+                 if k in result}, indent=2))
+        )
 
     def report(self) -> None:
         r = self._run("Building report", lambda: self.s.compliance_report(None, self.q_path.text()))
