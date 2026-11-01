@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 
 from app_forge.catalog.registry import compute_artifact_digest, seal_component
+from app_forge.catalog.attestation import verify_component
 from app_forge.domain.errors import ConflictFailure, SecurityBlock, ValidationFailure
 from app_forge.domain.models import ARCHETYPES, CATEGORIES, ID_RE, parse_manifest
 from app_forge.security import redact, safe_join
@@ -251,7 +252,8 @@ def _extract_safely(zip_path: Path, dest: Path) -> Path:
     return dest / next(iter(roots))
 
 
-def add_to_catalog(src: Path, catalog_root: Path) -> dict:
+def add_to_catalog(src: Path, catalog_root: Path, *, trusted_keys: Path | None = None,
+                   unsigned_policy: str = "warn") -> dict:
     """Validate a component directory or .zip and copy it into a catalog root. Never overwrites."""
     src = Path(src)
     with tempfile.TemporaryDirectory() as tmp:
@@ -262,9 +264,17 @@ def add_to_catalog(src: Path, catalog_root: Path) -> dict:
         if not report["ok"]:
             raise ValidationFailure("Component failed validation", details=report["problems"])
         manifest = parse_manifest(tomllib.loads((vdir / "component.toml").read_text(encoding="utf-8")))
+        signature = verify_component(vdir, trusted_keys or Path(".") / "trusted-keys")
+        if signature["status"] == "unsigned" and unsigned_policy == "deny":
+            raise SecurityBlock("unsigned component rejected by unsigned_component_policy=deny")
+        if unsigned_policy not in ("allow", "warn", "deny"):
+            raise ValidationFailure("unsigned_policy must be allow, warn, or deny")
         dest = Path(catalog_root) / manifest.id / manifest.version
         if dest.exists():
             raise ConflictFailure(f"{manifest.id}@{manifest.version} is already in the catalog (versions are immutable)")
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(vdir, dest, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    return {"added": f"{manifest.id}@{manifest.version}", "path": str(dest), "warnings": report["warnings"]}
+    warnings = list(report["warnings"])
+    if signature["status"] == "unsigned" and unsigned_policy == "warn":
+        warnings.append("unsigned artifact accepted by warning policy")
+    return {"added": f"{manifest.id}@{manifest.version}", "path": str(dest), "warnings": warnings}
