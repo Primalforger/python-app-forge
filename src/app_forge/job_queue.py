@@ -6,6 +6,7 @@ SQLite write transactions so multiple worker processes can safely share a queue.
 from __future__ import annotations
 
 import json
+from contextlib import closing
 import math
 import sqlite3
 import time
@@ -48,7 +49,7 @@ class JobQueue:
         self.timeout = float(timeout)
         self.max_payload_bytes = max_payload_bytes
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -181,7 +182,7 @@ class JobQueue:
         return self._job(updated)
 
     def get(self, job_id: str) -> Job:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             row = connection.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
         if row is None:
             raise KeyError(f"unknown job {job_id!r}")
@@ -192,7 +193,7 @@ class JobQueue:
             raise ValueError("status must be pending, running, succeeded or dead")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("limit must be an integer from 1 to 1000")
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             if status is None:
                 rows = connection.execute(
                     "SELECT * FROM jobs ORDER BY created_at, id LIMIT ?", (limit,)
