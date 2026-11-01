@@ -801,3 +801,15 @@ acceptance = "Appending creates monotonically sequenced records with actor, ISO-
 modules = ["app_forge.audit_log", "app_forge.cli.main"]
 verified_by = ["tests/test_audit_log.py", "tests/test_cli_architecture.py"]
 implemented = true
+
+[[requirement]]
+id = "C-17"
+title = "Safe local file store"
+description = "Root-confined local file storage with traversal and symlink rejection, bounded files, atomic writes, deterministic listing and explicit deletion."
+priority = "P1"
+source = "roadmap C-17"
+method = "test"
+acceptance = "Tests prove path containment, symlink rejection, atomic bounded writes, deterministic listing, directory creation and safe deletion."
+modules = ["app_forge.file_store"]
+verified_by = ["tests/test_file_store.py"]
+implemented = true
