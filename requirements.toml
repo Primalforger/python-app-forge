@@ -750,3 +750,16 @@ acceptance = "Retry attempts and delays are bounded and validated; retry predica
 modules = ["app_forge.retry"]
 verified_by = ["tests/test_retry.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-13"
+title = "Feature flag registry"
+description = "Provide a thread-safe in-process registry of named boolean flags with explicit defaults and runtime overrides."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Flag names and values are validated; duplicate registration and unknown-flag access fail explicitly; overrides do not mutate defaults; clearing overrides restores defaults; snapshots are independent copies; concurrent reads and writes remain safe."
+modules = ["app_forge.feature_flags"]
+verified_by = ["tests/test_feature_flags.py"]
+implemented = true
