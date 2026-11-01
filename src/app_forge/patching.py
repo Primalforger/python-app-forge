@@ -296,6 +296,17 @@ def _toml_existing_table(text: str, content: str, patch: Patch, comp_id: str):
 def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace: bool = False,
                 expect_sha: str | None = None) -> PatchResult:
     """Apply one patch to `text`. Raises PatchConflict for anything unsafe or ambiguous."""
+    if patch.kind == "framework-register":
+        from app_forge.framework_adapters import Registration, apply_registration
+        registration = patch.registration
+        spec = Registration(
+            framework=registration.get("framework", ""),
+            module=render_text(registration.get("module", ""), {"package": package}),
+            symbol=registration.get("symbol", ""),
+            application=registration.get("application", ""),
+            route=registration.get("route", ""),
+        )
+        return apply_registration(text, spec, comp_id, patch.id, replace=replace, expect_sha=expect_sha)
     if patch.kind in ("json-merge", "yaml-merge"):
         return _apply_structured(text, patch, package, patch.kind == "yaml-merge")
     content = render_text(patch.content, {"package": package})
