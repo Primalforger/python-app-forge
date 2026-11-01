@@ -186,7 +186,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 ### Need the patch engine (G-01)
 
 - [x] **C-29 SQLAlchemy + Alembic migrations** (L): optional SQLAlchemy/Alembic extra; read-only revision planning; explicit irreversible-side-effect consent; exclusive migration lock; atomic private journal; failed/interrupted runs require operator inspection and are never auto-downgraded. Verified by tests/test_migrations.py.
-- [ ] **C-30 SQLite repository layer** (M)
+- [x] **C-30 SQLite repository layer** (M): optional SQLAlchemy SQLite engine with foreign keys, WAL and busy timeout; explicit schema creation; short-lived sessions and atomic transaction scopes; generic typed-model CRUD, required lookup, validated filters/order, bounded pagination and counts; shared in-memory database support. Existing stdlib persistence remains unchanged. Verified by `tests/test_sqlite_repository.py`.
 - [ ] **C-31 PostgreSQL adapter** (M, needs C-29)
 - [ ] **C-32 JWT authentication using an established library** (M, web)
 - [ ] **C-33 RBAC** (M, web; needs C-32)

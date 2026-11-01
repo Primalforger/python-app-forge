@@ -964,3 +964,16 @@ acceptance = "Planning reports current revision and heads without writes; multip
 modules = ["app_forge.migrations"]
 verified_by = ["tests/test_migrations.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-30"
+title = "SQLAlchemy SQLite repository layer"
+description = "Provide an optional SQLAlchemy-backed SQLite database lifecycle and generic repository adapter without replacing the existing standard-library metadata store."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "SQLAlchemy is optional and imported lazily at the module boundary; file databases enable foreign keys, busy timeout and WAL; in-memory databases share state across sessions; schema creation is explicit; CRUD, required lookup, validated filters/order, bounded pagination and counts work; transactions roll back on exceptions; sessions and engines close deterministically."
+modules = ["app_forge.sqlite_repository"]
+verified_by = ["tests/test_sqlite_repository.py"]
+implemented = true
