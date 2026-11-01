@@ -81,28 +81,30 @@ class HashChainedAuditLog:
         except ValueError as exc:
             raise ValueError("timestamp must be ISO-8601") from exc
 
-        with _LOCK, self.path.open("a+", encoding="utf-8", newline="\n") as stream:
-            _lock_file(stream)
+        lock_path = self.path.with_name(self.path.name + ".lock")
+        with _LOCK, lock_path.open("a+", encoding="utf-8") as lock_stream:
+            _lock_file(lock_stream)
             try:
-                stream.seek(0)
-                records, valid = self._read_stream(stream)
-                if not valid["ok"]:
-                    raise AuditLogError("cannot append to an invalid audit log")
-                record: dict[str, Any] = {
-                    "sequence": len(records) + 1,
-                    "timestamp": moment,
-                    "actor": actor,
-                    "event": encoded_event,
-                    "previous_hash": records[-1]["hash"] if records else _GENESIS,
-                }
-                record["hash"] = _digest(record)
-                stream.seek(0, os.SEEK_END)
-                stream.write(_canonical(record).decode("utf-8") + "\n")
-                stream.flush()
-                os.fsync(stream.fileno())
-                return record.copy()
+                with self.path.open("a+", encoding="utf-8", newline="\\n") as stream:
+                    stream.seek(0)
+                    records, valid = self._read_stream(stream)
+                    if not valid["ok"]:
+                        raise AuditLogError("cannot append to an invalid audit log")
+                    record: dict[str, Any] = {
+                        "sequence": len(records) + 1,
+                        "timestamp": moment,
+                        "actor": actor,
+                        "event": encoded_event,
+                        "previous_hash": records[-1]["hash"] if records else _GENESIS,
+                    }
+                    record["hash"] = _digest(record)
+                    stream.seek(0, os.SEEK_END)
+                    stream.write(_canonical(record).decode("utf-8") + "\\n")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                    return record.copy()
             finally:
-                _unlock_file(stream)
+                _unlock_file(lock_stream)
 
     def verify(self) -> dict[str, Any]:
         """Return a stable report; malformed lines are reported, never repaired."""
