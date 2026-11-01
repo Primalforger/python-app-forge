@@ -820,6 +820,8 @@ class ForgeServices:
 
     def add_to_catalog(self, path: str | Path) -> dict:
         with self.operation("catalog_add", path):
-            r = authoring.add_to_catalog(Path(path), self.settings.user_catalog)
+            r = authoring.add_to_catalog(Path(path), self.settings.user_catalog,
+                                         trusted_keys=self.settings.trusted_keys_dir,
+                                         unsigned_policy=self.settings.unsigned_component_policy)
             self.registry.scan(refresh=True)
             return r
