@@ -49,7 +49,7 @@ class OnlineCatalogRefreshTests(ForgeTestCase):
         cls.thread.join(timeout=5)
 
     def _publish(self, component_id="acme.remote", tamper_archive=False):
-        component = self.custom_component(component_id)
+        component = self.custom_component(component_id, root=self.tmp / "published")
         private, public = self.tmp / "release.pem", self.tmp / "release.pub"
         generate_keypair(private, public, key_id="remote-release")
         sign_component(component, private, key_id="remote-release")
@@ -62,7 +62,7 @@ class OnlineCatalogRefreshTests(ForgeTestCase):
             rewritten = io.BytesIO()
             with zipfile.ZipFile(rewritten, "w", zipfile.ZIP_DEFLATED) as target:
                 for name, data in members:
-                    if name.endswith("/files/src/signed.py"):
+                    if name.endswith("/files/src/remote.py"):
                         data += b"\\n# tampered after signing\\n"
                     target.writestr(name, data)
             payload = rewritten.getvalue()
