@@ -26,13 +26,19 @@ def configure_security(app: FastAPI) -> None:
     async def rate_limit_and_headers(request, call_next):
         now = time.monotonic()
         client = request.client.host if request.client else "unknown"
+        if client not in requests and len(requests) >= 10000:
+            oldest = next(iter(requests))
+            del requests[oldest]
         bucket = requests[client]
         while bucket and bucket[0] <= now - window:
             bucket.popleft()
         if len(bucket) >= limit:
             from fastapi.responses import JSONResponse
-            response = JSONResponse(status_code=429, content={"detail": "rate limit exceeded"},
-                                    headers={"Retry-After": str(max(1, int(window - (now - bucket[0]))))})
+            retry_after = str(max(1, int(window - (now - bucket[0]))))
+            response = JSONResponse(status_code=429, content={
+                "type": "about:blank", "title": "Too Many Requests", "status": 429,
+                "detail": "rate limit exceeded"
+            }, media_type="application/problem+json", headers={"Retry-After": retry_after})
         else:
             bucket.append(now)
             response = await call_next(request)
