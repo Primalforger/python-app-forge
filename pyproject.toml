@@ -20,7 +20,8 @@ keyring = ["keyring>=25"]
 migrations = ["SQLAlchemy>=2.0", "alembic>=1.13"]
 sqlite = ["SQLAlchemy>=2.0"]
 postgres = ["SQLAlchemy>=2.0", "psycopg[binary]>=3.2"]
-dev = ["pytest>=8", "ruff", "mypy", "jsonschema>=4.25", "SQLAlchemy>=2.0"]
+prometheus = ["prometheus-client>=0.20"]
+dev = ["pytest>=8", "ruff", "mypy", "jsonschema>=4.25", "SQLAlchemy>=2.0", "prometheus-client>=0.20"]
 
 [project.scripts]
 forge = "app_forge.cli.main:main"

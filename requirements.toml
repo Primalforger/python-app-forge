@@ -1051,3 +1051,16 @@ acceptance = "Liveness remains available without authentication; readiness repor
 modules = ["web-fastapi.readiness", "web-fastapi.api", "service-worker.health"]
 verified_by = ["src/app_forge/data/templates/web/tree/tests/test_readiness.py", "src/app_forge/data/templates/service/tree/tests/test_health.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-37"
+title = "Prometheus metrics"
+description = "Provide optional Prometheus metrics primitives and explicit FastAPI instrumentation with low-cardinality labels."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The prometheus extra installs prometheus-client; isolated registries expose request counters, duration histograms and in-flight gauges; request recording validates status and finite non-negative durations, normalizes unknown methods, rejects raw/unbounded route labels, and renders Prometheus exposition; FastAPI middleware and scrape endpoint are explicit opt-in."
+modules = ["app_forge.metrics"]
+verified_by = ["tests/test_metrics.py"]
+implemented = true

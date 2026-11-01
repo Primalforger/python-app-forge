@@ -193,7 +193,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-34 CORS, rate limiting and security headers** (M, web): explicit-origin CORS only, bounded per-client sliding-window limiter, defensive browser headers and HTTPS-only HSTS; distributed deployments must use a shared gateway/store.
 - [x] **C-35 Problem-details error format** (S, web): RFC 9457 application/problem+json for HTTP, validation and unexpected errors; unexpected exception details are never reflected.
 - [x] **C-36 Health and readiness endpoints** (S, web and service): unauthenticated liveness and registered dependency readiness probes; readiness returns 503 unless every check returns exactly True.
-- [ ] **C-37 Prometheus metrics** (M)
+- [x] **C-37 Prometheus metrics** (M): optional prometheus-client instrumentation with an isolated registry, request counter, duration histogram, in-flight gauge, FastAPI middleware and scrape endpoint; validates bounded route-template labels and normalizes unknown methods. Verified by `tests/test_metrics.py`.
 - [ ] **C-38 Command palette** (M, desktop)
 - [ ] **C-39 Crash reporter** (M, desktop): local only, with redaction and no hidden network activity.
 - [ ] **C-40 Dockerfile, systemd and Windows-service generators** (M)
