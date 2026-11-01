@@ -74,7 +74,7 @@ class CliTests(ForgeTestCase):
 
     def test_hash_chained_audit_cli(self):
         path = self.tmp / "audit.jsonl"
-        code, out, _ = self.run_cli("audit", "append", str(path), "--actor", "test-user",
+        code, out, _ = self.run_cli("--json", "audit", "append", str(path), "--actor", "test-user",
                                     "--event", '{"action":"created"}')
         self.assertEqual(code, 0)
         self.assertTrue(json.loads(out)["result"]["appended"])
