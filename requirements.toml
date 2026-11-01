@@ -775,3 +775,16 @@ acceptance = "Jobs persist across queue instances; claims are atomic across conc
 modules = ["app_forge.job_queue"]
 verified_by = ["tests/test_job_queue.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-15"
+title = "Secret providers"
+description = "Provide named secret access through read-only environment variables, an optional OS keyring adapter, and a permission-checked local file store. Secret values redact implicit string and representation output."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Secret values are available only through explicit reveal; str/repr and provider error messages never include values; environment access is read-only; keyring is loaded lazily and failures are sanitized; file storage rejects symlinks, malformed records and permissive POSIX modes, uses mode 0600 and atomic writes, and persists values across instances."
+modules = ["app_forge.secret_providers"]
+verified_by = ["tests/test_secret_providers.py"]
+implemented = true
