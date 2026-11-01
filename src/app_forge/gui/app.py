@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout,
@@ -521,7 +522,7 @@ class MainWindow(QMainWindow):
         self.apply_theme()
 
     # -- UI-014 Table Designer --------------------------------------------------------------
-    SAMPLE_TABLE = {"name": "Orders", "columns": [{"key": "id", "type": "number"}, {"key": "status", "type": "category"},
+    SAMPLE_TABLE: dict[str, Any] = {"name": "Orders", "columns": [{"key": "id", "type": "number"}, {"key": "status", "type": "category"},
                                                   {"key": "placed", "type": "date"}],
                     "default_sort": [{"column": "placed", "descending": True}],
                     "filters": [{"column": "status", "op": "eq", "value": "open"}], "filter_mode": "and",
@@ -540,9 +541,7 @@ class MainWindow(QMainWindow):
         self.td_columns.setAccessibleName("Table columns grid")
         self.td_columns.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.td_columns.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.td_columns.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked |
-                                        QAbstractItemView.EditTrigger.EditKeyPressed |
-                                        QAbstractItemView.EditTrigger.AnyKeyPressed)
+        self.td_columns.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self.td_columns.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         v.addWidget(self.td_columns, 2)
         controls = QHBoxLayout()
