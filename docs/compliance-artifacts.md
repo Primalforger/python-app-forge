@@ -18,7 +18,7 @@ forge compliance artifact CMP-09 --project ./my-app --input change-impact.json
 forge compliance artifact CMP-11 --project ./my-app --input exceptions.json
 ```
 
-Records are stored under `.forge/compliance/`. Re-running a record type replaces that type's prior record. Forge validates required fields and refuses symlinked metadata targets. The input remains under human control: Forge does not invent threat assessments, approvals, exceptions or verification results.
+Records are stored under `.forge/compliance/`. Re-running a record type replaces that type's prior record. Forge validates required fields, non-empty collections, nested record fields, unique interface/exception identifiers and ISO-formatted exception expiry dates. Records are revalidated when loaded, and symlinked metadata targets are refused. The input remains under human control: Forge does not invent threat assessments, approvals, exceptions or verification results.
 
 ## SBOM and licence policy
 
