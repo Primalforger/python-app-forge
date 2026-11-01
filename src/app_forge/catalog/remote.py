@@ -104,4 +104,4 @@ def refresh_catalog(sources: list[str], catalog_root: Path, trusted_keys: Path,
                 if result["added"] != expected_identity:
                     raise SecurityBlock("catalog index identity does not match the signed component artifact")
                 imported.append({"source": source, **result})
-    return {"refreshed": len(imported), "imported": imported, "failures": failures}
+    return {"refreshed": len(imported), "imported": imported}
