@@ -568,3 +568,16 @@ acceptance = "The real-Qt GUI suite verifies initial columns, editing a column k
 modules = ["app_forge.gui.app", "app_forge.services", "app_forge.table_designer"]
 verified_by = ["tests/test_gui_qt.py", "tests/test_upgrade_cli_gui.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-24"
+title = "Dedicated GUI workflow screens"
+description = "Project Wizard, Generation Review, Configuration Center and Diagnostics are distinct, accessible navigation screens; generation review is a dry run and never creates project files."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Navigation exposes the dedicated screens; the wizard opens a separate generation review, review invokes dry_run=true and leaves the output path untouched; Qt stand-in and real-PySide6 GUI tests pass."
+modules = ["app_forge.gui.app", "app_forge.services"]
+verified_by = ["tests/test_upgrade_cli_gui.py", "tests/test_gui_qt.py"]
+implemented = true

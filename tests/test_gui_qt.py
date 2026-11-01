@@ -68,6 +68,14 @@ class RealQtTests(ForgeTestCase):
         QTest.keyClick(self.win.nav, Qt.Key.Key_Up)
         self.assertEqual(self.win.stack.currentIndex(), 0)
 
+    def test_project_wizard_opens_dedicated_generation_review(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
+        self.win.t_name.setText("Reviewed Qt App")
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Generation Review"))
+        self.win.review_generation()
+        self.assertIn("Reviewed Qt App", self.win.gr_out.toPlainText())
+        self.assertFalse((self.tmp / "reviewed-qt-app").exists())
+
     def test_catalog_search_filters(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Component Catalog"))
         self.assertGreater(self.win.c_table.rowCount(), 3)
