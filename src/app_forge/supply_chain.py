@@ -208,6 +208,6 @@ def serialize_sbom(document: dict) -> str:
     try:
         return json.dumps(
             document, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
-        ) + "\\n"
+        ) + "\n"
     except (TypeError, ValueError) as exc:
         raise ValidationFailure(f"SBOM document is not valid JSON data: {exc}") from None
