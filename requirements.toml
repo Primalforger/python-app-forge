@@ -633,3 +633,16 @@ acceptance = "Saved views round-trip, list deterministically, apply to a table m
 modules = ["app_forge.table_views"]
 verified_by = ["tests/test_table_views.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-02"
+title = "Table column width persistence"
+description = "Table presentations can retain user-adjusted logical-pixel widths for known columns without storing row data or executable content."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Widths are bounded integers, unknown columns and malformed or unsupported persisted state are rejected, missing storage loads as an empty layout, and writes use atomic replacement."
+modules = ["app_forge.table_layout"]
+verified_by = ["tests/test_table_layout.py"]
+implemented = true

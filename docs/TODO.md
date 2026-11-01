@@ -152,7 +152,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 ### Quick wins (no blockers)
 
 - [x] **C-01 Table: saved views and presets** (S, lib): persistent named presets for column order/visibility, filters, sort, search and page size; validated JSON state, atomic file replacement, and explicit apply/delete operations. Verified by `tests/test_table_views.py`.
-- [ ] **C-02 Table: column resize and persistence** (S, lib)
+- [x] **C-02 Table: column resize and persistence** (S, lib): validated logical-pixel widths per known column, bounded to 24–2000 px, persisted as schema-versioned JSON with atomic replacement; missing files default cleanly and corrupt or stale column metadata fails closed. Verified by `tests/test_table_layout.py`.
 - [ ] **C-03 Table: group-by and aggregates** (M, lib)
 - [ ] **C-04 Table: server-side mode** (M, lib): the same interface backed by a query callback.
 - [ ] **C-05 Table: XLSX and PDF export adapters** (M, lib): optional dependencies.
