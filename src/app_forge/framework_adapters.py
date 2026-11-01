@@ -86,7 +86,7 @@ def registration_content(spec: Registration, application: str = "app") -> str:
         return f"from {spec.module} import {spec.symbol}\n{application}.register_blueprint({spec.symbol})\n"
     if spec.framework == "django":
         route = spec.route
-        if any(ch in route for ch in '\r\n"\\'):
+        if any(ch in route for ch in ("\r", "\n", '"', "\\")):
             raise ValidationFailure("Django route must be a simple quoted URL prefix")
         return (
             "from django.urls import include, path\n"
