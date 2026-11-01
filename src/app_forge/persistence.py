@@ -26,6 +26,7 @@ class MetadataStore(Protocol):
     def enabled_plugins(self) -> set[str]: ...
     def replace_index(self, rows: list[dict]) -> None: ...
     def read_index(self) -> list[dict]: ...
+    def prune_history(self, evidence_before: str, operations_before: str, *, apply: bool) -> dict: ...
 
 
 _SCHEMA = """
@@ -147,3 +148,22 @@ class SqliteStore:
     def read_index(self):
         with self._conn() as c:
             return [dict(r) for r in c.execute("SELECT * FROM catalog_index ORDER BY component_id, version")]
+
+    def prune_history(self, evidence_before, operations_before, *, apply):
+        """Count or prune old evidence and completed operation history in one transaction."""
+        with self._conn() as c:
+            evidence = c.execute(
+                "SELECT COUNT(*) FROM evidence WHERE recorded_at < ?", (evidence_before,)
+            ).fetchone()[0]
+            operations = c.execute(
+                "SELECT COUNT(*) FROM operations WHERE finished IS NOT NULL AND finished < ?",
+                (operations_before,),
+            ).fetchone()[0]
+            if apply:
+                c.execute("DELETE FROM evidence WHERE recorded_at < ?", (evidence_before,))
+                c.execute(
+                    "DELETE FROM operations WHERE finished IS NOT NULL AND finished < ?",
+                    (operations_before,),
+                )
+            return {"evidence": evidence, "operations": operations}
+
