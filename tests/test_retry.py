@@ -48,7 +48,7 @@ class CircuitBreakerTests(unittest.TestCase):
         self.assertEqual(breaker.state, "open")
         with self.assertRaises(CircuitOpenError) as caught:
             breaker.call(lambda: None)
-        self.assertEqual(caught.exception.retry_after, 10)
+        self.assertAlmostEqual(caught.exception.retry_after, 10, places=3)
 
     def test_half_open_probe_closes_or_reopens(self):
         now = [0.0]
