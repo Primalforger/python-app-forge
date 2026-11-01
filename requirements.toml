@@ -711,3 +711,16 @@ acceptance = "String, integer, float, boolean and choice fields render with type
 modules = ["app_forge.qt_settings"]
 verified_by = ["tests/test_qt_settings.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-08"
+title = "Undo and redo command history"
+description = "Provide a bounded, framework-independent undo/redo stack with safe command execution and history transitions."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Commands execute before being recorded; undo and redo preserve history when an operation raises; new commands clear redo history; history is bounded and empty operations are safe."
+modules = ["app_forge.undo"]
+verified_by = ["tests/test_undo.py"]
+implemented = true
