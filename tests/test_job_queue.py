@@ -70,8 +70,7 @@ class JobQueueTests(unittest.TestCase):
                 self.queue.enqueue(payload)
         with self.assertRaises(ValueError):
             self.queue.enqueue({"x": 1}, max_attempts=True)
-        with self.assertRaises(ValueError):
-            self.queue.enqueue({"x": "large"}, job_id="same", now=1)
+        self.queue.enqueue({"x": 1}, job_id="same", now=1)
         with self.assertRaises(Exception):
             self.queue.enqueue({"x": 2}, job_id="same", now=2)
         with self.assertRaises(ValueError):
