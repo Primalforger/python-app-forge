@@ -240,6 +240,8 @@ class TemplateEngine:
         variables["dev_dependencies_block"] = block(dev_packages)
         render_variables = {key: value for key, value in variables.items() if isinstance(value, str)}
         files: dict[str, str] = {}
+        common_originals: dict[str, str] = {}
+        common_overridden: set[str] = set()
         common_added = False
         for item in expanded:
             common = item.root.parent / "_common" / "tree"
@@ -252,6 +254,7 @@ class TemplateEngine:
             for tree in trees:
                 if not tree.is_dir():
                     continue
+                is_common = tree == common and not item.standalone
                 for src in sorted(p for p in tree.rglob("*") if p.is_file() and "__pycache__" not in p.parts
                                   and p.suffix not in (".pyc", ".pyo")):
                     parts = []
@@ -260,7 +263,24 @@ class TemplateEngine:
                         parts.append(part.replace("__package__", variables["package"]))
                     rel = "/".join(parts)
                     content = render_text(src.read_text(encoding="utf-8"), render_variables)
-                    if rel in files and files[rel] != content:
+                    if is_common:
+                        common_originals[rel] = content
+                        files[rel] = content
+                        continue
+                    # Exported standalone bundles contain a materialized copy of common files.
+                    # Do not let that copy erase a more specific included-template override.
+                    if item.standalone and item.includes and rel in common_originals and content == common_originals[rel]:
+                        continue
+                    # A bundle's own standalone tree is the final, explicit override layer.
+                    if item is info and item.standalone and item.includes and rel in common_originals:
+                        files[rel] = content
+                        common_overridden.add(rel)
+                        continue
+                    if rel in common_originals and rel not in common_overridden:
+                        files[rel] = content
+                        common_overridden.add(rel)
+                    elif rel in files and files[rel] != content:
                         raise ValidationFailure(f"Included templates both define {rel!r} with different content")
-                    files[rel] = content
+                    else:
+                        files[rel] = content
         return dict(sorted(files.items()))

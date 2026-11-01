@@ -23,7 +23,7 @@ class TemplateTests(ForgeTestCase):
         import tomllib
         s = self.services()
         cases = (
-            ("desktop-worker", {"desktop", "service"}, {"PySide6"}),
+            ("desktop-worker", {"desktop", "service"}, {"pyside6"}),
             ("web-scheduler", {"web", "service"}, {"fastapi", "uvicorn"}),
         )
         for template, expected_archetypes, expected_dependencies in cases:
