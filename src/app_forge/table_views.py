@@ -13,7 +13,7 @@ from typing import Any
 
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9 _.-]{0,63}$")
 _OPERATORS = {"eq", "ne", "contains", "gt", "gte", "lt", "lte", "between", "in"}
-_STATE_KEYS = {"columns", "sort", "filters", "filter_mode", "search_text", "page_size"}
+_STATE_KEYS = {"columns", "visible_columns", "sort", "filters", "filter_mode", "search_text", "page_size"}
 
 
 def normalize_view(state: dict[str, Any], column_keys: set[str]) -> dict[str, Any]:
@@ -27,7 +27,7 @@ def normalize_view(state: dict[str, Any], column_keys: set[str]) -> dict[str, An
     if (not isinstance(columns, list) or any(not isinstance(k, str) for k in columns)
             or len(columns) != len(set(columns)) or set(columns) != column_keys):
         raise ValueError("columns must contain every table column exactly once")
-    sort = state.get("sort", [])
+    visible = state.get("visible_columns", columns)\n    if not isinstance(visible, list) or any(not isinstance(k, str) for k in visible) or len(visible) != len(set(visible)) or not set(visible) <= column_keys:\n        raise ValueError("visible_columns must contain unique known column keys")\n    sort = state.get("sort", [])
     if not isinstance(sort, list):
         raise ValueError("sort must be a list")
     normalized_sort = []
@@ -54,7 +54,7 @@ def normalize_view(state: dict[str, Any], column_keys: set[str]) -> dict[str, An
         raise ValueError("search_text must be a string")
     if not isinstance(size, int) or isinstance(size, bool) or not 1 <= size <= 1000:
         raise ValueError("page_size must be an integer from 1 to 1000")
-    result = {"columns": columns, "sort": normalized_sort, "filters": normalized_filters,
+    result = {"columns": columns, "visible_columns": visible, "sort": normalized_sort, "filters": normalized_filters,
               "filter_mode": mode, "search_text": search, "page_size": size}
     try:
         json.dumps(result, allow_nan=False)
