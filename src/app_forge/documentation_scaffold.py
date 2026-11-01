@@ -51,7 +51,9 @@ def validate_documentation_project(project: DocumentationProject) -> Documentati
     python_requires = _required(project.python_requires, "python_requires", limit=80)
     if not python_requires.startswith((">=", "==", "~=")):
         raise ValueError("python_requires must be a supported version constraint")
-    license_name = _required(project.license, "license", limit=100)\n    if "\\n" in license_name or "\\r" in license_name:\n        raise ValueError("license must be a single line")
+    license_name = _required(project.license, "license", limit=100)
+    if "\n" in license_name or "\r" in license_name:
+        raise ValueError("license must be a single line")
     repository_url = project.repository_url
     if repository_url is not None:
         repository_url = _required(repository_url, "repository_url", limit=500)
