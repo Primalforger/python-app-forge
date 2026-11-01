@@ -10,6 +10,8 @@ import json
 import sys
 from pathlib import Path
 
+import yaml
+
 from app_forge import __version__
 from app_forge.domain.errors import EXIT_CONFLICT, EXIT_INTERNAL, EXIT_OK, EXIT_UNAVAILABLE, EXIT_VALIDATION, EXIT_VERIFICATION
 from app_forge.domain.errors import ForgeError, ValidationFailure
@@ -99,9 +101,26 @@ def _emit_conflict_report(result: dict) -> None:
             print(f"   Suggested resolution: {conflict['resolution']}")
 
 
+def _table(value) -> str:
+    if not isinstance(value, list) or not value or not all(isinstance(row, dict) for row in value):
+        return _fmt(value)
+    columns = list(dict.fromkeys(key for row in value for key in row))
+    cells = [[str(row.get(key, "")) for key in columns] for row in value]
+    widths = [max([len(str(key))] + [len(row[i]) for row in cells]) for i, key in enumerate(columns)]
+    line = "-+-".join("-" * width for width in widths)
+    header = " | ".join(str(key).ljust(widths[i]) for i, key in enumerate(columns))
+    body = [" | ".join(row[i].ljust(widths[i]) for i in range(len(columns))) for row in cells]
+    return "\n".join([header, line, *body])
+
+
 def _emit(args, result) -> None:
-    if args.json:
+    output = "json" if args.json else args.output
+    if output == "json":
         print(json.dumps({"ok": True, "result": result}, indent=2, sort_keys=True, default=str))
+    elif output == "yaml":
+        print(yaml.safe_dump(result, sort_keys=False, allow_unicode=True, default_flow_style=False), end="")
+    elif output == "table":
+        print(_table(result))
     elif isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
         _emit_template_update_preview(result)
     elif isinstance(result, dict) and result.get("kind") == "conflict-report":
@@ -430,11 +449,24 @@ def c_gc(s, a):
     return s.garbage_collect(apply=a.apply), 0
 
 
+def c_completion(_services, a):
+    commands = "init template component trust catalog project integrate dependency test quality architecture trace compliance table config plugin doctor gc history completion"
+    if a.shell == "bash":
+        script = "_forge_completion() {\n  local cur=\"${COMP_WORDS[COMP_CWORD]}\"\n  if [[ $COMP_CWORD -eq 1 ]]; then\n    COMPREPLY=( $(compgen -W \"" + commands + "\" -- \"$cur\") )\n  elif [[ $COMP_CWORD -eq 2 ]]; then\n    case \"${COMP_WORDS[1]}\" in\n      template) COMPREPLY=( $(compgen -W 'list inspect validate export import' -- \"$cur\") ) ;;\n      component) COMPREPLY=( $(compgen -W 'search inspect add remove upgrade outdated verify enable disable new validate seal pack sign' -- \"$cur\") ) ;;\n      integrate) COMPREPLY=( $(compgen -W 'plan preview conflicts approve apply status recover' -- \"$cur\") ) ;;\n      *) ;;\n    esac\n  fi\n}\ncomplete -F _forge_completion forge\n"
+    elif a.shell == "zsh":
+        script = "# Add this file to fpath and run compinit.\n_forge() {\n  local -a commands\n  commands=(" + commands + ")\n  _arguments '1:command:((" + commands + "))' '2:action:((list inspect validate export import search add remove upgrade verify plan preview approve apply status recover))'\n}\ncompdef _forge forge\n"
+    else:
+        script = "# Save as ~/.config/fish/completions/forge.fish\ncomplete -c forge -f -n 'not __fish_seen_subcommand_from " + commands + "' -a '" + commands + "'\ncomplete -c forge -f -n '__fish_seen_subcommand_from template' -a 'list inspect validate export import'\ncomplete -c forge -f -n '__fish_seen_subcommand_from component' -a 'search inspect add remove upgrade outdated verify enable disable new validate seal pack sign'\ncomplete -c forge -f -n '__fish_seen_subcommand_from integrate' -a 'plan preview conflicts approve apply status recover'\n"
+    return script, 0
+
+
 # ----------------------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="forge", description="Python App Forge: create, extend, verify applications.")
     p.add_argument("--version", action="version", version=f"forge {__version__}")
-    p.add_argument("--json", action="store_true", help="machine-readable JSON output")
+    p.add_argument("--json", action="store_true", help="deprecated alias for --output json")
+    p.add_argument("--output", choices=["text", "json", "yaml", "table"], default="text", help="output format (default: text)")
+    p.add_argument("--progress", choices=["auto", "always", "never"], default="auto", help="progress messages on stderr (default: auto)")
     p.add_argument("--home", help="platform data directory (default: $FORGE_HOME or ~/.app_forge)")
     p.add_argument("-v", "--verbose", action="count", default=0)
     p.add_argument("--non-interactive", action="store_true", help="never prompt; fail if confirmation is needed")
@@ -563,6 +595,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     grp("doctor", c_doctor, "environment diagnostics")
 
+    sp = grp("completion", c_completion, "print shell completion definitions")
+    sp.add_argument("shell", choices=["bash", "zsh", "fish"])
+
     sp = grp("gc", c_gc, "preview or remove expired Forge data")
     sp.add_argument("--apply", action="store_true", help="perform deletion (default is a safe dry run)")
 
@@ -614,14 +649,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         _normalise(args)
+        if args.group == "completion":
+            result, code = c_completion(None, args)
+            print(result, end="")
+            return code
+        progress = args.progress == "always" or (args.progress == "auto" and sys.stderr.isatty())
+        if progress:
+            print("forge: running " + args.group + " " + getattr(args, "action", ""), file=sys.stderr)
         services = ForgeServices(ForgeSettings.load(Path(args.home) if args.home else None), verbosity=args.verbose)
         result, code = args.fn(services, args)
+        if progress:
+            state = "completed" if code == 0 else "finished with exit code " + str(code)
+            print("forge: " + state, file=sys.stderr)
         if result is not None:
             _emit(args, result)
         return code
     except ForgeError as exc:
-        if args.json:
+        if args.json or args.output == "json":
             print(json.dumps({"ok": False, "error": exc.to_dict()}, indent=2, sort_keys=True))
+        elif args.output == "yaml":
+            print(yaml.safe_dump({"ok": False, "error": exc.to_dict()}, sort_keys=False), end="")
         else:
             print(f"error [{exc.category}]: {exc.message}", file=sys.stderr)
             for d in exc.details:
@@ -635,8 +682,10 @@ def main(argv: list[str] | None = None) -> int:
         print("cancelled", file=sys.stderr)
         return 130
     except Exception as exc:  # unexpected: never leak a traceback as success
-        if args.json:
+        if args.json or args.output == "json":
             print(json.dumps({"ok": False, "error": {"category": "internal", "message": f"{type(exc).__name__}: {exc}"}}))
+        elif args.output == "yaml":
+            print(yaml.safe_dump({"ok": False, "error": {"category": "internal", "message": f"{type(exc).__name__}: {exc}"}}, sort_keys=False), end="")
         else:
             print(f"internal error: {type(exc).__name__}: {exc}", file=sys.stderr)
         return EXIT_INTERNAL
