@@ -18,8 +18,11 @@ def _emit(payload: dict) -> None:
     encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
     if len(encoded.encode("utf-8")) > MAX_MESSAGE_BYTES:
         raise ValueError("IPC response exceeds the size limit")
-    sys.__stdout__.write(encoded + "\n")
-    sys.__stdout__.flush()
+    output = sys.__stdout__
+    if output is None:
+        raise RuntimeError("worker stdout is unavailable")
+    output.write(encoded + "\n")
+    output.flush()
 
 
 def main() -> int:
