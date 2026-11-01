@@ -157,7 +157,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-04 Table: server-side mode** (M, lib): the same interface backed by a query callback.
 - [x] **C-05 Table: XLSX and PDF export adapters** (M, lib): optional `openpyxl` and `reportlab` extras; visible columns and filtered/sorted rows are exported, with stable selected-row export and formula-safe spreadsheet strings.
 - [x] **C-06 Qt table view adapter** (M, lib): optional PySide6 `QAbstractTableModel` adapter exposes visible columns, delegates sorting, supports opt-in editing and synchronizes view selection to stable source row IDs; verified by real-Qt tests.
-- [ ] **C-07 Schema-driven settings dialog** (M, lib, desktop): builds a Qt form from a field schema.
+- [x] **C-07 Schema-driven settings dialog** (M, lib, desktop): optional PySide6 dialog builds accessible text, integer, float, boolean and choice controls from validated field mappings; required fields and numeric bounds are enforced before acceptance. Verified by real-Qt tests.
 - [ ] **C-08 Undo/redo stack** (S, lib, desktop)
 - [ ] **C-09 Recent files and session state** (S, lib, desktop)
 - [ ] **C-10 CLI output formatters** (S, lib): table, JSON, YAML, with colour control.
