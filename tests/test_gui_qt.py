@@ -132,8 +132,17 @@ class RealQtTests(ForgeTestCase):
         self.win.w_comp.setText("forge.forms-validation")
         self.win.make_plan()
         self.assertTrue(self.win.w_apply.isEnabled())
-        self.win.apply()
-        self._wait_for_background()
+        # This GUI test exercises the workbench's apply/recovery lifecycle. Keep
+        # project test execution out of this UI test: VerificationEngine has its
+        # own subprocess and cancellation coverage, and running an arbitrary
+        # generated project's test runner here makes the Qt suite nondeterministic.
+        verification = {
+            "run_id": "run-gui-integration", "overall": "passed", "passed": 1,
+            "failed": 0, "not_run": [], "complete": True, "evidence": [],
+        }
+        with mock.patch.object(self.s.integration._verifier, "run", return_value=verification):
+            self.win.apply()
+            self._wait_for_background()
         self.assertTrue((proj / "src/qt_flow/forms.py").is_file())
         self.assertTrue(self.win.w_recover.isEnabled())
         self.win.recover()

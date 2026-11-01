@@ -28,7 +28,7 @@ Generate offline CycloneDX 1.5 and SPDX 2.3 JSON:
 forge compliance sbom --project ./my-app --out ./evidence/sbom
 ```
 
-The SBOM includes installed Forge components and declared Python dependencies. Declared dependencies without resolved versions are represented as `UNKNOWN`; Forge does not pretend a requirement specifier is an installed package version.
+The SBOM includes installed Forge components and declared Python dependencies. Declared dependencies without resolved versions are represented as `UNKNOWN`; Forge does not pretend a requirement specifier is an installed package version. Inventory entries are validated before serialization, duplicate component identities and malformed dependency names are rejected, and package URLs are normalized. SPDX licence expressions are retained as expressions (not mislabeled as single licence IDs); CycloneDX uses its `expression` form for compound licences. Unknown component licences become an empty CycloneDX licence collection and SPDX `NOASSERTION`. The regression suite validates both generated documents against vendored official CycloneDX 1.5 and SPDX 2.3 JSON Schemas offline (see `tests/schemas/`).
 
 Check declared Forge-component licence identifiers against an explicit deny list:
 
