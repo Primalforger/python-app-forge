@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from {{package}}.auth import current_principal, require_roles
 from {{package}}.core import ItemStore
-from {{package}}.health import readiness_payload
+from {{package}}.readiness import readiness_payload
 from {{package}}.problems import install_problem_handlers
 from {{package}}.security import configure_security
 
