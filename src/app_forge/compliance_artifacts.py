@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -50,31 +51,50 @@ def validate_artifact(code: str, payload: Any) -> dict:
     if not isinstance(payload, dict):
         raise ValidationFailure("Compliance artifact input must be a JSON object")
     spec = ARTIFACTS[code]
-    missing = [key for key in spec["required"] if key not in payload]
-    problems = [f"missing required field: {key}" for key in missing]
+    problems = [f"missing required field: {key}" for key in spec["required"] if key not in payload]
+
     for field in spec.get("list_fields", ()):
-        if field in payload and not isinstance(payload[field], list):
+        if field not in payload:
+            continue
+        value = payload[field]
+        if not isinstance(value, list):
             problems.append(f"{field} must be an array")
-    item_required = spec.get("item_required", ())
-    for field in spec.get("list_fields", ()):
-        for index, item in enumerate(payload.get(field, [])):
-            if not isinstance(item, dict):
-                if item_required:
+            continue
+        if not value:
+            problems.append(f"{field} must contain at least one entry")
+
+        item_required = spec.get("item_required", ())
+        seen: set[str] = set()
+        for index, item in enumerate(value):
+            if item_required:
+                if not isinstance(item, dict):
                     problems.append(f"{field}[{index}] must be an object")
-                elif not isinstance(item, str) or not item.strip():
-                    problems.append(f"{field}[{index}] must be a non-empty string or object")
-                continue
-            for key in item_required:
-                if not isinstance(item.get(key), str) or not item[key].strip():
-                    problems.append(f"{field}[{index}].{key} is required")
+                    continue
+                for key in item_required:
+                    if not isinstance(item.get(key), str) or not item[key].strip():
+                        problems.append(f"{field}[{index}].{key} is required")
+                identity_key = "name" if code == "CMP-05" else "id"
+                identity = item.get(identity_key)
+                if isinstance(identity, str) and identity.strip():
+                    if identity in seen:
+                        problems.append(f"{field}[{index}].{identity_key} duplicates {identity!r}")
+                    seen.add(identity)
+                if code == "CMP-11" and isinstance(item.get("expires"), str):
+                    try:
+                        date.fromisoformat(item["expires"])
+                    except ValueError:
+                        problems.append(f"{field}[{index}].expires must be an ISO date (YYYY-MM-DD)")
+            elif not isinstance(item, str) or not item.strip():
+                problems.append(f"{field}[{index}] must be a non-empty string")
+
     for field in ("scope", "change", "impact_assessment", "release", "verification_run"):
         if field in spec["required"] and field in payload and (
                 not isinstance(payload[field], str) or not payload[field].strip()):
             problems.append(f"{field} must be a non-empty string")
+
     if problems:
         raise ValidationFailure(f"{code} artifact is incomplete", details=problems)
     return payload
-
 
 def save_artifact(project: str | Path, code: str, payload: Any) -> dict:
     record = validate_artifact(code, payload)

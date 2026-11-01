@@ -32,6 +32,60 @@ class ComplianceArtifactTests(ForgeTestCase):
         with self.assertRaises(ValidationFailure):
             validate_artifact("CMP-99", {})
 
+    def test_empty_lists_and_malformed_list_items_are_rejected(self):
+        invalid = [
+            ("CMP-05", {"interfaces": []}),
+            ("CMP-08", {"scope": "web", "assets": [], "threats": ["spoofing"],
+                        "mitigations": ["OIDC"], "residual_risks": ["availability"]}),
+            ("CMP-09", {"change": "x", "impacted_requirements": [], "impact_assessment": "x"}),
+            ("CMP-10", {"release": "1.0", "verification_run": "run-1",
+                        "artifacts": ["wheel"], "approvals": []}),
+            ("CMP-11", {"exceptions": []}),
+            ("CMP-08", {"scope": "web", "assets": [""], "threats": ["spoofing"],
+                        "mitigations": ["OIDC"], "residual_risks": ["availability"]}),
+        ]
+        for code, payload in invalid:
+            with self.subTest(code=code, payload=payload):
+                with self.assertRaises(ValidationFailure):
+                    validate_artifact(code, payload)
+
+    def test_nested_records_require_complete_unique_ids_and_iso_expiry(self):
+        duplicate_interfaces = {"interfaces": [
+            {"name": "api", "provider": "one", "version": "1", "contract": "A"},
+            {"name": "api", "provider": "two", "version": "2", "contract": "B"},
+        ]}
+        with self.assertRaises(ValidationFailure):
+            validate_artifact("CMP-05", duplicate_interfaces)
+
+        bad_exceptions = {"exceptions": [
+            {"id": "EX-1", "requirement": "SEC-1", "approver": "owner",
+             "rationale": "temporary", "expires": "next week"},
+        ]}
+        with self.assertRaises(ValidationFailure):
+            validate_artifact("CMP-11", bad_exceptions)
+
+        duplicate_exceptions = {"exceptions": [
+            {"id": "EX-1", "requirement": "SEC-1", "approver": "owner",
+             "rationale": "temporary", "expires": "2027-01-01"},
+            {"id": "EX-1", "requirement": "SEC-2", "approver": "owner",
+             "rationale": "temporary", "expires": "2027-01-01"},
+        ]}
+        with self.assertRaises(ValidationFailure):
+            validate_artifact("CMP-11", duplicate_exceptions)
+
+    def test_load_rejects_tampered_incomplete_record(self):
+        project = self.make_project(self.services(), "cli")
+        result = save_artifact(project, "CMP-09", {
+            "change": "update API", "impacted_requirements": ["API-01"],
+            "impact_assessment": "Backward compatible"
+        })
+        path = Path(result["path"])
+        envelope = json.loads(path.read_text())
+        envelope["record"]["impacted_requirements"] = []
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        with self.assertRaises(ValidationFailure):
+            load_artifacts(project)
+
     def test_artifact_saved_and_reloaded(self):
         project = self.make_project(self.services(), "cli")
         payload = {"change": "update API", "impacted_requirements": ["API-01"],
@@ -50,7 +104,7 @@ class ComplianceArtifactTests(ForgeTestCase):
         target.symlink_to(self.tmp / "outside.json")
         with self.assertRaises(SecurityBlock):
             save_artifact(project, "CMP-09", {
-                "change": "x", "impacted_requirements": [], "impact_assessment": "x"
+                "change": "x", "impacted_requirements": ["REQ-1"], "impact_assessment": "x"
             })
 
     def test_evidence_package_contains_compliance_artifacts(self):
