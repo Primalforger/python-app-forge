@@ -133,7 +133,7 @@ def apply_view(model: Any, state: dict[str, Any]) -> None:
     view = normalize_view(state, keys)
     for index, key in enumerate(view["columns"]):
         model.move_column(key, index)
-    visible = set(view["columns"])
+    visible = set(view["visible_columns"])
     for key in keys:
         model.set_visible(key, key in visible)
     model.set_sort(*((item["column"], item["descending"]) for item in view["sort"]))
