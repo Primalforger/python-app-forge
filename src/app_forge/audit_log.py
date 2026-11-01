@@ -36,7 +36,7 @@ def _lock_file(stream) -> None:
             stream.write(" ")
             stream.flush()
         stream.seek(0)
-        msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+        getattr(msvcrt, "locking")(stream.fileno(), getattr(msvcrt, "LK_LOCK"), 1)
     else:
         import fcntl
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
@@ -46,7 +46,7 @@ def _unlock_file(stream) -> None:
     if os.name == "nt":
         import msvcrt
         stream.seek(0)
-        msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        getattr(msvcrt, "locking")(stream.fileno(), getattr(msvcrt, "LK_UNLCK"), 1)
     else:
         import fcntl
         fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
