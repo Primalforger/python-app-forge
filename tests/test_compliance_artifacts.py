@@ -37,7 +37,7 @@ class ComplianceArtifactTests(ForgeTestCase):
             ("CMP-05", {"interfaces": []}),
             ("CMP-08", {"scope": "web", "assets": [], "threats": ["spoofing"],
                         "mitigations": ["OIDC"], "residual_risks": ["availability"]}),
-            ("CMP-09", {"change": "x", "impacted_requirements": ["REQ-1"], "impact_assessment": "x"}),
+            ("CMP-09", {"change": "x", "impacted_requirements": [], "impact_assessment": "x"}),
             ("CMP-10", {"release": "1.0", "verification_run": "run-1",
                         "artifacts": ["wheel"], "approvals": []}),
             ("CMP-11", {"exceptions": []}),
@@ -104,7 +104,7 @@ class ComplianceArtifactTests(ForgeTestCase):
         target.symlink_to(self.tmp / "outside.json")
         with self.assertRaises(SecurityBlock):
             save_artifact(project, "CMP-09", {
-                "change": "x", "impacted_requirements": [], "impact_assessment": "x"
+                "change": "x", "impacted_requirements": ["REQ-1"], "impact_assessment": "x"
             })
 
     def test_evidence_package_contains_compliance_artifacts(self):
