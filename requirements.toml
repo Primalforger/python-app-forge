@@ -465,3 +465,15 @@ acceptance = "The ASVS mapping and deployment checklist are present; web templat
 modules = ["app_forge.data.templates.web"]
 verified_by = ["tests/test_web_template_asvs.py"]
 implemented = true
+
+[[requirement]]
+id = "G-21"
+title = "Performance baselines for catalog and project workloads"
+description = "An offline benchmark generates representative component catalogs and CLI projects, measures scan/search/generation workloads, and records environment metadata."
+priority = "P1"
+source = "docs/TODO.md"
+method = "benchmark"
+acceptance = "A named-host baseline report is checked in and per-workload regression ceilings derived from measured medians are enforced."
+modules = ["app_forge.catalog.registry", "app_forge.services"]
+verified_by = ["scripts/benchmark_performance.py", "tests/test_performance_benchmark.py"]
+implemented = false

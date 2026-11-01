@@ -112,3 +112,29 @@ jobs:
 
       - name: Build source and wheel distributions
         run: python -m build
+
+  performance-baseline:
+    name: Performance baseline (Ubuntu 24.04, Python 3.11)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+      - name: Install project and development dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Run representative performance workloads
+        run: python scripts/benchmark_performance.py --catalog-sizes 25,100,250 --iterations 7 --output performance-results.json
+      - name: Preserve raw baseline report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-baseline-ubuntu-24.04-py311
+          path: performance-results.json
+          retention-days: 90
