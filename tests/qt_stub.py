@@ -93,7 +93,7 @@ def _getattr(name):
     return _cache.setdefault(name, type(name, (_Stub,), {}))
 
 
-_NAMES = ("PySide6", "PySide6.QtCore", "PySide6.QtWidgets", "app_forge.gui.app")
+_NAMES = ("PySide6", "PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets", "app_forge.gui.app")
 _saved: dict = {}
 
 
@@ -102,12 +102,12 @@ def install():
     INSTANCES.clear()
     _saved.update({n: sys.modules[n] for n in _NAMES if n in sys.modules})  # keep real Qt if it was imported
     mods = {}
-    for name in ("PySide6", "PySide6.QtCore", "PySide6.QtWidgets"):
+    for name in ("PySide6", "PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets"):
         m = types.ModuleType(name)
         m.__getattr__ = _getattr
         mods[name] = m
         sys.modules[name] = m
-    sys.modules["PySide6"].QtCore, sys.modules["PySide6"].QtWidgets = mods["PySide6.QtCore"], mods["PySide6.QtWidgets"]
+    sys.modules["PySide6"].QtCore, sys.modules["PySide6"].QtGui, sys.modules["PySide6"].QtWidgets = (\n        mods["PySide6.QtCore"], mods["PySide6.QtGui"], mods["PySide6.QtWidgets"]\n    )
     sys.modules.pop("app_forge.gui.app", None)
 
 
