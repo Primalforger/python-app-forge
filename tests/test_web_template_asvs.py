@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "src" / "app_forge" / "data" / "templates" / "web" / "tree"
 API = WEB / "src" / "__package__" / "api.py"
 SECURITY = WEB / "src" / "__package__" / "security.py"
+AUTH = WEB / "src" / "__package__" / "auth.py"
+PROBLEMS = WEB / "src" / "__package__" / "problems.py"
 ASVS = ROOT / "docs" / "web-template-asvs.md"
 
 
@@ -15,6 +17,8 @@ class WebTemplateASVSTests(unittest.TestCase):
     def setUpClass(cls):
         cls.source = API.read_text(encoding="utf-8")
         cls.security = SECURITY.read_text(encoding="utf-8")
+        cls.auth = AUTH.read_text(encoding="utf-8")
+        cls.problems = PROBLEMS.read_text(encoding="utf-8")
         cls.tree = ast.parse(cls.source.replace("{{package}}", "sample_app"))
 
     def test_host_allowlist_is_explicit_and_rejects_wildcards(self):
@@ -39,6 +43,12 @@ class WebTemplateASVSTests(unittest.TestCase):
         self.assertIn("install_problem_handlers", self.source)
         self.assertIn("require_roles", self.source)
         self.assertIn("readiness_payload", self.source)
+        self.assertIn('algorithms=["HS256"]', self.auth)
+        self.assertIn('issuer=issuer', self.auth)
+        self.assertIn('audience=audience', self.auth)
+        self.assertIn("require_roles", self.auth)
+        self.assertIn("application/problem+json", self.problems)
+        self.assertIn("unexpected error occurred", self.problems)
 
     def test_cors_is_explicit_and_docs_are_opt_in(self):
         self.assertIn("CORSMiddleware", self.security)
