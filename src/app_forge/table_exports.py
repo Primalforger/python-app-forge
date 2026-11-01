@@ -55,6 +55,8 @@ def export_xlsx(model: Any, destination: str | Path, *, only_selected: bool = Fa
     sheet.append(headers)
     for cell in sheet[1]:
         cell.font = Font(bold=True)
+        if isinstance(cell.value, str):
+            cell.data_type = "s"
     for row in rows:
         sheet.append([_value(row.get(column.key)) for column in columns])
         for cell in sheet[sheet.max_row]:
