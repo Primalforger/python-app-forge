@@ -36,6 +36,17 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health/live").status_code, 200)
         register_readiness_check("db", lambda: False)
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
+    def test_rate_limit_returns_problem_details_and_retry_after(self):
+        with patch.dict(os.environ, {"APP_RATE_LIMIT_REQUESTS": "1"}):
+            client = TestClient(create_app())
+            try:
+                self.assertEqual(client.get("/health/live").status_code, 200)
+                response = client.get("/health/live")
+                self.assertEqual(response.status_code, 429)
+                self.assertEqual(response.headers["content-type"], "application/problem+json")
+                self.assertIn("Retry-After", response.headers)
+            finally:
+                client.close()
     def test_wildcard_cors_is_rejected(self):
         with patch.dict(os.environ, {"APP_CORS_ORIGINS": "*"}):
             with self.assertRaises(RuntimeError):
