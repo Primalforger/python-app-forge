@@ -47,7 +47,7 @@ class TableViewTests(unittest.TestCase):
         self.path = Path(self.tmp.name) / "views.json"
         self.store = TableViewStore(self.path)
         self.keys = {"name", "status", "amount"}
-        self.state = {"columns": ["status", "name", "amount"],
+        self.state = {"columns": ["status", "name", "amount"], "visible_columns": ["status", "amount"],
                       "sort": [{"column": "amount", "descending": True}],
                       "filters": [{"column": "status", "op": "eq", "value": "open"}],
                       "filter_mode": "or", "search_text": "alpha", "page_size": 50}
