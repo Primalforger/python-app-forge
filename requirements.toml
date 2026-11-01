@@ -453,3 +453,15 @@ acceptance = "All tests in the linked files pass."
 modules = ["app_forge.catalog.authoring"]
 verified_by = ["tests/test_authoring.py"]
 implemented = true
+
+[[requirement]]
+id = "G-20"
+title = "OWASP ASVS baseline for the web template"
+description = "The built-in FastAPI web template has a documented ASVS 4.0.3 control mapping, secure defaults, automated regression checks, and explicit production gaps."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The ASVS mapping and deployment checklist are present; web template security regression tests pass."
+modules = ["app_forge.data.templates.web"]
+verified_by = ["tests/test_web_template_asvs.py"]
+implemented = true
