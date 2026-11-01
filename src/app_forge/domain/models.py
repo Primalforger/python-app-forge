@@ -49,6 +49,12 @@ class Patch:
 
 
 @dataclass(frozen=True)
+class InterfaceContract:
+    interface: str
+    tests: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ComponentManifest:
     id: str
     name: str
@@ -72,6 +78,7 @@ class ComponentManifest:
     python_packages: tuple[str, ...]
     provides: tuple[str, ...]
     requires_interfaces: tuple[str, ...]
+    interface_contract_tests: tuple[InterfaceContract, ...]
     config_defaults: dict[str, Any]
     secrets: tuple[str, ...]
     files: tuple[FileContribution, ...]
@@ -223,6 +230,34 @@ def parse_manifest(data: dict) -> ComponentManifest:
         tuple(ifc.get("provides", [])), tuple(ifc.get("requires", []))
     )
     p.extend(interface_problems)
+    contract_tests: list[InterfaceContract] = []
+    seen_contracts: set[str] = set()
+    provided = set(ifc.get("provides", []))
+    raw_contracts = ifc.get("contract_tests", [])
+    if not isinstance(raw_contracts, list):
+        p.append("interfaces.contract_tests must be an array of tables")
+        raw_contracts = []
+    for i, raw in enumerate(raw_contracts):
+        where = f"interfaces.contract_tests[{i}]"
+        if not isinstance(raw, dict):
+            p.append(f"{where} must be a table")
+            continue
+        interface, tests = raw.get("interface"), raw.get("tests")
+        if not isinstance(interface, str) or interface not in provided:
+            p.append(f"{where}.interface must exactly match an entry in interfaces.provides")
+        if isinstance(interface, str) and interface in seen_contracts:
+            p.append(f"{where}.interface {interface!r} is duplicated")
+        if isinstance(interface, str):
+            seen_contracts.add(interface)
+        if not isinstance(tests, list) or not tests or any(not isinstance(t, str) or not t.strip() for t in tests):
+            p.append(f"{where}.tests must be a non-empty array of relative test paths")
+            tests = []
+        for test in tests:
+            normalized = test.replace("\\\\", "/")
+            if normalized.startswith("/") or "\\\\x00" in test or ".." in normalized.split("/"):
+                p.append(f"{where}.tests contains unsafe path {test!r}")
+        if isinstance(interface, str) and isinstance(tests, list):
+            contract_tests.append(InterfaceContract(interface, tuple(tests)))
     if p:
         raise ValidationFailure(f"Invalid component manifest ({cid or '?'})", details=p)
     return ComponentManifest(
@@ -232,7 +267,7 @@ def parse_manifest(data: dict) -> ComponentManifest:
         third_party_licenses=tuple(lic.get("third_party", [])), python=python,
         platforms=tuple(platforms), archetypes=tuple(archetypes), platform_api=str(comp.get("platform_api", "1")),
         requires=requires, optional=optional, python_packages=tuple(dep.get("python_packages", [])),
-        provides=tuple(ifc.get("provides", [])), requires_interfaces=tuple(ifc.get("requires", [])),
+        provides=tuple(ifc.get("provides", [])), requires_interfaces=tuple(ifc.get("requires", [])),\n        interface_contract_tests=tuple(contract_tests),
         config_defaults=dict(conf.get("defaults", {})), secrets=tuple(conf.get("secrets", [])),
         files=tuple(files), patches=tuple(patches), lifecycle=dict(life), verification_tests=tuple(ver.get("tests", [])),
         trust=trust, permissions=tuple(perms), network=bool(network), advisories=tuple(sec.get("advisories", [])),
