@@ -1,5 +1,6 @@
 import unittest
 
+from app_forge.domain.errors import ValidationFailure
 from app_forge.domain.models import Patch, parse_manifest
 from app_forge.patching import PatchConflict, apply_patch, remove_patch
 from tests.helpers import ForgeTestCase
