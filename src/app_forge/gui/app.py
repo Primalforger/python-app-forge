@@ -180,8 +180,8 @@ class MainWindow(QMainWindow):
         self.apply_theme()
 
     def _command_palette_commands(self) -> list[tuple[str, str, Any]]:
-        commands = [
-            (f"Go to {name}", f"open navigate screen {name}", lambda row=i: self.nav.setCurrentRow(row))
+        commands: list[tuple[str, str, Any]] = [
+            (f"Go to {name}", f"open navigate screen {name}", lambda i=i: self.nav.setCurrentRow(i))
             for i, name in enumerate(NAV)
         ]
         commands.extend([
@@ -828,12 +828,6 @@ class MainWindow(QMainWindow):
 
     def toggle_theme(self, on: bool) -> None:
         self.set_theme("dark" if on else "light")
-
-    def set_theme(self, theme: str) -> None:
-        if theme not in ("light", "dark"):
-            raise ValueError("theme must be 'light' or 'dark'")
-        self.theme = theme
-        self.apply_theme()
 
     def _diagnostics(self) -> QWidget:
         w = QWidget()
