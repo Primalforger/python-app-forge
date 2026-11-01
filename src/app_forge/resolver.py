@@ -1,6 +1,7 @@
 """Dependency Resolver (MOD-07): deterministic resolution with explicit failure reporting."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app_forge.catalog.registry import CatalogEntry, ComponentRegistry
@@ -28,7 +29,7 @@ class Resolution:
                 "problems": self.problems}
 
 
-def resolve(registry: ComponentRegistry, requested: dict[str, str], *, archetype: str | None = None,
+def resolve(registry: ComponentRegistry, requested: dict[str, str], *, archetype: str | Sequence[str] | None = None,
             already: dict[str, str] | None = None) -> Resolution:
     """Resolve `requested` ({component_id: constraint}) plus transitive dependencies.
 
@@ -36,6 +37,7 @@ def resolve(registry: ComponentRegistry, requested: dict[str, str], *, archetype
     Highest allowed version is chosen; all constraints on a component must hold at once.
     """
     already = already or {}
+    archetypes = {archetype} if isinstance(archetype, str) else set(archetype or ())
     res = Resolution()
     constraints: dict[str, list[tuple[str, Constraint]]] = {}  # id -> [(who, constraint)]
     chosen: dict[str, CatalogEntry] = {}
@@ -57,14 +59,14 @@ def resolve(registry: ComponentRegistry, requested: dict[str, str], *, archetype
             return
         candidates = [e for e in versions if e.state == "installed"
                       and all(c.allows(e.manifest.semver) for _, c in constraints[cid])]
-        if archetype:
-            candidates = [e for e in candidates if archetype in e.manifest.archetypes]
+        if archetypes:
+            candidates = [e for e in candidates if archetypes.intersection(e.manifest.archetypes)]
         if not candidates:
             states = {e.manifest.version: e.state for e in versions}
             wants = "; ".join(f"{w} needs {c}" for w, c in constraints[cid])
             problem("conflict" if len(constraints[cid]) > 1 else "unsatisfiable",
                     f"No usable version of {cid} satisfies [{wants}] (available: {states}"
-                    + (f", archetype {archetype}" if archetype else "") + ")", cid)
+                    + (f", archetypes {sorted(archetypes)}" if archetypes else "") + ")", cid)
             return
         entry = candidates[0]
         if cid in chosen and chosen[cid].manifest.version != entry.manifest.version:

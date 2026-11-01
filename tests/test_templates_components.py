@@ -19,6 +19,54 @@ class TemplateTests(ForgeTestCase):
             self.assertEqual(rep["overall"], "passed", (a, rep["evidence"]))
             self.assertTrue(rep["complete"])
 
+    def test_composite_templates_generate_multiple_archetypes_in_one_package(self):
+        import tomllib
+        s = self.services()
+        cases = (
+            ("desktop-worker", {"desktop", "service"}, {"pyside6"}),
+            ("web-scheduler", {"web", "service"}, {"fastapi", "uvicorn"}),
+        )
+        for template, expected_archetypes, expected_dependencies in cases:
+            with self.subTest(template=template):
+                out = self.tmp / template
+                result = s.create_project(template, {"name": "Composite App"}, out)
+                forge = tomllib.loads((out / "forge.toml").read_text(encoding="utf-8"))
+                project = forge["project"]
+                self.assertEqual(set(project["archetypes"]), expected_archetypes)
+                self.assertEqual(project["archetype"], next(a for a in ("desktop", "web") if a in expected_archetypes))
+                package = project["package"]
+                package_root = out / "src" / package
+                self.assertTrue((package_root / "__init__.py").is_file())
+                self.assertTrue((package_root / "scheduler.py").is_file())
+                self.assertTrue((package_root / "service.py").is_file())
+                self.assertTrue((package_root / ("app.py" if template == "desktop-worker" else "api.py")).is_file())
+                pyproject = tomllib.loads((out / "pyproject.toml").read_text(encoding="utf-8"))
+                actual = {item.split(">=")[0].lower() for item in pyproject["project"]["dependencies"]}
+                self.assertTrue(expected_dependencies.issubset(actual))
+                self.assertEqual(set(result["archetypes"]), expected_archetypes)
+                self.assertIn("pytest", {item.split(">=")[0].lower() for item in pyproject["project"]["optional-dependencies"]["dev"]})
+                report = s.verify_project(out)
+                self.assertEqual(report["overall"], "passed", report["evidence"])
+
+    def test_composite_template_archetypes_must_match_included_templates(self):
+        s = self.services()
+        info = s.templates.get("desktop-worker")
+        info.archetypes = ("desktop",)
+        with self.assertRaises(ValidationFailure):
+            s.templates.expand(info)
+
+    def test_archetype_component_resolution_accepts_any_member_of_a_composite(self):
+        s = self.services()
+        self.custom_component("test.desktop-only", archetypes=["desktop"])
+        self.custom_component("test.service-only", archetypes=["service"])
+        out = self.tmp / "composite-components"
+        s.create_project("desktop-worker", {"name": "Composite Components"}, out,
+                         components=["test.desktop-only", "test.service-only"])
+        import tomllib
+        installed = tomllib.loads((out / ".forge" / "components.toml").read_text(encoding="utf-8"))
+        self.assertEqual({item["id"] for item in installed["components"]},
+                         {"test.desktop-only", "test.service-only"})
+
     def test_generation_is_reproducible(self):
         s = self.services()
         s.create_project("web", {"name": "Repro"}, self.tmp / "a", components=["forge.forms-validation"])

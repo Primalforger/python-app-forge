@@ -122,6 +122,9 @@ class ProjectAnalyzer:
         git = self._git_state(root)
         licenses = [r for r in rels if re.match(r"^(LICENSE|LICENCE|COPYING)[^/]*$", r, re.I)]
         forge = read_forge_toml(root)
+        project_meta = (forge or {}).get("project", {})
+        project_archetypes = project_meta.get("archetypes") or (
+            [project_meta["archetype"]] if project_meta.get("archetype") else indicators)
         installed = read_components(root)["components"] if (root / ".forge").is_dir() else []
 
         if "setup.py" in rels and not project:
@@ -149,7 +152,7 @@ class ProjectAnalyzer:
             "package": (forge or {}).get("project", {}).get("package") or (packages[0] if packages else None),
             "packages": packages, "layout": layout, "python_requires": project.get("requires-python"),
             "dependencies": dep_names, "dependency_specs": dep_specs, "lockfiles": lockfiles, "frameworks": frameworks,
-            "archetype_indicators": indicators, "entry_points": entry_points,
+            "archetype_indicators": indicators, "archetypes": project_archetypes, "entry_points": entry_points,
             "tests": {"present": has_tests, "config": test_cfg},
             "git": git, "licenses": licenses, "forge_project": forge is not None,
             "installed_components": installed, "python_file_count": len(py_files),

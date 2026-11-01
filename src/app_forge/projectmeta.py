@@ -34,11 +34,15 @@ def components_text(data: dict) -> str:
 
 
 def forge_toml_text(variables: dict, template_id: str, template_version: str) -> str:
+    project = {"name": variables["name"], "package": variables["package"],
+               "archetype": variables["archetype"], "python": variables["python_version"],
+               "description": variables["description"], "author": variables["author"]}
+    archetypes = variables.get("archetypes", [variables["archetype"]])
+    if len(archetypes) > 1:
+        project["archetypes"] = archetypes
     return tomlw.dumps({
         "schema_version": 1,
-        "project": {"name": variables["name"], "package": variables["package"], "archetype": variables["archetype"],
-                    "python": variables["python_version"], "description": variables["description"],
-                    "author": variables["author"]},
+        "project": project,
         "template": {"id": template_id, "version": template_version},
         "generator": {"forge_version": variables["forge_version"]},
     })

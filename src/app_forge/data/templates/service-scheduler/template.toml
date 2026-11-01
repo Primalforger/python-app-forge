@@ -1,0 +1,15 @@
+schema_version = 1
+
+[template]
+id = "service-scheduler"
+name = "Background scheduler module"
+version = "1.0.0"
+archetype = "service"
+summary = "A namespaced scheduled worker suitable for composition with another application archetype."
+
+[dependencies]
+dev_packages = ["pytest>=8"]
+
+[entry]
+module = "service"
+function = "main"

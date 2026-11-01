@@ -22,6 +22,13 @@ class GeneratedTemplateBaselineTests(ForgeTestCase):
         self.assertNotIn("forge.toml", baseline["files"])
         self.assertNotIn(BASELINE_PATH, baseline["files"])
 
+    def test_composite_template_baseline_records_all_archetypes(self):
+        out = self.tmp / "composite-baseline"
+        self.services().create_project("desktop-worker", {"name": "Baseline Composite"}, out)
+        baseline = load_baseline((out / BASELINE_PATH).read_text(encoding="utf-8"))
+        self.assertEqual(baseline["template"]["archetypes"], ["desktop", "service"])
+        self.assertEqual(baseline["template"]["archetype"], "desktop")
+
     def test_baseline_is_included_in_dry_run_without_writing(self):
         out = self.tmp / "dry-baseline"
         result = self.services().create_project("cli", {"name": "Dry Baseline"}, out, dry_run=True)

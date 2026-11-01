@@ -62,13 +62,13 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
 
 ### P1: needed for a production release
 
-- [ ] **G-08 Template update flow** (L, needs G-01)
+- [x] **G-08 Template update flow** (L, needs G-01)
   No way to pull a newer template version into an already generated project.
   *Done when:* `forge project update` produces a reviewed plan that respects user edits (three-way merge or conflict).
 
-- [ ] **G-09 Multi-archetype projects** (L)
-  The spec allows combinations (desktop + worker, web + scheduler); a project has exactly one archetype today.
-  *Done when:* a project can be generated and verified with two archetypes sharing one core package.
+- [x] **G-09 Multi-archetype projects** (L)
+  Composite templates combine desktop + worker or web + scheduler in one package. Template manifests pin included templates; metadata and baselines retain the complete archetype set, component resolution accepts compatible members, and path collisions fail closed.
+  *Done when:* composite projects generate and verify with two archetypes sharing one core package.
 
 - [ ] **G-10 Framework-aware adapters for Level 2 projects** (L, needs G-01)
   FastAPI, Flask and Django projects are all treated alike. Add per-framework adapters (entry points, config locations,
@@ -123,7 +123,7 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   The Ubuntu 24.04 / Python 3.11 report is checked in with seven raw samples per workload; ceilings are 150% of measured
   medians rounded up to the nearest millisecond, and CI enforces them only on the matching runner image (closes `NFR-003`).
 
-- [ ] **G-27 Richer patch kinds** (M, new, found while building G-01)
+- [x] **G-27 Richer patch kinds** (M, new, found while building G-01)
   In-table TOML key insertion is marker-managed and reversible. JSON/YAML merges persist per-value ownership metadata; uninstall
   removes only unchanged Forge-added keys/list items and preserves unrelated user values. Legacy merge records without ownership
   fail safely and require manual reconciliation. Structured serialization may normalize formatting/comments.

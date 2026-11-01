@@ -491,3 +491,16 @@ acceptance = "Existing TOML table key insertion is exactly reversible. JSON/YAML
 modules = ["app_forge.patching", "app_forge.integration"]
 verified_by = ["tests/test_patching.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-09"
+title = "Multi-archetype generated projects"
+description = "Composite templates combine multiple application archetypes in one package, preserve their identity in forge metadata and template baselines, and resolve components against the full archetype set."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Desktop-worker and web-scheduler projects generate and verify with one shared package; compatible components from either archetype resolve; template update baselines preserve the complete archetype set."
+modules = ["app_forge.templates.engine", "app_forge.templates.baseline", "app_forge.resolver", "app_forge.services"]
+verified_by = ["tests/test_templates_components.py", "tests/test_template_baseline.py", "tests/test_template_update.py"]
+implemented = true

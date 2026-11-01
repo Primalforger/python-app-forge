@@ -9,6 +9,7 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, List
 
 from app_forge import __version__
 from app_forge.domain.errors import ValidationFailure
@@ -93,10 +94,13 @@ class TemplateInfo:
     entry_function: str
     root: Path
     standalone: bool = False
+    archetypes: tuple[str, ...] = ()
+    includes: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {"id": self.id, "name": self.name, "version": self.version, "archetype": self.archetype,
-                "summary": self.summary, "python_packages": self.python_packages,
+                "summary": self.summary, "archetypes": list(self.archetypes or (self.archetype,)),
+                "includes": list(self.includes), "python_packages": self.python_packages,
                 "dev_packages": self.dev_packages,
                 "inputs": ["name (required)", "package", "description", "author", "python_version"]}
 
@@ -113,11 +117,22 @@ class TemplateEngine:
             problems.append(f"template.archetype must be one of {ARCHETYPES}")
         if not e.get("module") or not e.get("function"):
             problems.append("entry.module and entry.function are required")
+        archetypes = t.get("archetypes", [t.get("archetype")])
+        includes = t.get("includes", [])
+        if not isinstance(archetypes, list) or not archetypes or any(a not in ARCHETYPES for a in archetypes):
+            problems.append(f"template.archetypes must be a non-empty list drawn from {ARCHETYPES}")
+            archetypes = [t.get("archetype")]
+        if t.get("archetype") not in archetypes:
+            problems.append("template.archetype must be included in template.archetypes")
+        if not isinstance(includes, list) or any(not isinstance(item, str) or not item for item in includes):
+            problems.append("template.includes must be a list of non-empty template IDs")
+            includes = []
         if problems:
             raise ValidationFailure(f"Invalid template at {tdir}", details=problems)
         return TemplateInfo(t["id"], t["name"], t["version"], t["archetype"], t["summary"],
                             list(d.get("python_packages", [])), list(d.get("dev_packages", [])),
-                            e["module"], e["function"], tdir, bool(t.get("standalone", False)))
+                            e["module"], e["function"], tdir, bool(t.get("standalone", False)),
+                            tuple(archetypes), tuple(includes))
 
     def list(self) -> list[TemplateInfo]:
         out = []
@@ -142,7 +157,7 @@ class TemplateEngine:
         templates = self.list()
         matches = [t for t in templates if t.id == template_id]
         if not matches and version is None:
-            matches = [t for t in templates if t.archetype == template_id]
+            matches = [t for t in templates if t.archetype == template_id and len(t.archetypes or (t.archetype,)) == 1]
         if version is not None:
             matches = [t for t in matches if t.version == version]
         if not matches:
@@ -156,7 +171,7 @@ class TemplateEngine:
                 return (0,)
         return max(matches, key=version_key)
 
-    def validate_inputs(self, info: TemplateInfo, raw: dict) -> dict[str, str]:
+    def validate_inputs(self, info: TemplateInfo, raw: dict) -> dict[str, Any]:
         p: list[str] = []
         name = str(raw.get("name", ""))
         if not _NAME.match(name):
@@ -175,31 +190,98 @@ class TemplateEngine:
             raise ValidationFailure("Invalid project configuration", details=p)
         dist = package.replace("_", "-")
         return {"name": name, "package": package, "dist": dist, "description": desc, "author": author,
-                "python_version": pyv, "archetype": info.archetype, "template_version": info.version,
+                "python_version": pyv, "archetype": info.archetype,
+                "archetypes": list(info.archetypes or (info.archetype,)), "template_version": info.version,
                 "forge_version": __version__, "entry_module": info.entry_module,
                 "entry_function": info.entry_function}
 
-    def render(self, info: TemplateInfo, variables: dict[str, str]) -> dict[str, str]:
-        """Return {relative_path: content}. Deterministic: no timestamps or randomness."""
+    def expand(self, info: TemplateInfo) -> List[TemplateInfo]:
+        """Resolve a bundle's pinned template dependencies in deterministic, cycle-safe order."""
+        ordered: list[TemplateInfo] = []
+        resolved: dict[tuple[str, str], set[str]] = {}
+        versions: dict[str, str] = {}
+        visiting: list[str] = []
+
+        def visit(current: TemplateInfo) -> set[str]:
+            if current.id in visiting:
+                raise ValidationFailure("Template include cycle: " + " -> ".join([*visiting, current.id]))
+            identity = (current.id, current.version)
+            if current.id in versions and versions[current.id] != current.version:
+                raise ValidationFailure(f"Template bundle includes multiple versions of {current.id!r}")
+            if identity in resolved:
+                return resolved[identity]
+            versions[current.id] = current.version
+            visiting.append(current.id)
+            actual = {current.archetype}
+            for include in current.includes:
+                actual.update(visit(self.get(include)))
+            visiting.pop()
+            declared = set(current.archetypes or (current.archetype,))
+            if actual != declared:
+                raise ValidationFailure(
+                    f"Template {current.id!r} declares archetypes {sorted(declared)} "
+                    f"but its includes provide {sorted(actual)}")
+            resolved[identity] = actual
+            ordered.append(current)
+            return actual
+
+        visit(info)
+        return ordered
+
+    def render(self, info: TemplateInfo, variables: dict[str, Any]) -> dict[str, str]:
+        """Render all included template trees into one shared package without overwriting collisions."""
+        expanded = self.expand(info)
         variables = dict(variables)
+        python_packages = list(dict.fromkeys(p for item in expanded for p in item.python_packages))
+        dev_packages = list(dict.fromkeys(p for item in expanded for p in item.dev_packages))
 
         def block(pkgs: list[str]) -> str:
             return "".join(f'    "{p}",\n' for p in pkgs)
-        variables["dependencies_block"] = block(info.python_packages)
-        variables["dev_dependencies_block"] = block(info.dev_packages)
+        variables["dependencies_block"] = block(python_packages)
+        variables["dev_dependencies_block"] = block(dev_packages)
+        render_variables = {key: value for key, value in variables.items() if isinstance(value, str)}
         files: dict[str, str] = {}
-        common = info.root.parent / "_common" / "tree"
-        if not common.is_dir():
-            common = TEMPLATES_ROOT / "_common" / "tree"  # user templates inherit the built-in common files
-        trees = [info.root / "tree"] if info.standalone else [common, info.root / "tree"]
-        for tree in trees:
-            if not tree.is_dir():
-                continue
-            for src in sorted(p for p in tree.rglob("*") if p.is_file() and "__pycache__" not in p.parts
+        common_originals: dict[str, str] = {}
+        common_overridden: set[str] = set()
+        common_added = False
+        for item in expanded:
+            common = item.root.parent / "_common" / "tree"
+            if not common.is_dir():
+                common = TEMPLATES_ROOT / "_common" / "tree"
+            trees = [item.root / "tree"] if item.standalone else (
+                ([] if common_added else [common]) + [item.root / "tree"])
+            if not item.standalone:
+                common_added = True
+            for tree in trees:
+                if not tree.is_dir():
+                    continue
+                is_common = tree == common and not item.standalone
+                for src in sorted(p for p in tree.rglob("*") if p.is_file() and "__pycache__" not in p.parts
                                   and p.suffix not in (".pyc", ".pyo")):
-                parts = []
-                for part in src.relative_to(tree).parts:
-                    part = "." + part[4:] if part.startswith("dot_") else part
-                    parts.append(part.replace("__package__", variables["package"]))
-                files["/".join(parts)] = render_text(src.read_text(encoding="utf-8"), variables)
+                    parts = []
+                    for part in src.relative_to(tree).parts:
+                        part = "." + part[4:] if part.startswith("dot_") else part
+                        parts.append(part.replace("__package__", variables["package"]))
+                    rel = "/".join(parts)
+                    content = render_text(src.read_text(encoding="utf-8"), render_variables)
+                    if is_common:
+                        common_originals[rel] = content
+                        files[rel] = content
+                        continue
+                    # Exported standalone bundles contain a materialized copy of common files.
+                    # Do not let that copy erase a more specific included-template override.
+                    if item.standalone and item.includes and rel in common_originals and content == common_originals[rel]:
+                        continue
+                    # A bundle's own standalone tree is the final, explicit override layer.
+                    if item is info and item.standalone and item.includes and rel in common_originals:
+                        files[rel] = content
+                        common_overridden.add(rel)
+                        continue
+                    if rel in common_originals and rel not in common_overridden:
+                        files[rel] = content
+                        common_overridden.add(rel)
+                    elif rel in files and files[rel] != content:
+                        raise ValidationFailure(f"Included templates both define {rel!r} with different content")
+                    else:
+                        files[rel] = content
         return dict(sorted(files.items()))

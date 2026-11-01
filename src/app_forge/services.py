@@ -40,7 +40,7 @@ from app_forge.integration import IntegrationEngine, component_contributions
 from app_forge.observability import get_logger, new_operation_id, utcnow
 from app_forge.patching import PatchConflict, apply_patch, target_path
 from app_forge.persistence import SqliteStore
-from app_forge.projectmeta import components_text, forge_toml_text, read_components
+from app_forge.projectmeta import components_text, forge_toml_text, read_components, read_forge_toml
 from app_forge.resolver import resolve
 from app_forge.security import safe_join, sha256_bytes, sha256_text
 from app_forge.settings import ForgeSettings
@@ -153,10 +153,10 @@ class ForgeServices:
             template_files = self.templates.render(info, variables)
             # Preserve the exact rendered template as the three-way merge base.
             # Component contributions and Forge metadata have independent ownership.
-            template_baseline = create_baseline(info.id, info.version, info.archetype, template_files)
+            template_baseline = create_baseline(info.id, info.version, info.archetype, template_files, info.archetypes)
             files: dict[str, str | bytes] = dict(template_files)
             package = variables["package"]
-            res = resolve(self.registry, {c: "*" for c in components}, archetype=info.archetype)
+            res = resolve(self.registry, {c: "*" for c in components}, archetype=info.archetypes)
             res.raise_if_failed()
             comps, managed, pkgs = [], [], []
             file_modes: dict[str, int] = {}
@@ -206,7 +206,7 @@ class ForgeServices:
                 files[".forge/components.toml"] = components_text({"components": comps, "managed_files": managed,
                                                                    "patches": patch_records})
             files = dict(sorted(files.items()))
-            plan = {"template": f"{info.id}@{info.version}", "archetype": info.archetype, "package": package,
+            plan = {"template": f"{info.id}@{info.version}", "archetype": info.archetype, "archetypes": list(info.archetypes), "package": package,
                     "components": [f"{c['id']}@{c['version']}" for c in comps], "added_dependencies": dep_changes,
                     "patches": [f"{r['component']}:{r['id']} -> {r['file']}" for r in patch_records],
                     "files": [{"path": p, "bytes": len(c) if isinstance(c, bytes) else len(c.encode())}
@@ -295,11 +295,15 @@ class ForgeServices:
             self.registry.scan(refresh=True)
             return self.inspect_component(component_id)
 
-    def resolve_dependencies(self, requested: dict[str, str], archetype: str | None = None,
+    def resolve_dependencies(self, requested: dict[str, str], archetype: str | Sequence[str] | None = None,
                              project: str | Path | None = None) -> dict:
         already = {}
         if project:
-            already = {c["id"]: c["version"] for c in read_components(Path(project))["components"]}
+            root = Path(project)
+            already = {c["id"]: c["version"] for c in read_components(root)["components"]}
+            if archetype is None:
+                meta = (read_forge_toml(root) or {}).get("project", {})
+                archetype = meta.get("archetypes") or meta.get("archetype")
         return resolve(self.registry, requested, archetype=archetype, already=already).to_dict()
 
     def verify_component(self, component_id: str, version: str | None = None) -> dict:
