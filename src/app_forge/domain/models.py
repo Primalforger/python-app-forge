@@ -28,7 +28,7 @@ class FileContribution:
     binary: bool = False
 
 
-PATCH_KINDS = ("insert", "toml-table", "json-merge", "yaml-merge")
+PATCH_KINDS = ("insert", "toml-table", "json-merge", "yaml-merge", "framework-register")
 COMMENT_STYLES = ("#", "//", "--", ";", "%")
 PATCH_ID_RE = re.compile(r"^[a-z][a-z0-9-]{1,40}$")
 ANCHOR_RE = re.compile(r"^[a-z][a-z0-9_-]{0,40}$")
@@ -46,6 +46,7 @@ class Patch:
     comment: str = "#"
     content: str = ""
     data: dict = field(default_factory=dict)
+    registration: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -240,8 +241,29 @@ def parse_manifest(data: dict) -> ComponentManifest:
             p.append(f"{where}.content is required for toml-table patches")
         elif kind in ("json-merge", "yaml-merge") and not (isinstance(raw.get("data"), dict) and raw["data"]):
             p.append(f"{where}.data (a non-empty table) is required for {kind} patches")
+        registration = raw.get("registration", {})
+        if kind == "framework-register":
+            if not isinstance(registration, dict):
+                p.append(f"{where}.registration must be a table")
+                registration = {}
+            framework = registration.get("framework")
+            if framework not in ("fastapi", "flask", "django"):
+                p.append(f"{where}.registration.framework must be fastapi|flask|django")
+            for key in ("module", "symbol"):
+                value = registration.get(key, "")
+                if not isinstance(value, str) or not value or not all(part.isidentifier() for part in value.replace("{{package}}", "forge_package").split(".")):
+                    p.append(f"{where}.registration.{key} must be a dotted Python identifier")
+            application = registration.get("application", "")
+            if application and (not isinstance(application, str) or not application.isidentifier()):
+                p.append(f"{where}.registration.application must be a Python identifier")
+            route = registration.get("route", "")
+            if not isinstance(route, str) or any(ch in route for ch in ("\r", "\n", '"', "\\")):
+                p.append(f"{where}.registration.route must be a simple URL prefix")
+            if comment != "#":
+                p.append(f"{where}.comment must be '#' for Python framework registrations")
         patches.append(Patch(str(pid), str(pfile), str(kind), str(raw.get("anchor", "")), position, comment,
-                             str(raw.get("content", "")), dict(raw.get("data", {})) if isinstance(raw.get("data"), dict) else {}))
+                             str(raw.get("content", "")), dict(raw.get("data", {})) if isinstance(raw.get("data"), dict) else {},
+                             dict(registration) if isinstance(registration, dict) else {}))
     trust = _req(sec, "trust", str, p, "security.")
     if trust and trust not in TRUST_LEVELS:
         p.append(f"security.trust must be one of {TRUST_LEVELS}")

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import yaml
 
+from app_forge.domain.errors import ValidationFailure
 from app_forge.domain.models import Patch
 from app_forge.security import sha256_text
 from app_forge.templates.engine import render_text
@@ -296,6 +297,20 @@ def _toml_existing_table(text: str, content: str, patch: Patch, comp_id: str):
 def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace: bool = False,
                 expect_sha: str | None = None) -> PatchResult:
     """Apply one patch to `text`. Raises PatchConflict for anything unsafe or ambiguous."""
+    if patch.kind == "framework-register":
+        from app_forge.framework_adapters import Registration, apply_registration
+        registration = patch.registration
+        spec = Registration(
+            framework=registration.get("framework", ""),
+            module=render_text(registration.get("module", ""), {"package": package}),
+            symbol=registration.get("symbol", ""),
+            application=registration.get("application", ""),
+            route=registration.get("route", ""),
+        )
+        try:
+            return apply_registration(text, spec, comp_id, patch.id, replace=replace, expect_sha=expect_sha)
+        except ValidationFailure as exc:
+            raise PatchConflict("framework-adapter-unsupported", exc.message) from None
     if patch.kind in ("json-merge", "yaml-merge"):
         return _apply_structured(text, patch, package, patch.kind == "yaml-merge")
     content = render_text(patch.content, {"package": package})
