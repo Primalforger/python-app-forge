@@ -175,7 +175,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 ### Governance and quality (close compliance gaps; no blockers)
 
 - [x] **C-21 ADR generator** (S, lib): dependency-free ADR Markdown rendering and exclusive numbered file creation, with validated status/date/participants, bounded sections, no-overwrite behavior and documentation. Verified by `tests/test_adr.py`.
-- [ ] **C-22 STRIDE threat-model template** (S, lib): feeds G-11.
+- [x] **C-22 STRIDE threat-model template** (S, lib): dependency-free STRIDE worksheet with validated assets, trust boundaries, unique threat IDs, six category prompts, impact, mitigation and residual-risk capture; renders Markdown and adapts to the existing CMP-08 compliance record. Verified by `tests/test_threat_model.py`.
 - [ ] **C-23 Change-impact record generator** (M, lib): feeds G-11.
 - [ ] **C-24 Coverage gate** (S, lib)
 - [ ] **C-25 Licence scanner** (M, lib): pairs with G-12.
