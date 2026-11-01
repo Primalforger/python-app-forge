@@ -990,3 +990,64 @@ acceptance = "The postgres extra installs SQLAlchemy and psycopg; only PostgreSQ
 modules = ["app_forge.postgres_repository"]
 verified_by = ["tests/test_postgres_repository.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-32"
+title = "JWT bearer authentication"
+description = "Generated FastAPI applications verify short-lived JWT bearer tokens using a fixed algorithm, issuer, audience and required time claims."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The generated web template uses an established JWT library, enforces a minimum secret length, fixed HS256 algorithm allowlisting, issuer/audience and exp/nbf/iat claims, rejects malformed/expired tokens, and does not invent a password or login system."
+modules = ["web-fastapi.auth"]
+verified_by = ["src/app_forge/data/templates/web/tree/tests/test_security.py"]
+implemented = true
+
+[[requirement]]
+id = "C-33"
+title = "Role-based access control"
+description = "Generated web applications expose a deny-by-default role dependency over authenticated principals."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Unauthenticated requests are rejected, authenticated reads work, role-restricted writes reject insufficient roles, and permitted roles are accepted."
+modules = ["web-fastapi.auth", "web-fastapi.api"]
+verified_by = ["src/app_forge/data/templates/web/tree/tests/test_api_security.py"]
+implemented = true
+
+[[requirement]]
+id = "C-34"
+title = "Web CORS, rate limiting and security headers"
+description = "Generated FastAPI applications support explicit CORS origin allowlists, bounded per-client rate limits and defensive response headers."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "CORS is disabled unless explicit origins are configured, wildcard origins are rejected, credentialed CORS is disabled, rate settings are bounded, excess requests return 429 with Retry-After, and defensive headers plus HTTPS-only HSTS are applied."
+modules = ["web-fastapi.security"]
+verified_by = ["src/app_forge/data/templates/web/tree/tests/test_api_security.py", "tests/test_web_template_asvs.py"]
+implemented = true
+
+[[requirement]]
+id = "C-35"
+title = "RFC 9457 problem-details errors"
+description = "Generated FastAPI applications return consistent application/problem+json error documents without reflecting unexpected exception details."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "HTTP and validation errors return the problem-details media type with status/title/detail; unexpected exceptions return a generic 500 body without exception text."
+modules = ["web-fastapi.problems"]
+verified_by = ["src/app_forge/data/templates/web/tree/tests/test_api_security.py"]
+implemented = true
+
+[[requirement]]
+id = "C-36"
+title = "Health and readiness endpoints"
+description = "Generated web and service applications expose liveness and dependency readiness probes."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Liveness remains available without authentication; readiness reports named checks and returns 503 if any check fails, raises or returns a value other than exactly True."
+modules = ["web-fastapi.health", "web-fastapi.api"]
+verified_by = ["src/app_forge/data/templates/web/tree/tests/test_security.py", "src/app_forge/data/templates/web/tree/tests/test_api_security.py"]
+implemented = true
