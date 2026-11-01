@@ -926,3 +926,16 @@ acceptance = "The public API generates either or both supported SBOM formats in 
 modules = ["app_forge.supply_chain"]
 verified_by = ["tests/test_supply_chain.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-27"
+title = "Reusable documentation scaffold"
+description = "Render a deterministic MkDocs-ready documentation tree from validated project metadata and create it without overwriting existing content."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The library renders a stable navigation and starter pages for overview, setup, configuration, CLI, architecture, security, API and contributing; metadata is validated and safely quoted; creation refuses existing targets and symlinked directories without partial writes; no documentation-site dependency is added to runtime."
+modules = ["app_forge.documentation_scaffold"]
+verified_by = ["tests/test_documentation_scaffold.py"]
+implemented = true
