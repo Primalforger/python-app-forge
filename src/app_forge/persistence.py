@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import json
+import builtins
 import sqlite3
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Iterator
 from typing import Protocol
@@ -344,7 +345,7 @@ class JobQueue:
             raise KeyError(f"unknown job {job_id!r}")
         return self._job(row)
 
-    def list(self, *, status: str | None = None, limit: int = 100) -> list[Job]:
+    def list(self, *, status: str | None = None, limit: int = 100) -> builtins.list[Job]:
         if status is not None and status not in {"pending", "running", "succeeded", "dead"}:
             raise ValueError("status must be pending, running, succeeded or dead")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
@@ -359,9 +360,9 @@ class JobQueue:
                     "SELECT * FROM jobs WHERE status=? ORDER BY created_at, id LIMIT ?",
                     (status, limit),
                 ).fetchall()
-        return [self._job(row) for row in rows]
+        return builtins.list(self._job(row) for row in rows)
 
-    def dead_letters(self, *, limit: int = 100) -> list[Job]:
+    def dead_letters(self, *, limit: int = 100) -> builtins.list[Job]:
         """Return dead-letter jobs in creation order."""
         return self.list(status="dead", limit=limit)
 
