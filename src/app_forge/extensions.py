@@ -1,8 +1,9 @@
-"""Extension discovery, trust decisions and isolated invocation (MOD-15/G-16)."""
+"""Extension discovery, trust decisions and OS-sandboxed invocation (MOD-15/G-16)."""
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,11 +12,50 @@ from pathlib import Path
 from typing import Callable
 
 from app_forge.domain.errors import SecurityBlock, ValidationFailure
-from app_forge.security import TrustPolicy, safe_environ
+from app_forge.security import TrustPolicy
 
 GROUP = "app_forge.plugins"
 PROTOCOL_VERSION = 1
 MAX_MESSAGE_BYTES = 1_048_576
+
+
+def _sandbox_command(
+    executable: str,
+    *,
+    python_prefix: Path,
+    package_root: Path,
+    allowed_paths: tuple[Path, ...],
+) -> list[str]:
+    """Build a fail-closed bubblewrap profile: no host home, network or writable host FS."""
+    if sys.platform != "linux":
+        raise SecurityBlock("OS-enforced extension sandboxing is currently supported only on Linux")
+    bwrap = shutil.which("bwrap")
+    if not bwrap:
+        raise SecurityBlock("Extension execution requires bubblewrap (bwrap); refusing unsandboxed fallback")
+    command = [
+        bwrap, "--die-with-parent", "--new-session", "--unshare-all", "--unshare-net",
+        "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+    ]
+    # Runtime and installed Python packages are visible read-only. The caller's home,
+    # project tree and arbitrary host paths are deliberately not mounted.
+    for runtime_path in (Path("/usr"), Path("/bin"), Path("/lib"), Path("/lib64"), Path("/etc")):
+        if runtime_path.exists():
+            command.extend(["--ro-bind", str(runtime_path), str(runtime_path)])
+    prefix = python_prefix.resolve()
+    package = package_root.resolve()
+    command.extend(["--ro-bind", str(prefix), str(prefix)])
+    if package != prefix and prefix not in package.parents:
+        command.extend(["--ro-bind", str(package), str(package)])
+    for raw_path in allowed_paths:
+        path = raw_path.expanduser().resolve(strict=True)
+        if not path.is_dir():
+            raise ValidationFailure(f"Sandbox allowlist entries must be existing directories: {path}")
+        if path == Path("/") or path == Path.home().resolve():
+            raise SecurityBlock(f"Refusing broad sandbox path grant: {path}")
+        command.extend(["--bind", str(path), str(path)])
+    command.extend(["--chdir", str(allowed_paths[0].expanduser().resolve()) if allowed_paths else "/tmp"])
+    command.extend(["--", executable, "-m", "app_forge.extension_worker"])
+    return command
 
 
 class ExtensionHost:
@@ -42,7 +82,7 @@ class ExtensionHost:
         ep = self._find(name)
         return {"name": ep.name, "target": ep.value, "group": GROUP, "trust": self._trust.level(name),
                 "enabled": name in self._store.enabled_plugins(),
-                "isolation": "separate worker process; no OS sandbox (trusted extensions only)"}
+                "isolation": "bubblewrap Linux namespaces; network disabled; only explicit directories writable"}
 
     def trust(self, name: str, level: str = "trusted") -> dict:
         self._find(name)
@@ -65,16 +105,17 @@ class ExtensionHost:
         return self.inspect(name)
 
     def activate(self, name: str):
-        """Run the extension activation hook in its isolated worker process."""
+        """Run the extension activation hook inside the OS sandbox."""
         return self.invoke(name, "activate")
 
-    def invoke(self, name: str, method: str, *args, **kwargs):
-        """Invoke a public extension method in a child process using JSON-only IPC.
+    def invoke(self, name: str, method: str, *args, allowed_paths: tuple[Path, ...] = (), **kwargs):
+        """Invoke a public extension method with JSON IPC inside a Linux OS sandbox.
 
-        Process separation limits host-process failure propagation. It is NOT a
-        sandbox: trusted extension code still has the OS permissions of this user.
+        bubblewrap unshares network and other namespaces, mounts the Python runtime
+        read-only, and exposes only caller-allowlisted directories as writable.
+        On unsupported hosts or without bubblewrap, execution is refused.
         """
-        self._find(name)
+        ep = self._find(name)
         self._trust.require_trusted(name)
         if name not in self._store.enabled_plugins():
             raise SecurityBlock(f"Extension {name!r} is not enabled", hint=f"forge plugin enable {name}")
@@ -88,15 +129,16 @@ class ExtensionHost:
             raise ValidationFailure(f"Extension IPC arguments must be JSON data: {exc}") from None
         if len(encoded) > MAX_MESSAGE_BYTES:
             raise ValidationFailure("Extension IPC request exceeds the 1 MiB limit")
-        package_root = str(Path(__file__).resolve().parent.parent)
-        env = safe_environ()
-        env["PYTHONPATH"] = os.pathsep.join(filter(None, (package_root, env.get("PYTHONPATH", ""))))
+        package_root = Path(__file__).resolve().parent.parent
+        command = _sandbox_command(
+            sys.executable, python_prefix=Path(sys.prefix), package_root=package_root,
+            allowed_paths=allowed_paths,
+        )
         try:
             completed = subprocess.run(
-                [sys.executable, "-m", "app_forge.extension_worker"],
-                input=encoded, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                cwd=tempfile.gettempdir(), env=env, timeout=self._timeout,
-                shell=False, check=False,
+                command, input=encoded, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                cwd=tempfile.gettempdir(), env={"PATH": os.environ.get("PATH", "")},
+                timeout=self._timeout, shell=False, check=False,
             )
         except subprocess.TimeoutExpired:
             raise SecurityBlock(f"Extension {name!r} exceeded the {self._timeout:g}s execution timeout") from None
