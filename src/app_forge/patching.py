@@ -306,7 +306,13 @@ def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace:
             application=registration.get("application", ""),
             route=registration.get("route", ""),
         )
-        return apply_registration(text, spec, comp_id, patch.id, replace=replace, expect_sha=expect_sha)
+        try:
+            return apply_registration(text, spec, comp_id, patch.id, replace=replace, expect_sha=expect_sha)
+        except Exception as exc:
+            from app_forge.domain.errors import ValidationFailure
+            if isinstance(exc, ValidationFailure):
+                raise PatchConflict("framework-adapter-unsupported", exc.message) from None
+            raise
     if patch.kind in ("json-merge", "yaml-merge"):
         return _apply_structured(text, patch, package, patch.kind == "yaml-merge")
     content = render_text(patch.content, {"package": package})
