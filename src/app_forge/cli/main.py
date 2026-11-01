@@ -459,7 +459,10 @@ def c_audit(_services, a):
         event = json.loads(a.event)
     except json.JSONDecodeError as exc:
         raise ValidationFailure(f"Invalid audit event JSON: {exc.msg}") from None
-    record = log.append(event, actor=a.actor)
+    try:
+        record = log.append(event, actor=a.actor)
+    except ValueError as exc:
+        raise ValidationFailure(str(exc)) from None
     return {"appended": True, "sequence": record["sequence"], "hash": record["hash"]}, 0
 
 
