@@ -167,7 +167,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-14 SQLite job queue** (M, lib, service): persistent JSON-only jobs with atomic multi-worker claims, expiring leases, bounded attempts, retry scheduling, dead-letter inspection and explicit redrive. Verified by `tests/test_job_queue.py`.
 - [x] **C-15 Secret providers** (M, lib): environment (read-only), optional OS keyring adapter, and owner-permission-only JSON file store; secret wrappers redact string/repr output and backend errors are sanitized. File storage is plaintext at rest and documented accordingly.
 - [x] **C-16 Hash-chained audit log** (M, lib): append-only canonical JSONL events with sequence numbers, UTC timestamps, actor/event metadata, previous-hash links and SHA-256 record hashes; cross-process append locking; `forge audit append` and `forge audit verify` report tampering and malformed records without repairing them. The chain is tamper-evident, not tamper-proof.
-- [ ] **C-17 File store abstraction** (S, lib): local filesystem with safe-path guarantees.
+- [x] **C-17 File store abstraction** (S, lib): root-confined local filesystem with traversal and symlink rejection, bounded reads/writes, atomic replacement, deterministic listing and explicit file deletion. Verified by `tests/test_file_store.py`.
 - [ ] **C-18 Retrying HTTP client** (M, lib): timeouts, backoff, redaction in logs.
 - [ ] **C-19 File watcher and notifier set** (M, lib, automation)
 - [ ] **C-20 Webhook signature verification** (S, lib): HMAC with replay protection.
