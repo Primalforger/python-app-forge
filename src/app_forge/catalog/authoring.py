@@ -222,7 +222,7 @@ def pack_component(vdir: Path, out_zip: Path) -> Path:
     prefix = f"{manifest.id}/{manifest.version}"
     out_zip = Path(out_zip)
     out_zip.parent.mkdir(parents=True, exist_ok=True)
-    members = [Path(vdir) / "component.toml"] + sorted(
+    members = [Path(vdir) / "component.toml"] + ([Path(vdir) / "attestation.json"] if (Path(vdir) / "attestation.json").is_file() else []) + sorted(
         p for p in (Path(vdir) / "files").rglob("*") if p.is_file() and "__pycache__" not in p.parts
         and p.suffix not in (".pyc", ".pyo"))
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as z:
