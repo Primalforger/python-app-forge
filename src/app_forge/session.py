@@ -5,6 +5,7 @@ Writes use atomic replacement so interrupted saves do not leave partial state.
 """
 from __future__ import annotations
 
+import builtins
 import json
 import os
 import tempfile
@@ -60,7 +61,7 @@ class RecentFilesStore:
         self.path = Path(path)
         self.max_items = max_items
 
-    def list(self, *, existing_only: bool = False) -> list[str]:
+    def list(self, *, existing_only: bool = False) -> builtins.list[str]:
         raw = _read_json(self.path, "recent files")
         entries = raw.get("files", [])
         if not isinstance(entries, list) or any(not isinstance(item, str) or not item for item in entries):
@@ -78,7 +79,7 @@ class RecentFilesStore:
             result.append(normalized)
         return result[: self.max_items]
 
-    def add(self, path: str | Path) -> list[str]:
+    def add(self, path: str | Path) -> builtins.list[str]:
         normalized = _normalize_path(path)
         key = os.path.normcase(normalized).casefold()
         entries = [normalized] + [item for item in self.list() if os.path.normcase(item).casefold() != key]
