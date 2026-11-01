@@ -9,7 +9,6 @@ import contextlib
 import importlib.metadata
 import json
 import sys
-import traceback
 
 PROTOCOL_VERSION = 1
 MAX_MESSAGE_BYTES = 1_048_576
@@ -19,13 +18,13 @@ def _emit(payload: dict) -> None:
     encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
     if len(encoded.encode("utf-8")) > MAX_MESSAGE_BYTES:
         raise ValueError("IPC response exceeds the size limit")
-    sys.__stdout__.write(encoded + "\\n")
+    sys.__stdout__.write(encoded + "\n")
     sys.__stdout__.flush()
 
 
 def main() -> int:
     raw = sys.stdin.buffer.readline(MAX_MESSAGE_BYTES + 1)
-    if len(raw) > MAX_MESSAGE_BYTES or not raw.endswith(b"\\n"):
+    if len(raw) > MAX_MESSAGE_BYTES or not raw.endswith(b"\n"):
         _emit({"version": PROTOCOL_VERSION, "ok": False, "error": "invalid_request"})
         return 2
     try:
