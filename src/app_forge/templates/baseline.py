@@ -30,7 +30,7 @@ def _valid_path(path: str) -> bool:
 
 
 def create_baseline(template_id: str, template_version: str, archetype: str,
-                    files: dict[str, str]) -> str:
+                    files: dict[str, str], archetypes: list[str] | tuple[str, ...] | None = None) -> str:
     """Serialize an immutable snapshot of rendered template-owned files."""
     if not all(isinstance(v, str) and v for v in (template_id, template_version, archetype)):
         raise ValueError("template identity, version, and archetype must be non-empty strings")
@@ -46,9 +46,15 @@ def create_baseline(template_id: str, template_version: str, archetype: str,
             raise ValueError(f"template baseline content for {path!r} must be text")
         encoded = content.encode("utf-8")
         snapshot[path] = {"sha256": hashlib.sha256(encoded).hexdigest(), "content": content}
+    selected_archetypes = list(dict.fromkeys(archetypes or [archetype]))
+    if not selected_archetypes or archetype not in selected_archetypes or any(a not in ("desktop", "web", "cli", "service") for a in selected_archetypes):
+        raise ValueError("baseline archetypes must include the primary archetype and use supported values")
+    template = {"id": template_id, "version": template_version, "archetype": archetype}
+    if len(selected_archetypes) > 1:
+        template["archetypes"] = selected_archetypes
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "template": {"id": template_id, "version": template_version, "archetype": archetype},
+        "template": template,
         "files": snapshot,
     }
     envelope = {**payload, "sha256": hashlib.sha256(_canonical(payload)).hexdigest()}
@@ -67,10 +73,15 @@ def load_baseline(text: str) -> dict[str, Any]:
         raise ValueError(f"unsupported template baseline schema: {envelope['schema_version']!r}")
     template = envelope["template"]
     files = envelope["files"]
-    if not isinstance(template, dict) or set(template) != {"id", "version", "archetype"}:
+    if not isinstance(template, dict) or set(template) not in ({"id", "version", "archetype"}, {"id", "version", "archetype", "archetypes"}):
         raise ValueError("template baseline identity is invalid")
     if not all(isinstance(template[k], str) and template[k] for k in ("id", "version", "archetype")):
         raise ValueError("template baseline identity fields must be non-empty strings")
+    archetypes = template.get("archetypes", [template["archetype"]])
+    if (not isinstance(archetypes, list) or not archetypes or template["archetype"] not in archetypes
+            or any(a not in ("desktop", "web", "cli", "service") for a in archetypes)
+            or len(set(archetypes)) != len(archetypes)):
+        raise ValueError("template baseline archetypes are invalid")
     if not isinstance(files, dict):
         raise ValueError("template baseline files must be an object")
     for path, record in files.items():

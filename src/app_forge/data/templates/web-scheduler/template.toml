@@ -1,0 +1,14 @@
+schema_version = 1
+
+[template]
+id = "web-scheduler"
+name = "Web API with scheduled worker"
+version = "1.0.0"
+archetype = "web"
+archetypes = ["web", "service"]
+includes = ["web-fastapi@1.0.0", "service-scheduler@1.0.0"]
+summary = "FastAPI application and namespaced scheduled worker in one shared Python package."
+
+[entry]
+module = "api"
+function = "main"

@@ -13,6 +13,27 @@ class ProjectTemplateUpdatePlanningTests(ForgeTestCase):
         services.import_template(exported)
         return exported
 
+    def test_composite_template_update_preserves_all_archetypes(self):
+        import tomllib
+        services = self.services()
+        project = self.tmp / "composite-update"
+        services.create_project("desktop-worker", {"name": "Composite Update"}, project)
+        exported = self.tmp / "desktop-worker-v2"
+        services.export_template("desktop-worker@1.0.0", exported)
+        manifest = exported / "template.toml"
+        manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+            'version = "1.0.0"', 'version = "2.0.0"'), encoding="utf-8")
+        services.import_template(exported)
+        plan = services.plan_template_update(project, "desktop-worker@2.0.0")
+        self.assertFalse(plan["conflicts"])
+        services.approve_plan(plan["plan_id"], "test maintainer")
+        self.assertTrue(services.apply_plan(plan["plan_id"], verify=False)["ok"])
+        forge = tomllib.loads((project / "forge.toml").read_text(encoding="utf-8"))
+        self.assertEqual(forge["project"]["archetypes"], ["desktop", "service"])
+        baseline = load_baseline((project / BASELINE_PATH).read_text(encoding="utf-8"))
+        self.assertEqual(baseline["template"]["archetypes"], ["desktop", "service"])
+        self.assertEqual(baseline["template"]["version"], "2.0.0")
+
     def test_template_update_preview_groups_changes_and_shows_review_diffs(self):
         services = self.services()
         project = self.make_project(services)

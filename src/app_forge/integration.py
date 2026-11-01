@@ -218,8 +218,8 @@ class IntegrationEngine:
         info = self._templates.get(template or old["id"])
         if info.id != old["id"]:
             raise ValidationFailure(f"Template update must retain template ID {old['id']!r}, not {info.id!r}")
-        if info.archetype != old["archetype"]:
-            raise ConflictFailure("Template archetype changed; automated project update cannot change project archetype")
+        if tuple(info.archetypes or (info.archetype,)) != tuple(old.get("archetypes", [old["archetype"]])):
+            raise ConflictFailure("Template archetype set changed; automated project update cannot change project archetypes")
         plan = self._new_plan(analysis, "template-update", [f"{old['id']}@{old['version']}", f"{info.id}@{info.version}"])
         plan.warnings += analysis["warnings"]
         if Version.parse(info.version) <= Version.parse(old["version"]):
@@ -262,7 +262,7 @@ class IntegrationEngine:
         )
         if plan.conflicts:
             return self._finish(plan)
-        new_baseline = create_baseline(info.id, info.version, info.archetype, incoming)
+        new_baseline = create_baseline(info.id, info.version, info.archetype, incoming, info.archetypes)
         for path in sorted(set(base) | set(merged.files)):
             target = safe_join(root, path)
             before, content = _sha(target), merged.files.get(path)
@@ -295,7 +295,8 @@ class IntegrationEngine:
         plan.warnings += analysis["warnings"]
         dirty = set(analysis["git"]["dirty_paths"])
         forge = read_forge_toml(root)
-        archetype = (forge or {}).get("project", {}).get("archetype")
+        project_meta = (forge or {}).get("project", {})
+        archetype = project_meta.get("archetypes") or project_meta.get("archetype")
         if not archetype and len(analysis["archetype_indicators"]) == 1:
             archetype = analysis["archetype_indicators"][0]
         if not archetype:
@@ -470,14 +471,16 @@ class IntegrationEngine:
         if not package or (not forge and len(analysis["packages"]) > 1):
             conflict("package-undetermined", "", "Cannot determine the target Python package")
             return self._finish(plan)
-        archetype = (forge or {}).get("project", {}).get("archetype") or (
+        project_meta = (forge or {}).get("project", {})
+        archetype = project_meta.get("archetypes") or project_meta.get("archetype") or (
             analysis["archetype_indicators"][0] if len(analysis["archetype_indicators"]) == 1 else None)
+        archetype_set = {archetype} if isinstance(archetype, str) else set(archetype or ())
 
         targets: dict[str, CatalogEntry] = {}
         for cid in ids:
             cur = Version.parse(have[cid]["version"])
             cands = [e for e in self._registry.versions(cid) if e.state == "installed" and e.manifest.semver > cur
-                     and (not archetype or archetype in e.manifest.archetypes)]
+                     and (not archetype_set or bool(archetype_set.intersection(e.manifest.archetypes)))]
             if not cands:
                 plan.warnings.append(f"{cid} is already at the newest usable version ({cur})")
                 continue
@@ -595,12 +598,14 @@ class IntegrationEngine:
         analysis = self._analyzer.analyze(project)
         root = Path(analysis["path"])
         forge = read_forge_toml(root)
-        archetype = (forge or {}).get("project", {}).get("archetype")
+        project_meta = (forge or {}).get("project", {})
+        archetype = project_meta.get("archetypes") or project_meta.get("archetype")
+        archetype_set = {archetype} if isinstance(archetype, str) else set(archetype or ())
         out = []
         for c in read_components(root)["components"]:
             cur = Version.parse(c["version"])
             cands = [e for e in self._registry.versions(c["id"]) if e.state == "installed"
-                     and e.manifest.semver > cur and (not archetype or archetype in e.manifest.archetypes)]
+                     and e.manifest.semver > cur and (not archetype_set or bool(archetype_set.intersection(e.manifest.archetypes)))]
             entry = self._registry.get(c["id"], c["version"])
             out.append({"id": c["id"], "installed": c["version"],
                         "newest": cands[0].manifest.version if cands else c["version"],

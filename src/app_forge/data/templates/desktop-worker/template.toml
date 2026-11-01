@@ -1,0 +1,14 @@
+schema_version = 1
+
+[template]
+id = "desktop-worker"
+name = "Desktop application with background worker"
+version = "1.0.0"
+archetype = "desktop"
+archetypes = ["desktop", "service"]
+includes = ["desktop-pyside6@1.0.0", "service-scheduler@1.0.0"]
+summary = "PySide6 desktop application and namespaced background scheduler in one shared Python package."
+
+[entry]
+module = "app"
+function = "main"
