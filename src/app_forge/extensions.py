@@ -64,6 +64,10 @@ class ExtensionHost:
         self._store.set_enabled_plugin(name, False)
         return self.inspect(name)
 
+    def activate(self, name: str):
+        """Run the extension activation hook in its isolated worker process."""
+        return self.invoke(name, "activate")
+
     def invoke(self, name: str, method: str, *args, **kwargs):
         """Invoke a public extension method in a child process using JSON-only IPC.
 
