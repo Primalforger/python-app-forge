@@ -16,6 +16,9 @@ class FeatureFlagsTests(unittest.TestCase):
         self.assertTrue(flags.clear_override("new-ui"))
         self.assertFalse(flags.is_enabled("new-ui"))
         self.assertFalse(flags.clear_override("new-ui"))
+        flags.set_override("safe-mode", False)
+        self.assertTrue(flags.clear_override("safe-mode"))
+        self.assertTrue(flags.is_enabled("safe-mode"))
 
     def test_register_and_duplicate_rejection(self):
         flags = FeatureFlags()
