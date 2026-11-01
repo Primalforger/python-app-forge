@@ -165,7 +165,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-12 Retry and circuit-breaker library** (S, lib): bounded exponential backoff with jitter and retry predicates; thread-safe closed/open/half-open breaker with a single recovery probe and manual reset. Verified by `tests/test_retry.py`.
 - [x] **C-13 Feature flags** (S, lib): thread-safe in-process boolean registry with validated names, immutable registered defaults, explicit runtime overrides, override clearing and defensive snapshots; unknown flags fail closed. Verified by `tests/test_feature_flags.py`.
 - [x] **C-14 SQLite job queue** (M, lib, service): persistent JSON-only jobs with atomic multi-worker claims, expiring leases, bounded attempts, retry scheduling, dead-letter inspection and explicit redrive. Verified by `tests/test_job_queue.py`.
-- [ ] **C-15 Secret providers** (M, lib): environment, OS keyring, file; never logged.
+- [x] **C-15 Secret providers** (M, lib): environment (read-only), optional OS keyring adapter, and owner-permission-only JSON file store; secret wrappers redact string/repr output and backend errors are sanitized. File storage is plaintext at rest and documented accordingly.
 - [ ] **C-16 Hash-chained audit log** (M, lib): tamper-evident events; verification command.
 - [ ] **C-17 File store abstraction** (S, lib): local filesystem with safe-path guarantees.
 - [ ] **C-18 Retrying HTTP client** (M, lib): timeouts, backoff, redaction in logs.
