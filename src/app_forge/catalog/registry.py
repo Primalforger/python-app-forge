@@ -9,7 +9,8 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from app_forge.domain.errors import ForgeError, Unavailable, ValidationFailure
+from app_forge.domain.errors import ForgeError, SecurityBlock, Unavailable, ValidationFailure
+from app_forge.catalog.attestation import verify_component
 from app_forge.domain.models import ComponentManifest, parse_manifest
 from app_forge.domain.versioning import Constraint, Version
 from app_forge.security import sha256_bytes
@@ -90,10 +91,15 @@ class ScanResult:
 
 
 class ComponentRegistry:
-    def __init__(self, roots: list[tuple[str, Path]], store, revocations_file: Path | None = None):
+    def __init__(self, roots: list[tuple[str, Path]], store, revocations_file: Path | None = None,
+                 trusted_keys_dir: Path | None = None, unsigned_policy: str = "warn"):
         self._roots = roots
         self._store = store
         self._revocations_file = revocations_file
+        self._trusted_keys_dir = trusted_keys_dir or Path(".") / "trusted-keys"
+        self._unsigned_policy = unsigned_policy
+        if unsigned_policy not in ("allow", "warn", "deny"):
+            raise ValueError("unsigned_policy must be allow, warn, or deny")
         self._scan: ScanResult | None = None
 
     # -- loading ---------------------------------------------------------------------------
@@ -118,11 +124,16 @@ class ComponentRegistry:
                     if actual != manifest.digest:
                         raise ValidationFailure("artifact digest mismatch",
                                                 details=[f"manifest: {manifest.digest}", f"actual:   {actual}"])
+                    signature = verify_component(vdir, self._trusted_keys_dir)
+                    if signature["status"] == "unsigned" and self._unsigned_policy == "deny":
+                        raise SecurityBlock("unsigned component rejected by unsigned_component_policy=deny")
                 except (tomllib.TOMLDecodeError, ForgeError) as exc:
                     res.quarantined.append({"path": str(mf), "source": source, "error": str(exc),
                                             "details": getattr(exc, "details", [])})
                     continue
                 entry = CatalogEntry(manifest, vdir, source)
+                if signature["status"] == "unsigned" and self._unsigned_policy == "warn":
+                    entry.state_reason = "unsigned artifact accepted by warning policy"
                 key = (manifest.id, manifest.version)
                 if key in revoked:
                     entry.state, entry.state_reason = "revoked", revoked[key]
