@@ -52,8 +52,13 @@ class SecurityTests(ForgeTestCase):
         with self.assertRaises(SecurityBlock):  # trusted but not yet enabled
             host.activate("acme-ext")
         host.enable("acme-ext")
-        host.activate("acme-ext")
-        self.assertEqual(loaded, [1])
+        from unittest.mock import patch
+        worker_response = b'{"version":1,"ok":true,"result":null}\n'
+        with patch("app_forge.extensions.subprocess.run",
+                   return_value=SimpleNamespace(stdout=worker_response, returncode=0)) as run:
+            host.activate("acme-ext")
+        run.assert_called_once()
+        self.assertEqual(loaded, [])  # activation is delegated to the child worker
         host.trust("acme-ext", "untrusted")  # revoking trust also disables
         with self.assertRaises(SecurityBlock):
             host.activate("acme-ext")
