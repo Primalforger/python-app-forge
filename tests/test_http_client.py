@@ -34,7 +34,8 @@ class HttpClientTests(unittest.TestCase):
             if isinstance(outcome, Exception):
                 raise outcome
             return outcome
-        return RetryingHttpClient(opener=opener, sleep=lambda _delay: None,
+        sleep = kwargs.pop("sleep", lambda _delay: None)
+        return RetryingHttpClient(opener=opener, sleep=sleep,
                                   policy=RetryPolicy(max_attempts=3, initial_delay=0, jitter=0),
                                   **kwargs), calls
 
