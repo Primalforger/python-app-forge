@@ -156,7 +156,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-03 Table: group-by and aggregates** (M, lib): stable first-seen groups over filtered/searched/sorted rows, with count/sum/average/min/max aggregates, null handling and explicit validation. Pagination is not applied to group contents. Verified by the generated advanced-table component regression tests.
 - [x] **C-04 Table: server-side mode** (M, lib): the same interface backed by a query callback.
 - [x] **C-05 Table: XLSX and PDF export adapters** (M, lib): optional `openpyxl` and `reportlab` extras; visible columns and filtered/sorted rows are exported, with stable selected-row export and formula-safe spreadsheet strings.
-- [ ] **C-06 Qt table view adapter** (M, lib): `QAbstractTableModel` over `TableModel`; needs real Qt to verify (G-06).
+- [x] **C-06 Qt table view adapter** (M, lib): optional PySide6 `QAbstractTableModel` adapter exposes visible columns, delegates sorting, supports opt-in editing and synchronizes view selection to stable source row IDs; verified by real-Qt tests.
 - [ ] **C-07 Schema-driven settings dialog** (M, lib, desktop): builds a Qt form from a field schema.
 - [ ] **C-08 Undo/redo stack** (S, lib, desktop)
 - [ ] **C-09 Recent files and session state** (S, lib, desktop)

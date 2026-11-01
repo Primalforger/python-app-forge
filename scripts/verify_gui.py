@@ -31,7 +31,11 @@ def main() -> int:
     print("(Messages like 'propagateSizeHints' or 'QFontDatabase: Cannot find font directory' come from the headless\n"
           " 'offscreen' Qt plugin and are harmless. Only test FAIL/ERROR lines matter.)\n")
     import unittest
-    result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromName("tests.test_gui_qt"))
+    suite = unittest.TestSuite([
+        unittest.defaultTestLoader.loadTestsFromName("tests.test_gui_qt"),
+        unittest.defaultTestLoader.loadTestsFromName("tests.test_qt_table"),
+    ])
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
     ran = result.testsRun - len(result.skipped)
     if not result.wasSuccessful():
         code, msg = 1, "GUI tests FAILED."
