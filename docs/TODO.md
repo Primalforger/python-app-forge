@@ -4,7 +4,7 @@ Legend: **P0** foundation, safety or trust · **P1** needed for a production rel
 Size: **S** under a day · **M** a few days · **L** a week or more
 `needs:` lists other items that must be finished first. Every item has a "done when" so it can be verified.
 
-Done in the Part A pass: **G-01, G-02, G-03, G-04, G-05, G-07** (tests: `test_patching`, `test_hardening`, `test_pydeps`, `test_authoring`).
+Done in the Part A pass: **G 01, G-02, G-03, G-04, G-05, G-07** (tests: `test_patching`, `test_hardening`, `test_pydeps`, `test_authoring`).
 **G-06 results (Windows 11, Python 3.13, PySide6 6.12.0).**
 Run 1: 7 of 9 real-Qt tests passed; found an unnamed widget, a stale search test and a platform bug (SQLite connections never closed).
 Run 2 (after fixes): 9/9 real-Qt tests passed. A full-suite run against a stale editable install was meaningless, but exposed two real Windows bugs
