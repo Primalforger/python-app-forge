@@ -61,12 +61,12 @@ def test_watcher_thread_detects_change_and_stops(tmp_path) -> None:
     notifier = QueueNotifier()
     watcher = FileWatcher(tmp_path, notifier, interval=0.05)
     watcher.start()
+    with pytest.raises(RuntimeError, match="already running"):
+        watcher.start()
     (tmp_path / "new").write_text("data")
     assert notifier.get(timeout=2).kind == "created"
     assert watcher.stop(timeout=2)
     assert not watcher.running
-    with pytest.raises(RuntimeError, match="already running"):
-        watcher.start()
     watcher.start()
     assert watcher.stop(timeout=2)
 
