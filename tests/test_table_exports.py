@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from app_forge.table_exports import export_pdf, export_xlsx
