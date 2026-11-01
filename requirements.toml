@@ -555,3 +555,16 @@ acceptance = "Dry-run is the default and makes no changes; apply prunes only exp
 modules = ["app_forge.settings", "app_forge.persistence", "app_forge.services", "app_forge.cli"]
 verified_by = ["tests/test_housekeeping.py"]
 implemented = true
+
+ 
+[[requirement]]
+id = "G-23"
+title = "Table Designer column grid"
+description = "The Table Designer exposes an accessible editable column grid instead of requiring raw JSON edits, while retaining the existing validated generation backend."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The real-Qt GUI suite verifies initial columns, editing a column key and type, adding and removing a row, and generating valid component configuration code; existing default sort, filters, pagination and export settings are retained."
+modules = ["app_forge.gui.app", "app_forge.services", "app_forge.table_designer"]
+verified_by = ["tests/test_gui_qt.py", "tests/test_upgrade_cli_gui.py"]
+implemented = true
