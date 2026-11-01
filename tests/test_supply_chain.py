@@ -5,7 +5,7 @@ from pathlib import Path
 from jsonschema import Draft7Validator
 
 from app_forge.domain.errors import ValidationFailure
-from app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
+from app_forge.supply_chain import (build_cyclonedx, build_spdx, check_license_policy,\n                                    generate_sboms, serialize_sbom)
 
 
 class SupplyChainTests(unittest.TestCase):
