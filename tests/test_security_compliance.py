@@ -54,7 +54,7 @@ class SecurityTests(ForgeTestCase):
         host.enable("acme-ext")
         from unittest.mock import patch
         worker_response = b'{"version":1,"ok":true,"result":null}\n'
-        with patch("app_forge.extensions.subprocess.run",
+        with patch("app_forge.extensions.shutil.which", return_value="/usr/bin/bwrap"), patch("app_forge.extensions.subprocess.run",
                    return_value=SimpleNamespace(stdout=worker_response, returncode=0)) as run:
             host.activate("acme-ext")
         run.assert_called_once()
