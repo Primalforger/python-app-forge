@@ -119,7 +119,7 @@ def _req(d: dict, key: str, kind: type, problems: list[str], where: str = "") ->
 def _portable_relative_path(value: object) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
         return "path must be a non-empty relative path"
-    if value.startswith("/") or "\\\\" in value or re.match(r"^[A-Za-z]:", value):
+    if value.startswith("/") or "\\" in value or re.match(r"^[A-Za-z]:", value):
         return "path must be relative and use forward-slash separators"
     parts = value.split("/")
     if any(part in ("", ".", "..") for part in parts):
