@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-_PACKAGE = re.compile(r"^[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*$")
+_PACKAGE = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
 _MAX_DESCRIPTION = 2000
 
 
@@ -42,7 +42,7 @@ def validate_documentation_project(project: DocumentationProject) -> Documentati
     if not isinstance(project, DocumentationProject):
         raise TypeError("project must be a DocumentationProject")
     name = _required(project.name, "name")
-    if "\\n" in name or "\\r" in name:
+    if "\n" in name or "\r" in name:
         raise ValueError("name must be a single line")
     description = _required(project.description, "description", limit=_MAX_DESCRIPTION)
     package_name = _required(project.package_name, "package_name", limit=300)
@@ -51,7 +51,7 @@ def validate_documentation_project(project: DocumentationProject) -> Documentati
     python_requires = _required(project.python_requires, "python_requires", limit=80)
     if not python_requires.startswith((">=", "==", "~=")):
         raise ValueError("python_requires must be a supported version constraint")
-    license_name = _required(project.license, "license", limit=100)
+    license_name = _required(project.license, "license", limit=100)\n    if "\\n" in license_name or "\\r" in license_name:\n        raise ValueError("license must be a single line")
     repository_url = project.repository_url
     if repository_url is not None:
         repository_url = _required(repository_url, "repository_url", limit=500)
@@ -68,68 +68,68 @@ def validate_documentation_project(project: DocumentationProject) -> Documentati
 def render_documentation(project: DocumentationProject) -> dict[str, str]:
     """Render a deterministic MkDocs-ready documentation tree in memory."""
     item = validate_documentation_project(project)
-    repo = f"\\nRepository: {item.repository_url}" if item.repository_url else ""
+    repo = f"\nRepository: {item.repository_url}" if item.repository_url else ""
     files = {
         "mkdocs.yml": (
-            f"site_name: {item.name}\\n"
-            f"site_description: {item.description!r}\\n"
-            "docs_dir: docs\\n"
-            "nav:\\n"
-            "  - Home: index.md\\n"
-            "  - Getting started: getting-started.md\\n"
-            "  - Configuration: configuration.md\\n"
-            "  - CLI: cli.md\\n"
-            "  - Architecture: architecture.md\\n"
-            "  - Security: security.md\\n"
-            "  - API: api/index.md\\n"
-            "  - Contributing: contributing.md\\n"
+            f"site_name: {json.dumps(item.name, ensure_ascii=False)}\n"
+            f"site_description: {json.dumps(item.description, ensure_ascii=False)}\n"
+            "docs_dir: docs\n"
+            "nav:\n"
+            "  - Home: index.md\n"
+            "  - Getting started: getting-started.md\n"
+            "  - Configuration: configuration.md\n"
+            "  - CLI: cli.md\n"
+            "  - Architecture: architecture.md\n"
+            "  - Security: security.md\n"
+            "  - API: api/index.md\n"
+            "  - Contributing: contributing.md\n"
         ),
         "docs/index.md": (
-            f"# {item.name}\\n\\n{item.description}\\n\\n"
-            f"**Package:** `{item.package_name}`  \\n"
-            f"**Python:** `{item.python_requires}`  \\n"
-            f"**License:** {item.license}{repo}\\n\\n"
-            "## What this project does\\n\\n"
-            "_Describe the primary use cases, intended users, and key capabilities._\\n"
+            f"# {item.name}\n\n{item.description}\n\n"
+            f"**Package:** `{item.package_name}`  \n"
+            f"**Python:** `{item.python_requires}`  \n"
+            f"**License:** {item.license}{repo}\n\n"
+            "## What this project does\n\n"
+            "_Describe the primary use cases, intended users, and key capabilities._\n"
         ),
         "docs/getting-started.md": (
-            f"# Getting started\\n\\n## Requirements\\n\\n"
-            f"- Python {item.python_requires}\\n\\n"
-            "## Install\\n\\n"
-            "Document the supported installation command and any optional extras.\\n\\n"
-            "## First use\\n\\n"
-            f"Add a minimal, verified example that imports `{item.package_name}`.\\n"
+            f"# Getting started\n\n## Requirements\n\n"
+            f"- Python {item.python_requires}\n\n"
+            "## Install\n\n"
+            "Document the supported installation command and any optional extras.\n\n"
+            "## First use\n\n"
+            f"Add a minimal, verified example that imports `{item.package_name}`.\n"
         ),
         "docs/configuration.md": (
-            "# Configuration\\n\\n"
+            "# Configuration\n\n"
             "Document each supported setting, its type, default, validation rules, "
-            "and whether it contains sensitive data. Do not include real secrets.\\n"
+            "and whether it contains sensitive data. Do not include real secrets.\n"
         ),
         "docs/cli.md": (
-            "# Command-line interface\\n\\n"
+            "# Command-line interface\n\n"
             "List supported commands, required arguments, exit codes, and safe examples. "
-            "Identify commands that modify or delete user data.\\n"
+            "Identify commands that modify or delete user data.\n"
         ),
         "docs/architecture.md": (
-            "# Architecture\\n\\n"
+            "# Architecture\n\n"
             "Describe major modules, trust boundaries, data flows, external dependencies, "
-            "and important design decisions. Link to relevant ADRs.\\n"
+            "and important design decisions. Link to relevant ADRs.\n"
         ),
         "docs/security.md": (
-            "# Security\\n\\n"
+            "# Security\n\n"
             "Document the threat model, security-sensitive defaults, data handling, "
             "supported disclosure channel, and known limitations. This starter is not "
-            "a security assessment or certification.\\n"
+            "a security assessment or certification.\n"
         ),
         "docs/contributing.md": (
-            "# Contributing\\n\\n"
+            "# Contributing\n\n"
             "Document the development environment, formatting and test commands, "
-            "pull-request expectations, and review process.\\n"
+            "pull-request expectations, and review process.\n"
         ),
         "docs/api/index.md": (
-            f"# API reference\\n\\n"
+            f"# API reference\n\n"
             f"Document the supported public API for `{item.package_name}`. "
-            "Include stable import paths and runnable examples; omit private internals.\\n"
+            "Include stable import paths and runnable examples; omit private internals.\n"
         ),
     }
     return files
@@ -164,7 +164,7 @@ def create_documentation_scaffold(
     created: list[Path] = []
     try:
         for target, content in zip(targets, rendered.values()):
-            with target.open("x", encoding="utf-8", newline="\\n") as stream:
+            with target.open("x", encoding="utf-8", newline="\n") as stream:
                 stream.write(content)
             created.append(target)
     except Exception:
