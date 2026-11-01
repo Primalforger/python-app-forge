@@ -4,7 +4,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app_forge.data.components import __name__ as _components_package  # noqa: F401
 from app_forge.table_views import TableViewStore, apply_view, normalize_view
 
 
@@ -28,7 +27,8 @@ class _Model:
         self.columns.insert(index, column)
 
     def set_visible(self, key, visible):
-        pass
+        self.visibility = getattr(self, "visibility", {})
+        self.visibility[key] = visible
 
     def set_sort(self, *keys):
         self.sort_keys = list(keys)
