@@ -52,6 +52,7 @@ jobs:
   real-qt:
     name: Real Qt GUI (Python 3.11)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
