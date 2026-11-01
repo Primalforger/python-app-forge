@@ -4,10 +4,12 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import signal
 import subprocess
+import time
 from pathlib import Path
 
-from app_forge.domain.errors import SecurityBlock
+from app_forge.domain.errors import OperationCancelled, SecurityBlock
 
 _SECRET_PATTERNS = [
     re.compile(r"(?i)\b(password|passwd|secret|token|api[_-]?key|authorization)\b(\s*[:=]\s*)(\S+)"),
@@ -31,7 +33,6 @@ def safe_join(root: Path, relative: str) -> Path:
                             hint="Component destinations must be relative paths inside the project.")
     root_resolved = Path(root).resolve()
     candidate = root_resolved.joinpath(*norm.split("/"))
-    # Resolve through any existing symlinks to catch escapes.
     probe = candidate
     while not probe.exists() and probe != root_resolved:
         probe = probe.parent
@@ -67,17 +68,70 @@ def safe_environ(passthrough: tuple[str, ...] = ()) -> dict[str, str]:
     return {k: v for k, v in os.environ.items() if k in keep}
 
 
-def run_command(args: list[str], *, cwd: Path, timeout: float = 600, env: dict | None = None,
-                inherit_env: bool = True) -> subprocess.CompletedProcess:
-    """Run an executable with an explicit argument list. Never uses a shell.
+def _stop_process(proc: subprocess.Popen, *, process_group: bool, grace: float = 1.0) -> tuple[str, str]:
+    """Terminate a child (and its POSIX descendants), escalating to kill and always reaping it."""
+    if proc.poll() is None:
+        try:
+            if process_group and os.name == "posix":
+                os.killpg(proc.pid, signal.SIGTERM)
+            else:
+                proc.terminate()
+        except ProcessLookupError:
+            pass
+        try:
+            return proc.communicate(timeout=grace)
+        except subprocess.TimeoutExpired:
+            try:
+                if process_group and os.name == "posix":
+                    os.killpg(proc.pid, signal.SIGKILL)
+                else:
+                    proc.kill()
+            except ProcessLookupError:
+                pass
+    return proc.communicate()
 
-    With inherit_env=False only `env` is passed (use safe_environ() as a base for untrusted code).
+
+def run_command(args: list[str], *, cwd: Path, timeout: float = 600, env: dict | None = None,
+                inherit_env: bool = True, cancel_token=None, poll_interval: float = 0.1) -> subprocess.CompletedProcess:
+    """Run an explicit command, optionally stopping it promptly when a cancellation token is set.
+
+    POSIX commands run in a new session so cancellation also terminates their child processes.
+    Existing timeout, environment, capture and no-shell behavior is preserved.
     """
     if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
         raise SecurityBlock("Commands must be explicit argument lists")
+    if poll_interval <= 0:
+        raise ValueError("poll_interval must be positive")
+    if cancel_token is not None:
+        cancel_token.raise_if_cancelled()
     full_env = {**(os.environ if inherit_env else {}), **(env or {})}
-    return subprocess.run(args, cwd=str(cwd), capture_output=True, text=True, timeout=timeout,
-                          env=full_env, shell=False)
+    kwargs = {"cwd": str(cwd), "stdout": subprocess.PIPE, "stderr": subprocess.PIPE,
+              "text": True, "env": full_env, "shell": False}
+    process_group = os.name == "posix"
+    if process_group:
+        kwargs["start_new_session"] = True
+    elif os.name == "nt":
+        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    proc = subprocess.Popen(args, **kwargs)
+    started = time.monotonic()
+    try:
+        while True:
+            if cancel_token is not None and cancel_token.cancelled:
+                _stop_process(proc, process_group=process_group)
+                raise OperationCancelled("Operation cancelled by user")
+            remaining = timeout - (time.monotonic() - started)
+            if remaining <= 0:
+                stdout, stderr = _stop_process(proc, process_group=process_group)
+                raise subprocess.TimeoutExpired(args, timeout, output=stdout, stderr=stderr)
+            try:
+                stdout, stderr = proc.communicate(timeout=min(poll_interval, remaining))
+                return subprocess.CompletedProcess(args, proc.returncode, stdout, stderr)
+            except subprocess.TimeoutExpired:
+                continue
+    except BaseException:
+        if proc.poll() is None:
+            _stop_process(proc, process_group=process_group)
+        raise
 
 
 class TrustPolicy:
