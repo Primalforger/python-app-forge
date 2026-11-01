@@ -57,7 +57,7 @@ jobs:
       - name: Install Qt runtime libraries
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libegl1
+          sudo apt-get install --yes libegl1 bubblewrap
 
       - name: Set up Python
         uses: actions/setup-python@v5
