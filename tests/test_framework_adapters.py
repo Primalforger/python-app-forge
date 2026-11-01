@@ -42,9 +42,9 @@ class FrameworkAdapterTests(unittest.TestCase):
         with self.assertRaises(PatchConflict):
             apply_patch("app = FastAPI()\nother = FastAPI()\n",
                         self.patch("fastapi"), "acme.routes", "pkg")
-        with self.assertRaises(ValidationFailure):
+        with self.assertRaises(PatchConflict):
             apply_patch("app = FastAPI(\n", self.patch("fastapi"), "acme.routes", "pkg")
-        with self.assertRaises(ValidationFailure):
+        with self.assertRaises(PatchConflict):
             apply_patch("app = FastAPI()\n", self.patch("fastapi", module="pkg;evil"),
                         "acme.routes", "pkg")
 
