@@ -257,7 +257,7 @@ def parse_manifest(data: dict) -> ComponentManifest:
             if application and (not isinstance(application, str) or not application.isidentifier()):
                 p.append(f"{where}.registration.application must be a Python identifier")
             route = registration.get("route", "")
-            if not isinstance(route, str) or any(ch in route for ch in '\\r\\n"\\\\'):
+            if not isinstance(route, str) or any(ch in route for ch in ("\\r", "\\n", '"', "\\\\")):
                 p.append(f"{where}.registration.route must be a simple URL prefix")
             if comment != "#":
                 p.append(f"{where}.comment must be '#' for Python framework registrations")
