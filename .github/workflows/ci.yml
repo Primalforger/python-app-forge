@@ -116,6 +116,8 @@ jobs:
   performance-baseline:
     name: Performance baseline (Ubuntu 24.04, Python 3.11)
     runs-on: ubuntu-24.04
+    env:
+      FORGE_RUNNER_IMAGE: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -132,6 +134,8 @@ jobs:
         run: uv pip install --system -e ".[dev]"
       - name: Run representative performance workloads
         run: python scripts/benchmark_performance.py --catalog-sizes 25,100,250 --iterations 7 --output performance-results.json
+      - name: Enforce reference-host regression ceilings
+        run: python scripts/check_performance_regression.py --report performance-results.json
       - name: Preserve raw baseline report
         uses: actions/upload-artifact@v4
         with:

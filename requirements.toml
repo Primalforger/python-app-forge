@@ -304,13 +304,14 @@ implemented = true
 [[requirement]]
 id = "NFR-003"
 title = "Performance"
-description = "Responsiveness on representative catalogs; thresholds undefined.  Gap: thresholds must be set from baseline measurements."
+description = "Catalog scan/search and project generation performance are measured against a named Ubuntu 24.04 / Python 3.11 baseline."
 priority = "P1"
 source = "spec 2.2"
-method = "test"
-acceptance = "To be defined in the verification plan."
-verified_by = ["tests/NOT_WRITTEN_YET.py"]
-implemented = false
+method = "benchmark"
+acceptance = "The reference-host report is checked in; workload ceilings derived from measured medians are enforced by the CI regression checker, which rejects host mismatches."
+modules = ["app_forge.catalog.registry", "app_forge.services"]
+verified_by = ["scripts/benchmark_performance.py", "scripts/check_performance_regression.py", "tests/test_performance_benchmark.py"]
+implemented = true
 
 [[requirement]]
 id = "NFR-005"
@@ -473,7 +474,7 @@ description = "An offline benchmark generates representative component catalogs 
 priority = "P1"
 source = "docs/TODO.md"
 method = "benchmark"
-acceptance = "A named-host baseline report is checked in and per-workload regression ceilings derived from measured medians are enforced."
+acceptance = "A named-host baseline report is checked in and per-workload regression ceilings derived from measured medians are enforced on an equivalent host."
 modules = ["app_forge.catalog.registry", "app_forge.services"]
-verified_by = ["scripts/benchmark_performance.py", "tests/test_performance_benchmark.py"]
-implemented = false
+verified_by = ["scripts/benchmark_performance.py", "scripts/check_performance_regression.py", "tests/test_performance_benchmark.py"]
+implemented = true
