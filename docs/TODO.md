@@ -140,7 +140,7 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   *Done when:* navigation exposes all four screens, generation review is read-only, and stub plus real-Qt tests cover the wizard-to-review flow.
 - [x] **G-25 More templates** (M): add a dependency-free plain Python library template and a Forge extension starter with entry-point metadata, JSON-safe example methods, tests and trust-first security guidance.
   *Done when:* both templates generate reproducible projects, expose their intended packaging metadata, and pass generated-project verification.
-- [ ] **G-26 CLI polish** (S): shell completion, `--output yaml|table`, consistent progress output.
+- [x] **G-26 CLI polish** (S): Bash/Zsh/Fish completion scripts, `--output text|json|yaml|table` (`--json` remains compatible), and consistent opt-in/TTY-aware progress messages on stderr.
 
 ---
 
