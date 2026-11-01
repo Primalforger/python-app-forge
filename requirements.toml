@@ -659,3 +659,16 @@ acceptance = "Grouping preserves first-seen group order, respects filters/search
 modules = ["forge.advanced-table"]
 verified_by = ["src/app_forge/data/components/forge.advanced-table/1.0.0/files/tests/test_table_model.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-04"
+title = "Server-side table query mode"
+description = "A callback-backed table model sends validated filters, search, multi-sort and pagination to a host query function without loading the full dataset."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Query snapshots contain all current table state; callback page metadata and totals are validated; refresh re-executes the callback; invalid columns, operators and page coordinates are rejected."
+modules = ["app_forge.table_server"]
+verified_by = ["tests/test_table_server.py"]
+implemented = true
