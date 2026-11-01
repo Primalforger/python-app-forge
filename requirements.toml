@@ -951,3 +951,16 @@ acceptance = "Conventional Commit subjects, scopes, breaking markers/footers and
 modules = ["app_forge.changelog"]
 verified_by = ["tests/test_changelog.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-29"
+title = "SQLAlchemy and Alembic migration support"
+description = "Provide optional database migration planning and explicitly approved Alembic upgrades with durable operation journaling and no automatic downgrade."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Planning reports current revision and heads without writes; multiple heads fail closed for the default head target; upgrades require explicit irreversible-side-effect consent; concurrent migration attempts are locked; success and failure are journaled atomically without database credentials; Forge never invokes downgrade as automatic recovery."
+modules = ["app_forge.migrations"]
+verified_by = ["tests/test_migrations.py"]
+implemented = true

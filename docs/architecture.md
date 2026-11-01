@@ -44,3 +44,15 @@ verify the digest; mismatches are quarantined. Release tooling: `forge component
 Create `<catalog root>/<id>/<version>/component.toml` and `files/`, then seal it. Put the directory in
 `$FORGE_HOME/catalog/` (or list it under `catalog_roots` in `$FORGE_HOME/settings.toml`). Use any built-in
 manifest as a template; contributed files may use `{{package}}`.
+
+
+## Database migrations (C-29)
+Database migrations are deliberately outside Forge's file-patch recovery transaction.
+Install the optional `migrations` extra to use `app_forge.migrations.MigrationRunner`.
+Planning reads the current Alembic revision and available heads without changing the
+database. Upgrades require explicit `confirm_irreversible=True`, take an exclusive
+migration lock, and write an atomic, owner-private JSON operation journal that omits
+the database URL. Forge never runs Alembic downgrade as failure recovery. A failed
+operation or a journal left in `running` state after a crash requires an operator to
+inspect the live database revision and reconcile it before another attempt. Configure
+a durable journal directory and protect the Alembic configuration and credentials.
