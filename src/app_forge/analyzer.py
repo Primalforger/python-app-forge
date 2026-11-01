@@ -129,9 +129,6 @@ class ProjectAnalyzer:
 
         if "setup.py" in rels and not project:
             unsupported.append("setup.py-only metadata is dynamic and is not evaluated (no code execution)")
-        if "manage.py" in rels:
-            unsupported.append("Django project: framework-aware integration adapter not available")
-
         level, reasons = self._classify(forge, pyproject, project, py_files, packages, frameworks, has_tests,
                                         rels)
         ops = {1: ["analyze", "plan-add", "plan-remove", "apply", "recover", "verify"],
