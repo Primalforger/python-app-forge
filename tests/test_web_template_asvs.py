@@ -14,6 +14,7 @@ class WebTemplateASVSTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = API.read_text(encoding="utf-8")
+        cls.security = self.security
         cls.tree = ast.parse(cls.source.replace("{{package}}", "sample_app"))
 
     def test_host_allowlist_is_explicit_and_rejects_wildcards(self):
@@ -31,8 +32,8 @@ class WebTemplateASVSTests(unittest.TestCase):
             "Strict-Transport-Security",
         ):
             with self.subTest(header=header):
-                self.assertIn(header, self.source)
-        self.assertIn('if request.url.scheme == "https":', self.source)
+                self.assertIn(header, self.security)
+        self.assertIn('if request.url.scheme == "https":', self.security)
 
     def test_request_validation_and_safe_error_responses_remain(self):
         self.assertIn("class ItemIn(BaseModel):", self.source)
