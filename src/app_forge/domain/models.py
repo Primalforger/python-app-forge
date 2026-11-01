@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Any
@@ -126,6 +127,8 @@ def _portable_relative_path(value: object) -> str:
     if any(part in ("", ".", "..") for part in parts):
         return "path contains an unsafe segment"
     for part in parts:
+        if len(part.encode("utf-16-le")) // 2 > 255:
+            return "path segment exceeds the portable 255 UTF-16 code-unit limit"
         if part.endswith((".", " ")) or any(ord(ch) < 32 or ch in '<>:\"|?*' for ch in part):
             return "path contains a character unsupported on Windows"
         if part.split(".", 1)[0].upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
@@ -195,12 +198,12 @@ def parse_manifest(data: dict) -> ComponentManifest:
             if error:
                 p.append(f"{field_name} {path_value!r}: {error}")
         if isinstance(src, str):
-            folded = src.casefold()
+            folded = unicodedata.normalize("NFC", src).casefold()
             if folded in source_names and source_names[folded] != src:
                 p.append(f"integration.files sources {source_names[folded]!r} and {src!r} collide on case-insensitive filesystems")
             source_names[folded] = src
         if isinstance(dest, str):
-            folded = dest.replace("{{package}}", "__forge_package__").casefold()
+            folded = unicodedata.normalize("NFC", dest.replace("{{package}}", "__forge_package__")).casefold()
             if folded in destination_names:
                 p.append(f"integration.files destinations {destination_names[folded]!r} and {dest!r} collide on case-insensitive filesystems")
             destination_names[folded] = dest
