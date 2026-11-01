@@ -129,7 +129,10 @@ class SqliteRepository(Generic[ModelT]):
         primary_keys = tuple(model.__mapper__.primary_key)
         if len(primary_keys) != 1:
             raise ValueError("repository models must have exactly one primary-key column")
-        self._primary_key = primary_keys[0].key
+        primary_key_name = primary_keys[0].key
+        if primary_key_name is None:
+            raise ValueError("repository primary-key column must have a name")
+        self._primary_key: str = primary_key_name
 
     def add(self, **values: Any) -> ModelT:
         with self.database.transaction() as session:
