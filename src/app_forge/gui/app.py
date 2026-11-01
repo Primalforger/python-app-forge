@@ -531,31 +531,80 @@ class MainWindow(QMainWindow):
         w = QWidget()
         v = QVBoxLayout(w)
         v.addWidget(_title("Table Designer"))
-        v.addWidget(QLabel("Edit the table definition (JSON). Validation explains every problem; generated code "
-                           "configures the forge.advanced-table component."))
-        self.td_def = QPlainTextEdit(json.dumps(self.SAMPLE_TABLE, indent=2))
-        self.td_def.setAccessibleName("Table definition")
+        v.addWidget(QLabel("Define columns in the grid, then validate and generate the advanced-table model."))
+        self.td_name = QLineEdit(self.SAMPLE_TABLE["name"])
+        self.td_name.setAccessibleName("Table name")
+        v.addWidget(self.td_name)
+        self.td_columns = QTableWidget(0, 2)
+        self.td_columns.setHorizontalHeaderLabels(["Column key", "Data type"])
+        self.td_columns.setAccessibleName("Table columns grid")
+        self.td_columns.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.td_columns.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.td_columns.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked |
+                                        QAbstractItemView.EditTrigger.EditKeyPressed |
+                                        QAbstractItemView.EditTrigger.AnyKeyPressed)
+        self.td_columns.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        v.addWidget(self.td_columns, 2)
+        controls = QHBoxLayout()
+        add = QPushButton("Add column")
+        add.setAccessibleName("Add table column")
+        add.clicked.connect(self.add_table_column)
+        remove = QPushButton("Remove selected")
+        remove.setAccessibleName("Remove selected table column")
+        remove.clicked.connect(self.remove_table_column)
+        controls.addWidget(add)
+        controls.addWidget(remove)
+        controls.addStretch(1)
+        v.addLayout(controls)
         self.td_import = QLineEdit("my_app.table_model")
         self.td_import.setAccessibleName("Import path of the table component")
         go = QPushButton("Validate and generate")
         go.clicked.connect(self.design_table)
-        self.td_out = QPlainTextEdit()
-        self.td_out.setAccessibleName("Generated code")
-        self.td_out.setReadOnly(True)
-        v.addWidget(self.td_def, 2)
         row = QHBoxLayout()
         row.addWidget(self.td_import, 1)
         row.addWidget(go)
         v.addLayout(row)
+        self.td_out = QPlainTextEdit()
+        self.td_out.setAccessibleName("Generated code")
+        self.td_out.setReadOnly(True)
         v.addWidget(self.td_out, 2)
+        for column in self.SAMPLE_TABLE["columns"]:
+            self._insert_table_column(column["key"], column["type"])
         return w
 
-    def design_table(self) -> None:
-        try:
-            definition = json.loads(self.td_def.toPlainText())
-        except json.JSONDecodeError as exc:
-            QMessageBox.warning(self, "Invalid JSON", str(exc))
+    def _insert_table_column(self, key: str, data_type: str) -> None:
+        row = self.td_columns.rowCount()
+        self.td_columns.insertRow(row)
+        self.td_columns.setItem(row, 0, QTableWidgetItem(key))
+        kind = QComboBox()
+        kind.setAccessibleName(f"Data type for column {key or row + 1}")
+        kind.addItems(["text", "number", "category", "date", "boolean"])
+        index = kind.findText(data_type)
+        kind.setCurrentIndex(index if index >= 0 else 0)
+        self.td_columns.setCellWidget(row, 1, kind)
+
+    def add_table_column(self) -> None:
+        self._insert_table_column(f"column_{self.td_columns.rowCount() + 1}", "text")
+        self.td_columns.setCurrentCell(self.td_columns.rowCount() - 1, 0)
+        self.td_columns.editItem(self.td_columns.item(self.td_columns.rowCount() - 1, 0))
+
+    def remove_table_column(self) -> None:
+        row = self.td_columns.currentRow()
+        if row < 0:
+            self.status.setText("Select a column to remove")
             return
+        self.td_columns.removeRow(row)
+
+    def design_table(self) -> None:
+        columns = []
+        for row in range(self.td_columns.rowCount()):
+            key_item = self.td_columns.item(row, 0)
+            kind = self.td_columns.cellWidget(row, 1)
+            columns.append({"key": key_item.text().strip() if key_item else "",
+                            "type": kind.currentText() if isinstance(kind, QComboBox) else "text"})
+        definition = dict(self.SAMPLE_TABLE)
+        definition["name"] = self.td_name.text().strip()
+        definition["columns"] = columns
         r = self._run("Designing table", lambda: self.s.design_table(definition, self.td_import.text()))
         if r:
             self.td_out.setPlainText(r["python"])
