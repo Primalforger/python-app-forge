@@ -54,6 +54,8 @@ class ExtensionSandboxTests(unittest.TestCase):
                 str(secret), str(workspace / "result.txt"),
             ]
             result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
+            if result.returncode and "Operation not permitted" in result.stderr:
+                self.skipTest("runner kernel does not permit bubblewrap network namespace setup")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((workspace / "result.txt").read_text(encoding="utf-8"), "sandbox-write")
 
