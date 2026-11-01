@@ -56,3 +56,18 @@ the database URL. Forge never runs Alembic downgrade as failure recovery. A fail
 operation or a journal left in `running` state after a crash requires an operator to
 inspect the live database revision and reconcile it before another attempt. Configure
 a durable journal directory and protect the Alembic configuration and credentials.
+
+## SQLite repository layer (C-30)
+
+Install the optional `sqlite` extra to use `app_forge.sqlite_repository`.
+`SqliteDatabase` owns the SQLAlchemy engine, configures SQLite foreign-key
+enforcement, a bounded busy timeout and WAL for file-backed databases, and
+provides short-lived sessions plus explicit transaction scopes. Schema creation
+is opt-in through `create_schema`; it is never an implicit side effect.
+
+`SqliteRepository` supplies typed-model CRUD, required lookup, validated
+filtering, deterministic ordering, bounded pagination and counts. Repository
+methods commit atomically and close sessions on both success and failure.
+In-memory databases use a shared connection so independent sessions see the
+same database. The existing standard-library `SqliteStore` and job queue remain
+unchanged; this adapter is an additional SQLAlchemy-backed option.
