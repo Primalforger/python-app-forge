@@ -646,22 +646,19 @@ class IntegrationEngine:
         except PatchConflict as exc:
             conflict(exc.code, rel, exc.message)
             return None
-        record = {"component": comp_id, "id": patch.id, "file": rel, "kind": patch.kind, "sha256": res.sha256}
+        record = {"component": comp_id, "id": patch.id, "file": rel, "kind": patch.kind, "sha256": res.sha256, "ownership": res.ownership}
         if res.status == "unchanged":
             if replace:
                 return record
             plan.warnings.append(f"{comp_id}:{patch.id} is already present in {rel}; left unmanaged")
             return None
         self._stage_write(plan, root, rel, change, res.new_text, f"patch {comp_id}:{patch.id} ({patch.kind})", comp_id)
-        if patch.kind == "json-merge":
-            plan.warnings.append(f"{rel} will be re-serialised as JSON; json-merge patches are not auto-removed")
+        if patch.kind in ("json-merge", "yaml-merge"):
+            plan.warnings.append(f"{rel} will be re-serialised as structured data; formatting and comments may be normalised")
         return record
 
     def _plan_patch_removal(self, plan, root, comp_id, rec, dirty, conflict) -> None:
         rel = rec["file"]
-        if rec["kind"] == "json-merge":
-            plan.warnings.append(f"{comp_id}:{rec['id']} merged keys into {rel}; remove them manually if unwanted")
-            return
         text, change = self._stage(plan, root, rel)
         if text is None:
             plan.warnings.append(f"{rel} is gone; nothing to unpatch for {comp_id}:{rec['id']}")
@@ -670,7 +667,7 @@ class IntegrationEngine:
             conflict("dirty-overlap", rel, f"{rel} has uncommitted changes")
             return
         try:
-            new_text = remove_patch(text, comp_id, rec["id"], rec["sha256"])
+            new_text = remove_patch(text, comp_id, rec["id"], rec["sha256"], kind=rec.get("kind", "insert"), ownership=rec.get("ownership"))
         except PatchConflict as exc:
             if exc.code == "patch-block-missing":
                 plan.warnings.append(f"{comp_id}:{rec['id']} block is already gone from {rel}")

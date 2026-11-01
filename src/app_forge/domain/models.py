@@ -28,7 +28,7 @@ class FileContribution:
     binary: bool = False
 
 
-PATCH_KINDS = ("insert", "toml-table", "json-merge")
+PATCH_KINDS = ("insert", "toml-table", "json-merge", "yaml-merge")
 COMMENT_STYLES = ("#", "//", "--", ";", "%")
 PATCH_ID_RE = re.compile(r"^[a-z][a-z0-9-]{1,40}$")
 ANCHOR_RE = re.compile(r"^[a-z][a-z0-9_-]{0,40}$")
@@ -238,8 +238,8 @@ def parse_manifest(data: dict) -> ComponentManifest:
                 p.append(f"{where}.content is required for insert patches")
         elif kind == "toml-table" and not str(raw.get("content", "")).strip():
             p.append(f"{where}.content is required for toml-table patches")
-        elif kind == "json-merge" and not (isinstance(raw.get("data"), dict) and raw["data"]):
-            p.append(f"{where}.data (a non-empty table) is required for json-merge patches")
+        elif kind in ("json-merge", "yaml-merge") and not (isinstance(raw.get("data"), dict) and raw["data"]):
+            p.append(f"{where}.data (a non-empty table) is required for {kind} patches")
         patches.append(Patch(str(pid), str(pfile), str(kind), str(raw.get("anchor", "")), position, comment,
                              str(raw.get("content", "")), dict(raw.get("data", {})) if isinstance(raw.get("data"), dict) else {}))
     trust = _req(sec, "trust", str, p, "security.")

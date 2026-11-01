@@ -102,6 +102,20 @@ class TomlAndJsonTests(unittest.TestCase):
         self.assertEqual(d["project"]["name"], "x")
         self.assertEqual(remove_patch(r.new_text, "acme.c", "cfg", r.sha256), self.BASE)
 
+    def test_add_key_to_existing_toml_table_and_remove_exactly(self):
+        base = '[project]\nname = "x"\n\n[tool.acme]\nexisting = true\n'
+        patch = Patch("key", "pyproject.toml", "toml-table", content="[tool.acme]\nadded = 42\n")
+        result = apply_patch(base, patch, "acme.c", "pkg")
+        self.assertEqual(tomllib.loads(result.new_text)["tool"]["acme"], {"existing": True, "added": 42})
+        self.assertEqual(remove_patch(result.new_text, "acme.c", "key", result.sha256), base)
+
+    def test_existing_toml_key_conflict_is_rejected(self):
+        base = '[tool.acme]\nadded = 1\n'
+        patch = Patch("key", "pyproject.toml", "toml-table", content="[tool.acme]\nadded = 42\n")
+        with self.assertRaises(PatchConflict) as cm:
+            apply_patch(base, patch, "acme.c", "pkg")
+        self.assertEqual(cm.exception.code, "config-key-conflict")
+
     def test_existing_identical_tables_are_left_alone(self):
         text = self.BASE + '\n[tool.ruff]\nline-length = 100\n\n[tool.ruff.lint]\nselect = ["F"]\n'
         self.assertEqual(apply_patch(text, self.P, "acme.c", "pkg").status, "unchanged")

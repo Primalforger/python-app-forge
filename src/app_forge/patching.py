@@ -209,6 +209,50 @@ def _apply_json(text: str, patch: Patch, package: str) -> PatchResult:
 
 
 # ----------------------------------------------------------------------------------- public API
+def _toml_existing_table(text: str, content: str, patch: Patch, comp_id: str):
+    try:
+        current = tomllib.loads(text)
+        incoming = tomllib.loads(content)
+    except tomllib.TOMLDecodeError:
+        return None
+    leaves = _leaf_tables(incoming)
+    if len(leaves) != 1:
+        return None
+    path = leaves[0]
+    target = _dig(current, path)
+    additions = _dig(incoming, path)
+    if not isinstance(target, dict) or not isinstance(additions, dict):
+        return None
+    lines = content.splitlines()
+    assignments = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("["):
+            continue
+        match = re.match(r"^([A-Za-z0-9_-]+)\s*=", stripped)
+        if not match:
+            raise PatchConflict("patch-invalid", "existing-table TOML patches support single-line key assignments only")
+        assignments.append((match.group(1), line))
+    if not assignments:
+        raise PatchConflict("patch-invalid", "existing-table TOML patch must add at least one key")
+    block_lines = []
+    for key, line in assignments:
+        if key in target and target[key] != additions[key]:
+            raise PatchConflict("config-key-conflict", f"{'.'.join(path)}.{key} already has a different value")
+        if key not in target:
+            block_lines.append(line)
+    if not block_lines:
+        raise _AlreadyPresent()
+    marker = find_block(text.splitlines(keepends=True), comp_id, patch.id)
+    if marker:
+        return "\n".join(block_lines) + "\n", None
+    header = re.compile(r"^\s*\[" + re.escape(".".join(path)) + r"\]\s*(?:#.*)?$")
+    matches = [idx for idx, line in enumerate(text.splitlines()) if header.match(line)]
+    if len(matches) != 1:
+        return None
+    return "\n".join(block_lines) + "\n", matches[0] + 1
+
+
 def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace: bool = False,
                 expect_sha: str | None = None) -> PatchResult:
     """Apply one patch to `text`. Raises PatchConflict for anything unsafe or ambiguous."""
@@ -221,16 +265,26 @@ def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace:
     if patch.kind == "toml-table":
         existing_block = find_block(text.splitlines(keepends=True), comp_id, patch.id)
         try:
-            leading = "\n" if not existing_block else ""
-            res = _apply_block(text, patch, comp_id, content, replace=replace, expect_sha=expect_sha,
-                               locate_new=_locate_toml_end(patch, content))
+            existing = _toml_existing_table(text, content, patch, comp_id)
+            if existing is not None:
+                block_content, insertion = existing
+                def locate(lines):
+                    if insertion is None:
+                        raise PatchConflict("patch-invalid", "could not locate existing TOML table header")
+                    return insertion, ""
+                res = _apply_block(text, patch, comp_id, block_content, replace=replace,
+                                   expect_sha=expect_sha, locate_new=locate)
+            else:
+                leading = "\n" if not existing_block else ""
+                res = _apply_block(text, patch, comp_id, content, replace=replace, expect_sha=expect_sha,
+                                   locate_new=_locate_toml_end(patch, content))
+                if res.status == "applied" and not existing_block and leading:
+                    nl = _nl(text)
+                    res.new_text = res.new_text.replace(f"{patch.comment} forge:begin {comp_id}:{patch.id}",
+                                                        f"{nl}{patch.comment} forge:begin {comp_id}:{patch.id}", 1)
         except _AlreadyPresent:
             return PatchResult(text, sha256_text(content), "unchanged")
         if res.status == "applied":
-            if not existing_block and leading:
-                nl = _nl(text)
-                res.new_text = res.new_text.replace(f"{patch.comment} forge:begin {comp_id}:{patch.id}",
-                                                    f"{nl}{patch.comment} forge:begin {comp_id}:{patch.id}", 1)
             try:
                 tomllib.loads(res.new_text)
             except tomllib.TOMLDecodeError as exc:

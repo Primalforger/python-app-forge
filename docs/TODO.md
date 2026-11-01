@@ -124,9 +124,10 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   medians rounded up to the nearest millisecond, and CI enforces them only on the matching runner image (closes `NFR-003`).
 
 - [ ] **G-27 Richer patch kinds** (M, new, found while building G-01)
-  `toml-table` can only add new tables and `json-merge` is not auto-removable. Add in-table key insertion for TOML and tracked
-  removal for JSON merges, plus a `yaml-merge` kind.
-  *Done when:* adding and removing a key in an existing `[tool.x]` table is exact and recoverable.
+  In-table TOML key insertion is marker-managed and reversible. JSON/YAML merges persist per-value ownership metadata; uninstall
+  removes only unchanged Forge-added keys/list items and preserves unrelated user values. Legacy merge records without ownership
+  fail safely and require manual reconciliation. Structured serialization may normalize formatting/comments.
+  *Done when:* existing-table TOML changes are exact on removal, and JSON/YAML merge removal is ownership-checked.
 
 ### P2: ecosystem and polish
 
