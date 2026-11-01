@@ -180,7 +180,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-24 Coverage gate** (S, lib): dependency-free Cobertura parser, inclusive line/optional branch thresholds, bounded XML input, fail-closed validation, structured result and tests. Verified by `tests/test_coverage_gate.py`.
 - [x] **C-25 Licence scanner** (M, lib): dependency-free SPDX expression parser and deny-list scanner; detects denied identifiers inside compound expressions, excludes `WITH` exception identifiers, rejects malformed expressions, and reports unknown component/dependency metadata without treating it as approved. Verified by `tests/test_license_scanner.py`.
 - [x] **C-26 SBOM generator** (M, lib): reusable `generate_sboms` API builds CycloneDX 1.5 and SPDX 2.3 in caller-selected order; `serialize_sbom` emits deterministic canonical JSON and rejects invalid values. Existing CLI behavior remains compatible. Verified by `tests/test_supply_chain.py`.
-- [ ] **C-27 Documentation scaffold** (S, lib)
+- [x] **C-27 Documentation scaffold** (S, lib): dependency-free `DocumentationProject` metadata model, deterministic MkDocs-ready navigation and starter pages, safe metadata validation/quoting, and exclusive file creation that refuses overwrites and symlink directories. Verified by `tests/test_documentation_scaffold.py`.
 - [ ] **C-28 Changelog and release notes tooling** (S, lib)
 
 ### Need the patch engine (G-01)
