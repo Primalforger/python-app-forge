@@ -737,3 +737,16 @@ acceptance = "Recent files are normalized, newest-first, deduplicated, bounded a
 modules = ["app_forge.session"]
 verified_by = ["tests/test_session.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-12"
+title = "Retry and circuit-breaker library"
+description = "Provide bounded, opt-in retries with exponential backoff and jitter plus a thread-safe circuit breaker for transient failures."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Retry attempts and delays are bounded and validated; retry predicates and callbacks behave predictably; circuit transitions through closed, open and half-open states, admits only one recovery probe, resets on success, and is safe under concurrent calls."
+modules = ["app_forge.retry"]
+verified_by = ["tests/test_retry.py"]
+implemented = true
