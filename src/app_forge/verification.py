@@ -67,7 +67,7 @@ class VerificationEngine:
         overall = ("cancelled" if cancelled else
                    "failed" if failed else "not_run" if not passed else "incomplete" if not_run else "passed")
         return {"run_id": run_id, "subject": str(root), "overall": overall, "passed": len(passed),
-                "failed": len(failed), "not_run": not_run, "complete": not not_run, "evidence": rows}
+                "failed": len(failed), "not_run": not_run, "complete": not not_run and not cancelled, "evidence": rows}
 
     # -- individual checks ------------------------------------------------------------------
     def _syntax(self, root: Path, add, t0: float, cancel_token=None, progress=None) -> None:

@@ -310,7 +310,9 @@ class ForgeServices:
             op["summary"] = {"overall": rep["overall"],
                              "interface_contracts": len(contract_results),
                              "interface_contracts_verified": sum(r["status"] == "passed" for r in contract_results)}
-            if rep["overall"] == "failed":
+            if rep["overall"] == "cancelled":
+                op["status"] = "cancelled"
+            elif rep["overall"] == "failed":
                 op["status"] = "failed"
             return {"component": f"{component_id}@{entry.manifest.version}", "archetype_probe": archetype,
                     "interface_contracts": contract_results, **{
@@ -481,7 +483,9 @@ class ForgeServices:
             rep = self.integration.apply(plan_id, verify=verify, auto_recover=auto_recover,
                                          cancel_token=cancel_token, progress=progress)
             op["summary"] = {"status": rep["status"]}
-            if not rep["ok"]:
+            if rep.get("cancelled"):
+                op["status"] = "cancelled"
+            elif not rep["ok"]:
                 op["status"] = "failed"
             return {"operation_id": op["operation_id"], **rep}
 
