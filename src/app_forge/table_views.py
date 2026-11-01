@@ -27,7 +27,11 @@ def normalize_view(state: dict[str, Any], column_keys: set[str]) -> dict[str, An
     if (not isinstance(columns, list) or any(not isinstance(k, str) for k in columns)
             or len(columns) != len(set(columns)) or set(columns) != column_keys):
         raise ValueError("columns must contain every table column exactly once")
-    visible = state.get("visible_columns", columns)\n    if not isinstance(visible, list) or any(not isinstance(k, str) for k in visible) or len(visible) != len(set(visible)) or not set(visible) <= column_keys:\n        raise ValueError("visible_columns must contain unique known column keys")\n    sort = state.get("sort", [])
+    visible = state.get("visible_columns", columns)
+    if (not isinstance(visible, list) or any(not isinstance(k, str) for k in visible)
+            or len(visible) != len(set(visible)) or not set(visible) <= column_keys):
+        raise ValueError("visible_columns must contain unique known column keys")
+    sort = state.get("sort", [])
     if not isinstance(sort, list):
         raise ValueError("sort must be a list")
     normalized_sort = []
