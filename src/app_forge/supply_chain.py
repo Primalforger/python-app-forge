@@ -180,3 +180,34 @@ def check_license_policy(inventory: dict, denied: list[str] | None = None) -> di
         "ok": not findings,
         "disclaimer": "A clean result is not a legal opinion. Unknown licence metadata is not treated as approved.",
     }
+
+
+def generate_sboms(inventory: dict, formats: tuple[str, ...] = ("cyclonedx", "spdx")) -> dict[str, dict]:
+    """Build requested SBOM documents using the validated project inventory.
+
+    The returned mapping preserves the caller's format order. Each document is
+    deterministic for an identical inventory; timestamps and other metadata
+    must therefore be supplied by the caller rather than inferred here.
+    """
+    if isinstance(formats, (str, bytes)) or not isinstance(formats, (list, tuple)):
+        raise ValidationFailure("SBOM formats must be a list or tuple of format names")
+    builders = {"cyclonedx": build_cyclonedx, "spdx": build_spdx}
+    if not formats:
+        raise ValidationFailure("At least one SBOM format must be requested")
+    if any(not isinstance(name, str) or name not in builders for name in formats):
+        raise ValidationFailure("SBOM formats must contain only 'cyclonedx' and/or 'spdx'")
+    if len(set(formats)) != len(formats):
+        raise ValidationFailure("SBOM formats must not contain duplicates")
+    return {name: builders[name](inventory) for name in formats}
+
+
+def serialize_sbom(document: dict) -> str:
+    """Serialize an SBOM as stable UTF-8-ready canonical JSON with a final newline."""
+    if not isinstance(document, dict):
+        raise ValidationFailure("SBOM document must be an object")
+    try:
+        return json.dumps(
+            document, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
+        ) + "\\n"
+    except (TypeError, ValueError) as exc:
+        raise ValidationFailure(f"SBOM document is not valid JSON data: {exc}") from None
