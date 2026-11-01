@@ -5,7 +5,8 @@ from pathlib import Path
 from jsonschema import Draft7Validator
 
 from app_forge.domain.errors import ValidationFailure
-from app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
+from app_forge.supply_chain import (build_cyclonedx, build_spdx, check_license_policy,
+                                    generate_sboms, serialize_sbom)
 
 
 class SupplyChainTests(unittest.TestCase):
@@ -109,6 +110,34 @@ class SupplyChainTests(unittest.TestCase):
                      "python_dependencies": []}
         self.assertEqual(build_cyclonedx(inventory)["components"][0]["licenses"], [])
         self.assertEqual(build_spdx(inventory)["packages"][0]["licenseDeclared"], "NOASSERTION")
+
+
+    def test_public_api_generates_both_formats_and_selected_format(self):
+        documents = generate_sboms(self.inventory)
+        self.assertEqual(set(documents), {"cyclonedx", "spdx"})
+        self.assertEqual(generate_sboms(self.inventory, ("spdx",)), {"spdx": documents["spdx"]})
+
+    def test_public_api_preserves_requested_order(self):
+        documents = generate_sboms(self.inventory, ("spdx", "cyclonedx"))
+        self.assertEqual(list(documents), ["spdx", "cyclonedx"])
+
+    def test_public_api_rejects_unknown_duplicate_and_empty_formats(self):
+        for formats in ((), ("xml",), ("spdx", "spdx"), "spdx", ("spdx", 1)):
+            with self.subTest(formats=formats), self.assertRaises(ValidationFailure):
+                generate_sboms(self.inventory, formats)
+
+    def test_canonical_serialization_is_repeatable_and_has_final_newline(self):
+        document = build_cyclonedx(self.inventory)
+        first = serialize_sbom(document)
+        self.assertEqual(first, serialize_sbom(document))
+        self.assertTrue(first.endswith("\n"))
+        self.assertEqual(json.loads(first), document)
+        self.assertEqual(first, serialize_sbom(dict(reversed(list(document.items())))))
+
+    def test_canonical_serialization_rejects_non_json_values(self):
+        for document in ([], {"value": float("nan")}, {"value": object()}):
+            with self.subTest(document=type(document).__name__), self.assertRaises(ValidationFailure):
+                serialize_sbom(document)
 
 
 if __name__ == "__main__":

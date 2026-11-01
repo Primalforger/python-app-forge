@@ -913,3 +913,16 @@ acceptance = "SPDX AND/OR/WITH/parenthesis expressions are parsed; denied licenc
 modules = ["app_forge.license_scanner"]
 verified_by = ["tests/test_license_scanner.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-26"
+title = "Reusable SBOM generation library"
+description = "Expose inventory-to-CycloneDX/SPDX generation and canonical JSON serialization as a reusable dependency-light Python API."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The public API generates either or both supported SBOM formats in requested order; invalid format selections fail closed; canonical JSON is stable, sorted, compact, UTF-8-preserving, newline-terminated and rejects non-finite or non-JSON values; existing CLI builders remain compatible."
+modules = ["app_forge.supply_chain"]
+verified_by = ["tests/test_supply_chain.py"]
+implemented = true
