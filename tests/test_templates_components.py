@@ -244,6 +244,32 @@ class TemplateTests(ForgeTestCase):
         self.assertIn("self.s.create_project", gui_src)
 
 
+    def test_library_and_extension_starter_templates_generate_verified_projects(self):
+        import tomllib
+
+        s = self.services()
+        library = self.tmp / "plain-library"
+        s.create_project("python-library", {"name": "Plain Library"}, library)
+        library_project = tomllib.loads((library / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertEqual(library_project["project"]["dependencies"], [])
+        self.assertTrue((library / "src" / "plain_library" / "library.py").is_file())
+        self.assertIn("def add(", (library / "src" / "plain_library" / "library.py").read_text(encoding="utf-8"))
+        library_report = s.verify_project(library)
+        self.assertEqual(library_report["overall"], "passed", library_report["evidence"])
+
+        extension = self.tmp / "extension-starter"
+        s.create_project("forge-extension", {"name": "Starter Extension"}, extension)
+        extension_project = tomllib.loads((extension / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertEqual(
+            extension_project["project"]["entry-points"]["app_forge.plugins"]["starter_extension"],
+            "starter_extension.extension:Plugin",
+        )
+        self.assertTrue((extension / "EXTENSION.md").is_file())
+        self.assertIn("trust", (extension / "EXTENSION.md").read_text(encoding="utf-8").lower())
+        extension_report = s.verify_project(extension)
+        self.assertEqual(extension_report["overall"], "passed", extension_report["evidence"])
+
+
 class ComponentTests(ForgeTestCase):
     def test_every_builtin_component_passes_its_contract_tests(self):  # AT-005/AT-006
         s = self.services()

@@ -138,7 +138,8 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   *Done when:* the real-Qt suite verifies grid editing, add/remove behavior and successful code generation.
 - [x] **G-24 Dedicated GUI screens** (M): separate Project Wizard, Generation Review, Configuration Center and Diagnostics screens. Project inputs live in the wizard; a dedicated dry-run review screen previews the generated plan without creating files; configuration and diagnostics have distinct navigation entries.
   *Done when:* navigation exposes all four screens, generation review is read-only, and stub plus real-Qt tests cover the wizard-to-review flow.
-- [ ] **G-25 More templates** (M): plain library, and a template for writing Forge extensions.
+- [x] **G-25 More templates** (M): add a dependency-free plain Python library template and a Forge extension starter with entry-point metadata, JSON-safe example methods, tests and trust-first security guidance.
+  *Done when:* both templates generate reproducible projects, expose their intended packaging metadata, and pass generated-project verification.
 - [ ] **G-26 CLI polish** (S): shell completion, `--output yaml|table`, consistent progress output.
 
 ---

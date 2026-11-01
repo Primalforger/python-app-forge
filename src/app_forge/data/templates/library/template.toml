@@ -1,0 +1,12 @@
+schema_version = 1
+
+[template]
+id = "python-library"
+name = "Plain Python library"
+version = "1.0.0"
+archetype = "cli"
+summary = "A dependency-free importable Python library with a small public API and unit tests."
+
+[entry]
+module = "library"
+function = "main"
