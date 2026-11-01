@@ -82,7 +82,7 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   *Done when:* `tests/test_compliance_artifacts.py` passes and the full CI suite is green.
 
 - [ ] **G-12 SBOM and licence checks** (M)
-  Inventory is custom JSON. Emit CycloneDX and SPDX, and check licence compatibility from manifests.
+  Emit CycloneDX 1.5 and SPDX 2.3 from validated project inventory. Preserve SPDX licence expressions, flag denied identifiers even inside expressions, and keep unresolved dependency licences explicit rather than treating them as approved.
   *Done when:* output validates against the official schemas and an incompatible-licence fixture is flagged.
 
 - [ ] **G-13 Binary assets and file modes** (S)
