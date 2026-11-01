@@ -71,3 +71,14 @@ methods commit atomically and close sessions on both success and failure.
 In-memory databases use a shared connection so independent sessions see the
 same database. The existing standard-library `SqliteStore` and job queue remain
 unchanged; this adapter is an additional SQLAlchemy-backed option.
+
+
+## PostgreSQL repository layer (C-31)
+
+Install the optional postgres extra to use app_forge.postgres_repository.
+PostgresDatabase accepts PostgreSQL SQLAlchemy URLs only, enables connection
+pool pre-ping, validates bounded pool settings, and exposes explicit schema
+creation, short-lived sessions and atomic transaction scopes. Credentials are
+not included in adapter-generated error messages. PostgresRepository provides
+typed-model CRUD, required lookup, validated filtering and ordering, bounded
+pagination and counts. No connection or schema mutation occurs at import time.

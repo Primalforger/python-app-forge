@@ -977,3 +977,16 @@ acceptance = "SQLAlchemy is optional and imported lazily at the module boundary;
 modules = ["app_forge.sqlite_repository"]
 verified_by = ["tests/test_sqlite_repository.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-31"
+title = "PostgreSQL repository adapter"
+description = "Provide an optional SQLAlchemy PostgreSQL engine lifecycle and generic typed-model repository with resilient connection pooling."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "The postgres extra installs SQLAlchemy and psycopg; only PostgreSQL SQLAlchemy URLs are accepted; pool settings are validated and pool pre-ping is enabled; schema creation is explicit; sessions close deterministically; transactions roll back on exceptions; CRUD, required lookup, validated filters/order, bounded pagination and counts work; tests run without requiring a live PostgreSQL server and an opt-in integration URL can exercise a real server."
+modules = ["app_forge.postgres_repository"]
+verified_by = ["tests/test_postgres_repository.py"]
+implemented = true
