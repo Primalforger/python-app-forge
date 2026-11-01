@@ -488,7 +488,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--public-out", help="keygen: public key output path")
 
     sp = sp = acts(grp("catalog", c_catalog, "manage the local component catalog"),
-              ["list", "validate", "rebuild", "sources", "add"])
+              ["list", "validate", "rebuild", "sources", "add", "refresh"])
     sp.add_argument("path", nargs="?")
 
     sp = acts(grp("project", c_project, "inspect and analyze projects"),
