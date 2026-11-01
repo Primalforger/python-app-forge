@@ -57,11 +57,11 @@ def test_mkdocs_metadata_is_quoted_safely() -> None:
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
-        ({"name": "bad\\nname"}, "single line"),
+        ({"name": "bad\nname"}, "single line"),
         ({"package_name": "not a package"}, "Python identifier"),
         ({"package_name": "a..b"}, "Python identifier"),
         ({"python_requires": "latest"}, "version constraint"),
-        ({"license": "MIT\\nInjected: yes"}, "single line"),
+        ({"license": "MIT\nInjected: yes"}, "single line"),
         ({"repository_url": "http://example.com"}, "HTTPS"),
         ({"repository_url": "https://user:secret@example.com"}, "credentials"),
         ({"description": " "}, "description"),
