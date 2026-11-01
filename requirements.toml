@@ -862,3 +862,15 @@ acceptance = "ADR rendering includes status, date, optional decision participant
 modules = ["app_forge.adr"]
 verified_by = ["tests/test_adr.py"]
 implemented = true
+
+[[requirement]]
+id = "C-22"
+title = "STRIDE threat-model worksheet"
+description = "Provide a validated, dependency-free STRIDE worksheet that captures system scope, assets, trust boundaries, threats, mitigations and residual risks, and adapts to the CMP-08 compliance workflow."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All six STRIDE categories are rendered with prompts; threat IDs are unique; threats reference declared assets and include impact, mitigation and residual risk; empty categories are not represented as proof of absence; the CMP-08 adapter produces a valid security-assessment record."
+modules = ["app_forge.threat_model"]
+verified_by = ["tests/test_threat_model.py"]
+implemented = true
