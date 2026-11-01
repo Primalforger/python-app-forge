@@ -685,3 +685,16 @@ acceptance = "XLSX exports visible columns, supports selected rows, freezes the 
 modules = ["app_forge.table_exports"]
 verified_by = ["tests/test_table_exports.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-06"
+title = "Qt table view adapter"
+description = "A PySide6 QAbstractTableModel adapter exposes the framework-independent advanced table model to QTableView without adding Qt to core dependencies."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Visible columns and headers are exposed; sorting delegates to the source model; editing is opt-in and updates stable source rows; refresh resets model data; QTableView row selection synchronizes stable row IDs; real PySide6 tests run in the mandatory GUI verification job."
+modules = ["app_forge.qt_table"]
+verified_by = ["tests/test_qt_table.py"]
+implemented = true
