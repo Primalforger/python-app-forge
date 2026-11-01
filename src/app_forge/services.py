@@ -787,10 +787,10 @@ class ForgeServices:
         return authoring.validate_component_dir(Path(path))
 
     def generate_component_signing_key(self, key_id: str, private_path: str | Path, public_path: str | Path) -> dict:
-        return attestation.generate_keypair(Path(private_path), Path(public_path), key_id=key_id)
+        return attestation.generate_keypair(Path(private_path).expanduser(), Path(public_path).expanduser(), key_id=key_id)
 
     def trust_component_key(self, key_id: str, public_path: str | Path) -> dict:
-        source = Path(public_path)
+        source = Path(public_path).expanduser()
         if not source.is_file():
             raise ValidationFailure(f"public key not found: {source}")
         if not key_id or Path(key_id).name != key_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in key_id):
@@ -804,7 +804,7 @@ class ForgeServices:
         return {"trusted": key_id, "path": str(target)}
 
     def sign_component(self, path: str | Path, private_key: str | Path, key_id: str) -> dict:
-        signed = attestation.sign_component(Path(path), Path(private_key), key_id=key_id)
+        signed = attestation.sign_component(Path(path), Path(private_key).expanduser(), key_id=key_id)
         return {"attestation": str(signed), "component": str(path), "key_id": key_id}
 
 
