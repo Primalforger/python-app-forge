@@ -72,6 +72,18 @@ class LocalFileStore:
             raise FileStoreError("resolved path escapes the file-store root") from exc
         return current
 
+    def _ensure_directory(self, relative: PurePosixPath) -> Path:
+        current = self.root
+        for part in relative.parts:
+            current = current / part
+            try:
+                info = current.lstat()
+            except FileNotFoundError:
+                current.mkdir()
+            if current.is_symlink() or not current.is_dir():
+                raise FileStoreError(f"directory component is not a real directory: {relative}")
+        return current
+
     def read_bytes(self, path: str | Path) -> bytes:
         target = self._resolve(path)
         info = target.lstat()
@@ -90,9 +102,8 @@ class LocalFileStore:
             raise TypeError("file content must be bytes")
         if len(data) > self.max_file_bytes:
             raise FileStoreError("content exceeds the configured size limit")
-        target = self._resolve(path, allow_missing=True)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # Re-check after directory creation so pre-existing symlink parents fail closed.
+        relative = self._relative(path)
+        self._ensure_directory(PurePosixPath(*relative.parts[:-1]))
         target = self._resolve(path, allow_missing=True)
         if target.exists() or target.is_symlink():
             info = target.lstat()
@@ -157,7 +168,6 @@ class LocalFileStore:
         return True
 
     def mkdir(self, path: str | Path) -> Path:
-        target = self._resolve(path, allow_missing=True)
-        target.mkdir(parents=True, exist_ok=True)
-        # Resolve again to reject any symlink component.
+        relative = self._relative(path)
+        target = self._ensure_directory(relative)
         return self._resolve(path)
