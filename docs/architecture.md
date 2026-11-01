@@ -101,3 +101,13 @@ query strings or user identifiers as labels. instrument_fastapi explicitly adds
 middleware and a scrape endpoint; metrics are not exposed or collected unless the
 application opts in. Protect the scrape endpoint at the network or gateway layer
 when operational metrics are not intended to be public.
+
+
+## Desktop command palette (C-38)
+
+The optional PySide6 desktop shell exposes a searchable command palette on
+`Ctrl+K`. It lists every primary screen plus common actions such as refreshing
+the dashboard, running diagnostics and toggling the theme. Search matches all
+query terms against command names and keywords; Enter or activating a result
+runs the selected action. The palette is local UI only and does not add network
+activity or bypass ForgeServices.
