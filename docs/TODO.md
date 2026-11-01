@@ -185,7 +185,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 
 ### Need the patch engine (G-01)
 
-- [ ] **C-29 SQLAlchemy + Alembic migrations** (L): migrations are irreversible side effects, so recovery needs special handling.
+- [x] **C-29 SQLAlchemy + Alembic migrations** (L): optional SQLAlchemy/Alembic extra; read-only revision planning; explicit irreversible-side-effect consent; exclusive migration lock; atomic private journal; failed/interrupted runs require operator inspection and are never auto-downgraded. Verified by tests/test_migrations.py.
 - [ ] **C-30 SQLite repository layer** (M)
 - [ ] **C-31 PostgreSQL adapter** (M, needs C-29)
 - [ ] **C-32 JWT authentication using an established library** (M, web)
