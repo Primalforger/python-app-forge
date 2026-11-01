@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from app_forge.catalog.attestation import generate_keypair, sign_component, verify_component
+from app_forge.catalog.authoring import add_to_catalog, pack_component
 from app_forge.services import ForgeServices
 from app_forge.domain.errors import SecurityBlock
 from app_forge.settings import ForgeSettings
@@ -35,6 +36,25 @@ class ComponentAttestationTests(ForgeTestCase):
         sign_component(component, private_key, key_id="not-trusted")
         with self.assertRaisesRegex(SecurityBlock, "untrusted key"):
             verify_component(component, self.tmp / "empty-trust-store")
+
+
+    def test_signed_archive_is_verified_when_added_to_catalog(self):
+        source_root = self.tmp / "source"
+        component = self.custom_component("acme.release", root=source_root)
+        private_key, public_key = self.tmp / "release.pem", self.tmp / "release.pub"
+        generate_keypair(private_key, public_key, key_id="release-key")
+        sign_component(component, private_key, key_id="release-key")
+        archive = pack_component(component, self.tmp / "release.zip")
+        settings = ForgeSettings(home=self.home)
+        settings.ensure()
+        trusted = settings.trusted_keys_dir / "release-key.pub"
+        trusted.write_bytes(public_key.read_bytes())
+        added = add_to_catalog(archive, settings.user_catalog)
+        self.assertEqual(added["added"], "acme.release@1.0.0")
+        services = ForgeServices(settings, builtin_root=None)
+        entry = services.registry.require("acme.release")
+        self.assertEqual(entry.state, "installed")
+        self.assertEqual(verify_component(entry.root, settings.trusted_keys_dir)["status"], "verified")
 
     def test_unsigned_policy_deny_quarantines_unsigned_components(self):
         component_root = self.tmp / "catalog"
