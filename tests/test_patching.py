@@ -147,6 +147,36 @@ class TomlAndJsonTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, "config-key-conflict")
 
 
+    def test_json_merge_removal_preserves_unrelated_values_and_detects_edits(self):
+        p = Patch("cfg", "c.json", "json-merge", data={"forge": {"flag": True}, "items": ["forge-item"]})
+        r = apply_patch('{"user": 1, "items": ["user-item"]}', p, "acme.c", "pkg")
+        changed = json.loads(r.new_text)
+        changed["user"] = 2
+        changed["items"].append("later-user-item")
+        restored = json.loads(remove_patch(json.dumps(changed), "acme.c", "cfg", r.sha256,
+                                           kind="json-merge", ownership=r.ownership))
+        self.assertEqual(restored, {"user": 2, "items": ["user-item", "later-user-item"]})
+        changed["forge"]["flag"] = False
+        with self.assertRaises(PatchConflict) as cm:
+            remove_patch(json.dumps(changed), "acme.c", "cfg", r.sha256,
+                         kind="json-merge", ownership=r.ownership)
+        self.assertEqual(cm.exception.code, "patch-modified")
+
+    def test_yaml_merge_round_trip_and_safe_removal(self):
+        p = Patch("cfg", "settings.yaml", "yaml-merge", data={"service": {"enabled": True}, "labels": ["forge"]})
+        r = apply_patch("service:\n  name: api\nlabels:\n  - user\n", p, "acme.c", "pkg")
+        self.assertEqual(r.status, "applied")
+        self.assertIn("enabled: true", r.new_text)
+        restored = remove_patch(r.new_text, "acme.c", "cfg", r.sha256,
+                                kind="yaml-merge", ownership=r.ownership)
+        self.assertEqual(__import__("yaml").safe_load(restored), {"service": {"name": "api"}, "labels": ["user"]})
+
+    def test_structured_removal_requires_ownership(self):
+        with self.assertRaises(PatchConflict) as cm:
+            remove_patch('{"a": 1}', "acme.c", "cfg", None, kind="json-merge")
+        self.assertEqual(cm.exception.code, "patch-ownership-missing")
+
+
 class PatchManifestValidationTests(unittest.TestCase):
     def manifest(self, patches):
         import pathlib
