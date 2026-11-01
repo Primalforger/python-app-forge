@@ -672,3 +672,16 @@ acceptance = "Query snapshots contain all current table state; callback page met
 modules = ["app_forge.table_server"]
 verified_by = ["tests/test_table_server.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-05"
+title = "Table XLSX and PDF export adapters"
+description = "The framework-independent table model can export visible filtered/sorted rows to XLSX and paginated PDF using independently installable optional dependencies."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "XLSX exports visible columns, supports selected rows, freezes the header, adds an autofilter, and writes untrusted strings as text rather than formulas; PDF output is valid, paginated, escapes markup, and handles empty visible-column sets; missing optional dependencies produce actionable errors."
+modules = ["app_forge.table_exports"]
+verified_by = ["tests/test_table_exports.py"]
+implemented = true
