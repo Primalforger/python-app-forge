@@ -56,10 +56,10 @@ class ColumnWidthStore:
         """Validate and atomically replace the persisted width map."""
         normalized = normalize_widths(widths, self.column_keys)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps({"schema": 1, "widths": normalized}, indent=2, sort_keys=True) + "\\n"
+        payload = json.dumps({"schema": 1, "widths": normalized}, indent=2, sort_keys=True) + "\n"
         fd, temporary = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\\n") as stream:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
                 stream.write(payload)
                 stream.flush()
                 os.fsync(stream.fileno())
