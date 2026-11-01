@@ -8,7 +8,7 @@ This template starts with conservative HTTP security defaults, but it is **not a
 - The app rejects wildcard host configuration. Keep TLS termination at a trusted reverse proxy and ensure the proxy forwards the original HTTPS scheme only when it is trusted.
 - The middleware adds defensive browser headers and HSTS on HTTPS requests.
 - CORS is not enabled by default. If browser clients on another origin are required, add an explicit origin allowlist; do not use wildcard origins with credentials.
-- OpenAPI and interactive docs are enabled at `/openapi.json` and `/docs` for development. Disable or protect them before exposing sensitive API schemas publicly.
+- OpenAPI and interactive docs are disabled by default. Set `APP_ENABLE_API_DOCS=1` only in trusted development environments or explicitly protected deployments.
 
 ## Production requirements still owned by the application
 
