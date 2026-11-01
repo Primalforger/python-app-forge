@@ -178,7 +178,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-22 STRIDE threat-model template** (S, lib): dependency-free STRIDE worksheet with validated assets, trust boundaries, unique threat IDs, six category prompts, impact, mitigation and residual-risk capture; renders Markdown and adapts to the existing CMP-08 compliance record. Verified by `tests/test_threat_model.py`.
 - [x] **C-23 Change-impact record generator** (M, lib): validated change metadata, affected systems, requirement traceability, impact dimensions, rollback and verification plans; Markdown review report and CMP-09 adapter. Empty traceability is explicitly incomplete. Verified by `tests/test_change_impact.py`.
 - [x] **C-24 Coverage gate** (S, lib): dependency-free Cobertura parser, inclusive line/optional branch thresholds, bounded XML input, fail-closed validation, structured result and tests. Verified by `tests/test_coverage_gate.py`.
-- [ ] **C-25 Licence scanner** (M, lib): pairs with G-12.
+- [x] **C-25 Licence scanner** (M, lib): dependency-free SPDX expression parser and deny-list scanner; detects denied identifiers inside compound expressions, excludes `WITH` exception identifiers, rejects malformed expressions, and reports unknown component/dependency metadata without treating it as approved. Verified by `tests/test_license_scanner.py`.
 - [ ] **C-26 SBOM generator** (M, lib): pairs with G-12.
 - [ ] **C-27 Documentation scaffold** (S, lib)
 - [ ] **C-28 Changelog and release notes tooling** (S, lib)

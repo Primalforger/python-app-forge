@@ -900,3 +900,16 @@ acceptance = "Valid Cobertura totals produce correct percentages; thresholds are
 modules = ["app_forge.coverage_gate"]
 verified_by = ["tests/test_coverage_gate.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-25"
+title = "SPDX licence scanner"
+description = "Scan supply-chain inventory licence metadata using validated SPDX expressions and caller-configured denied licence identifiers."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "SPDX AND/OR/WITH/parenthesis expressions are parsed; denied licence identifiers are detected anywhere in expressions but WITH exception identifiers are excluded; malformed expressions and invalid inventories fail closed; missing component and dependency metadata remains explicitly unresolved and is never treated as approved."
+modules = ["app_forge.license_scanner"]
+verified_by = ["tests/test_license_scanner.py"]
+implemented = true
