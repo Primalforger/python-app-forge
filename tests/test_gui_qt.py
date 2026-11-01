@@ -123,14 +123,6 @@ class RealQtTests(ForgeTestCase):
         self.assertFalse(self.win.cancel_button.isEnabled())
         self.assertIn('"overall": "cancelled"', self.win.q_out.toPlainText())
 
-    def _wait_for_background(self, timeout=10):
-        deadline = time.monotonic() + timeout
-        while self.win._background_thread is not None and time.monotonic() < deadline:
-            self.app.processEvents()
-            QTest.qWait(10)
-        self.app.processEvents()
-        self.assertIsNone(self.win._background_thread, "background worker did not finish before timeout")
-
     def test_integration_workbench_end_to_end(self):
         proj = self.make_project(self.s, "cli", "Qt Flow")
         self.win.nav.setCurrentRow(self.gui.NAV.index("Integration Workbench"))

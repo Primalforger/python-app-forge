@@ -45,7 +45,7 @@ def test_run_command_preserves_completed_process_contract(tmp_path: Path) -> Non
 
 
 def test_verification_reports_pre_cancelled_check_without_false_pass(tmp_path: Path) -> None:
-    (tmp_path / "sample.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    (tmp_path / "sample.py").write_text("VALUE = 1\n", encoding="utf-8")
     token = CancellationToken()
     token.cancel()
 
@@ -61,10 +61,10 @@ def test_verification_cancellation_interrupts_test_runner(tmp_path: Path) -> Non
     tests = tmp_path / "tests"
     tests.mkdir()
     (tests / "test_slow.py").write_text(
-        "import time\\nimport unittest\\n"
-        "class SlowTests(unittest.TestCase):\\n"
-        "    def test_wait(self):\\n"
-        "        time.sleep(30)\\n",
+        "import time\nimport unittest\n"
+        "class SlowTests(unittest.TestCase):\n"
+        "    def test_wait(self):\n"
+        "        time.sleep(30)\n",
         encoding="utf-8",
     )
     token = CancellationToken()
