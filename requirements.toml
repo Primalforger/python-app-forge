@@ -529,3 +529,16 @@ acceptance = "All five artifact types reject missing, empty and malformed requir
 modules = ["app_forge.compliance_artifacts", "app_forge.services", "app_forge.cli"]
 verified_by = ["tests/test_compliance_artifacts.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-12"
+title = "Software bill of materials and licence compliance"
+description = "Project inventory is emitted as CycloneDX 1.5 and SPDX 2.3; licence expressions are preserved, denied identifiers are detected, and unknown metadata remains explicit."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "SBOM output has the required format/version identifiers, stable package references, valid SPDX timestamps and licence representations; malformed inventory is rejected; deny-list terms in SPDX expressions are flagged; unknown dependency licences are never silently asserted."
+modules = ["app_forge.supply_chain", "app_forge.services", "app_forge.cli"]
+verified_by = ["tests/test_supply_chain.py"]
+implemented = true
