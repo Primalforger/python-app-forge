@@ -64,7 +64,7 @@ advisories = []
 
 [provenance]
 source = "builtin"
-digest = "sha256:4f334e204af44a5aab5d478c56a49509c4dff2fb1caba4c99bd6ff260663666b"
+digest = "sha256:f83c1cd3c3a46e1bcf2599a8cfa927fb0ba2843ec3376bead303eedad997b163"
 
 [support]
 status = "stable"
