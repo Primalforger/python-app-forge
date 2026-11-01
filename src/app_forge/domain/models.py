@@ -182,17 +182,30 @@ def parse_manifest(data: dict) -> ComponentManifest:
         except ValidationFailure as e:
             p.append(f"dependency {k}: {e.message}")
     files = []
+    source_names: dict[str, str] = {}
+    destination_names: dict[str, str] = {}
     for f in integ.get("files", []):
         if not isinstance(f, dict) or "src" not in f or "dest" not in f:
             p.append("each integration.files entry needs 'src' and 'dest'")
             continue
-        if f["src"].startswith("/") or ".." in f["src"].split("/"):
-            p.append(f"unsafe integration source path {f['src']!r}")
-        if f["dest"].startswith("/") or ".." in f["dest"].replace("\\", "/").split("/"):
-            p.append(f"unsafe integration destination path {f['dest']!r}")
+        src, dest = f["src"], f["dest"]
+        for field_name, path_value in (("integration.files src", src), ("integration.files dest", dest)):
+            error = _portable_relative_path(path_value)
+            if error:
+                p.append(f"{field_name} {path_value!r}: {error}")
+        if isinstance(src, str):
+            folded = src.casefold()
+            if folded in source_names and source_names[folded] != src:
+                p.append(f"integration.files sources {source_names[folded]!r} and {src!r} collide on case-insensitive filesystems")
+            source_names[folded] = src
+        if isinstance(dest, str):
+            folded = dest.replace("{{package}}", "__forge_package__").casefold()
+            if folded in destination_names:
+                p.append(f"integration.files destinations {destination_names[folded]!r} and {dest!r} collide on case-insensitive filesystems")
+            destination_names[folded] = dest
         if "binary" in f and not isinstance(f["binary"], bool):
-            p.append(f"integration.files binary flag for {f['src']!r} must be boolean")
-        files.append(FileContribution(f["src"], f["dest"], f.get("binary", False)))
+            p.append(f"integration.files binary flag for {src!r} must be boolean")
+        files.append(FileContribution(src, dest, f.get("binary", False)))
     patches, seen_ids = [], set()
     for i, raw in enumerate(integ.get("patches", [])):
         where = f"integration.patches[{i}]"
