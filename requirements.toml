@@ -874,3 +874,16 @@ acceptance = "All six STRIDE categories are rendered with prompts; threat IDs ar
 modules = ["app_forge.threat_model"]
 verified_by = ["tests/test_threat_model.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-23"
+title = "Change-impact record generator"
+description = "Provide a dependency-free validated change-impact assessment, Markdown report, and CMP-09 compliance adapter."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Change metadata, affected systems, unique requirement identifiers, impact dimensions, owner, date, rollback and verification plans are validated; Markdown captures the full assessment and review checklist; empty traceability is explicitly incomplete; the adapter validates against CMP-09."
+modules = ["app_forge.change_impact"]
+verified_by = ["tests/test_change_impact.py"]
+implemented = true
