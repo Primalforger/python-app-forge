@@ -24,6 +24,8 @@ No install needed to try it from a checkout: `PYTHONPATH=src python -m app_forge
 
 ```bash
 forge doctor                                          # environment diagnostics
+forge gc                                               # preview expired plans, checkpoints and evidence
+forge gc --apply                                       # delete expired data using configured retention
 forge component search table                          # local catalog (no network)
 forge init --archetype desktop --name "My App" --out ./my-app \
       --component forge.advanced-table --dry-run      # preview the generation plan
@@ -91,3 +93,24 @@ See **docs/spec-coverage.md**. Highlights of the gaps: extension **process isola
 Nothing in this project is a compliance or certification claim.
 
 Docs: `docs/component-authoring.md`, `docs/compliance-artifacts.md` (compliance records and SBOM), `docs/TODO.md` (open gaps and planned components), `docs/architecture.md`, `docs/adr/` (ADR-001..012), `docs/standards-applicability.md`.
+
+
+## Local data retention
+
+`forge gc` is a dry run by default. Review the candidate counts and paths before running
+`forge gc --apply`. Pending or approved plans are never collected. Completed plans,
+old checkpoints, evidence rows and completed operation history use configurable retention
+periods in `$FORGE_HOME/settings.toml`:
+
+```toml
+[retention]
+plan_retention_days = 30
+checkpoint_retention_days = 30
+evidence_retention_days = 365
+operation_retention_days = 365
+```
+
+Each value must be an integer from 1 to 36500. Evidence and completed operation history
+are pruned independently. Checkpoints for pending plans are retained; old orphan checkpoints
+may be collected after the checkpoint retention period. The command reports malformed plan
+records and filesystem errors instead of silently deleting them.
