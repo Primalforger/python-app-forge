@@ -7,6 +7,7 @@ class ServiceHealthTests(unittest.TestCase):
         register_readiness_check("database", lambda: True)
         self.assertEqual(readiness_payload(), ({"status": "ready", "checks": {"database": True}}, 200))
     def test_not_ready_when_check_fails_or_raises(self):
+        clear_readiness_checks()
         register_readiness_check("queue", lambda: False)
         register_readiness_check("database", lambda: (_ for _ in ()).throw(RuntimeError("private")))
         payload, status = readiness_payload()
