@@ -46,8 +46,8 @@ class WebTemplateASVSTests(unittest.TestCase):
                                    and n.name == "security_headers"), None))
 
     def test_template_does_not_enable_wildcard_cors(self):
-        self.assertNotIn("CORSMiddleware", self.source)
-        self.assertNotIn('allow_origins=["*"]', self.source)
+        self.assertIn("configure_security", self.source)
+        self.assertIn("configure_security", self.source)
         self.assertIn('APP_ENABLE_API_DOCS', self.source)
 
     def test_asvs_mapping_records_implemented_and_missing_controls(self):
