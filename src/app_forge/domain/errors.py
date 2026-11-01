@@ -25,6 +25,12 @@ class ForgeError(Exception):
                 "details": self.details, "hint": self.hint}
 
 
+class OperationCancelled(ForgeError):
+    """An operation was cooperatively stopped at the user's request."""
+
+    category = "cancelled"
+
+
 class ValidationFailure(ForgeError):
     exit_code = EXIT_VALIDATION
     category = "validation"

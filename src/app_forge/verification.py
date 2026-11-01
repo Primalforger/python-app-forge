@@ -16,6 +16,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from app_forge.analyzer import walk_files
+from app_forge.cancellation import CancellationToken, ProgressCallback
+from app_forge.domain.errors import OperationCancelled
 from app_forge.observability import utcnow
 from app_forge.security import redact, run_command, safe_environ
 
@@ -28,7 +30,8 @@ def _tail(text: str, n: int = 1500) -> str:
 
 class VerificationEngine:
     def run(self, project: Path | str, checks: tuple[str, ...] = ("syntax", "tests"),
-            timeout: float = 600) -> dict:
+            timeout: float = 600, *, cancel_token: CancellationToken | None = None,
+            progress: ProgressCallback | None = None) -> dict:
         root = Path(project).resolve()
         run_id = "run-" + uuid.uuid4().hex[:10]
         rows: list[dict] = []
@@ -37,30 +40,50 @@ class VerificationEngine:
             rows.append({"run_id": run_id, "subject": str(root), "check_id": check_id, "status": status,
                          "detail": detail, "duration_s": round(duration, 3), "recorded_at": utcnow()})
 
-        for check in checks:
+        cancelled = False
+        for index, check in enumerate(checks, 1):
             t0 = time.monotonic()
-            if check == "syntax":
-                self._syntax(root, add, t0)
-            elif check == "tests":
-                self._tests(root, add, timeout)
-            elif check in ("ruff", "mypy", "pip-audit"):
-                self._tool(root, check, add, timeout)
-            else:
-                add(check, "not_run", "unknown check")
+            if progress:
+                progress({"stage": check, "message": f"Starting {check}", "current": index, "total": len(checks)})
+            try:
+                if cancel_token:
+                    cancel_token.raise_if_cancelled()
+                if check == "syntax":
+                    self._syntax(root, add, t0, cancel_token, progress)
+                elif check == "tests":
+                    self._tests(root, add, timeout, cancel_token, progress)
+                elif check in ("ruff", "mypy", "pip-audit"):
+                    self._tool(root, check, add, timeout, cancel_token, progress)
+                else:
+                    add(check, "not_run", "unknown check")
+                if cancel_token:
+                    cancel_token.raise_if_cancelled()
+            except OperationCancelled:
+                add(check, "cancelled", "cancelled by user", time.monotonic() - t0)
+                cancelled = True
+                break
         failed = [r for r in rows if r["status"] == "failed"]
         passed = [r for r in rows if r["status"] == "passed"]
         not_run = [r["check_id"] for r in rows if r["status"] == "not_run"]
         # "passed" is only claimed when every requested check actually ran and passed
-        overall = ("failed" if failed else "not_run" if not passed else "incomplete" if not_run else "passed")
+        overall = ("cancelled" if cancelled else
+                   "failed" if failed else "not_run" if not passed else "incomplete" if not_run else "passed")
         return {"run_id": run_id, "subject": str(root), "overall": overall, "passed": len(passed),
-                "failed": len(failed), "not_run": not_run, "complete": not not_run, "evidence": rows}
+                "failed": len(failed), "not_run": not_run, "complete": not not_run and not cancelled, "evidence": rows}
 
     # -- individual checks ------------------------------------------------------------------
-    def _syntax(self, root: Path, add, t0: float) -> None:
+    def _syntax(self, root: Path, add, t0: float, cancel_token=None, progress=None) -> None:
         bad = []
         n = 0
+        seen = 0
         excludes = self._excludes(root)
         for f in walk_files(root):
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
+            seen += 1
+            if progress and seen % 25 == 0:
+                progress({"stage": "syntax", "message": f"Scanning {f.relative_to(root).as_posix()}",
+                          "current": seen, "total": None})
             if f.suffix == ".py" and not any(f.relative_to(root).as_posix().startswith(x) for x in excludes):
                 n += 1
                 try:
@@ -85,10 +108,13 @@ class VerificationEngine:
         return sys.executable, "the interpreter running Forge"
 
     @staticmethod
-    def _has_module(python: str, module: str, env: dict) -> bool:
+    def _has_module(python: str, module: str, env: dict, cancel_token=None) -> bool:
         try:
-            r = run_command([python, "-c", f"import {module}"], cwd=Path.cwd(), timeout=60, env=env, inherit_env=False)
+            r = run_command([python, "-c", f"import {module}"], cwd=Path.cwd(), timeout=60, env=env,
+                            inherit_env=False, cancel_token=cancel_token)
             return r.returncode == 0
+        except OperationCancelled:
+            raise
         except Exception:
             return False
 
@@ -116,7 +142,7 @@ class VerificationEngine:
         """Explicit path prefixes from [tool.forge.verify] exclude in pyproject.toml (e.g. template payloads)."""
         return [str(x) for x in VerificationEngine._verify_config(root).get("exclude", [])]
 
-    def _tests(self, root: Path, add, timeout: float) -> None:
+    def _tests(self, root: Path, add, timeout: float, cancel_token=None, progress=None) -> None:
         if not (root / "tests").is_dir() and not list(root.glob("test_*.py")):
             add("tests", "not_run", "no tests directory found")
             return
@@ -126,19 +152,21 @@ class VerificationEngine:
         python, source = self.project_python(root)
         t0 = time.monotonic()
         try:
-            if self._has_module(python, "pytest", env):
+            if self._has_module(python, "pytest", env, cancel_token):
                 with tempfile.TemporaryDirectory() as tmp:
                     xml = Path(tmp) / "junit.xml"
                     proc = run_command([python, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={xml}"],
-                                       cwd=root, timeout=timeout, env=env, inherit_env=False)
+                                       cwd=root, timeout=timeout, env=env, inherit_env=False, cancel_token=cancel_token)
                     cases = self._parse_junit(xml, root) if xml.is_file() else []
                 runner = "pytest"
             else:
                 has_init = (root / "tests" / "__init__.py").is_file()
                 cmd = [python, "-m", "unittest", "discover", "-s", "tests", "-v"] + (["-t", "."] if has_init else [])
-                proc = run_command(cmd, cwd=root, timeout=timeout, env=env, inherit_env=False)
+                proc = run_command(cmd, cwd=root, timeout=timeout, env=env, inherit_env=False, cancel_token=cancel_token)
                 cases = self._parse_unittest(proc.stderr + proc.stdout, "" if has_init else "tests/")
                 runner = "unittest"
+        except OperationCancelled:
+            raise
         except Exception as exc:  # timeouts, missing interpreter
             add("tests", "failed", _tail(f"{type(exc).__name__}: {exc}"), time.monotonic() - t0)
             return
@@ -234,7 +262,7 @@ class VerificationEngine:
             ], ""
         return None, "no supported dependency manifest found (pylock*.toml, pyproject.toml, or requirements*.txt)"
 
-    def _tool(self, root: Path, tool: str, add, timeout: float) -> None:
+    def _tool(self, root: Path, tool: str, add, timeout: float, cancel_token=None, progress=None) -> None:
         executable = shutil.which(tool)
         if executable is None:
             add(tool, "not_run", f"{tool} is not installed")
@@ -260,9 +288,12 @@ class VerificationEngine:
         failed = False
         for cmd, label in commands:
             try:
-                proc = run_command(cmd, cwd=root, timeout=timeout, env=safe_environ(), inherit_env=False)
+                proc = run_command(cmd, cwd=root, timeout=timeout, env=safe_environ(), inherit_env=False,
+                                   cancel_token=cancel_token)
                 failed = failed or proc.returncode != 0
                 output = _tail(proc.stdout + proc.stderr)
+            except OperationCancelled:
+                raise
             except Exception as exc:
                 failed = True
                 output = _tail(f"{type(exc).__name__}: {exc}")

@@ -3,6 +3,7 @@ import importlib
 import inspect
 import json
 import unittest
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -333,7 +334,15 @@ class GuiStubTests(ForgeTestCase):
         win.cm_table._selected = [SimpleNamespace(row=lambda: 0)]
         win.plan_selected("upgrade")
         self.assertIn('"kind": "upgrade"', win.cm_out.toPlainText())
-        win.apply_cm_plan()
+        def run_inline(label, operation, on_success=None, on_cancel=None):
+            from app_forge.cancellation import CancellationToken
+            result = operation(cancel_token=CancellationToken(), progress=lambda event: None)
+            if on_success:
+                on_success(result)
+            return True
+
+        with mock.patch.object(win, "_start_background", side_effect=run_inline):
+            win.apply_cm_plan()
         self.assertEqual(qt_stub.ERRORS, [])
         self.assertEqual((proj / "src/gui_up/lib.py").read_text(), "VALUE = 2\n")
 
