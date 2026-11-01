@@ -118,10 +118,10 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   Referenced in the spec, not implemented.
   *Done when:* the web template has a mapped ASVS checklist with automated checks and documented gaps.
 
-- [ ] **G-21 Performance baselines** (M)
-  Thresholds are intentionally undefined until measured.
-  *Done when:* representative catalog and project datasets exist, baselines are recorded on named hardware, and thresholds
-  are set (closes `NFR-003`).
+- [ ] **G-21 Performance baselines** (M, harness in progress)
+  An offline harness generates representative catalog and project workloads and records raw timings plus host metadata.
+  *Done when:* the `ubuntu-24.04` reference-host report is checked in, per-workload ceilings are derived from its measurements,
+  and the regression check passes (closes `NFR-003`).
 
 - [ ] **G-27 Richer patch kinds** (M, new, found while building G-01)
   `toml-table` can only add new tables and `json-merge` is not auto-removable. Add in-table key insertion for TOML and tracked
