@@ -46,6 +46,8 @@ class WebTemplateASVSTests(unittest.TestCase):
         self.assertIn('algorithms=["HS256"]', self.auth)
         self.assertIn('issuer=issuer', self.auth)
         self.assertIn('audience=audience', self.auth)
+        self.assertIn('len(secret.encode("utf-8")) < 32', self.auth)
+        self.assertIn('"require": ["sub", "iss", "aud", "iat", "nbf", "exp"]', self.auth)
         self.assertIn("require_roles", self.auth)
         self.assertIn("application/problem+json", self.problems)
         self.assertIn("unexpected error occurred", self.problems)
@@ -54,6 +56,9 @@ class WebTemplateASVSTests(unittest.TestCase):
         self.assertIn("CORSMiddleware", self.security)
         self.assertIn('if "*" in origins:', self.security)
         self.assertIn("allow_credentials=False", self.security)
+        self.assertIn("APP_RATE_LIMIT_REQUESTS", self.security)
+        self.assertIn("Retry-After", self.security)
+        self.assertIn("status_code=429", self.security)
         self.assertIn("APP_ENABLE_API_DOCS", self.source)
 
     def test_asvs_mapping_records_implemented_and_missing_controls(self):
