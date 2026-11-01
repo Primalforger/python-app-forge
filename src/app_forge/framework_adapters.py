@@ -65,13 +65,13 @@ def _locate(source: str, spec: Registration) -> tuple[int, str]:
         return line, " " * indent
 
     if spec.framework == "django":
-        matches = [node for node in tree.body if "urlpatterns" in _targets(node)]
-        if len(matches) != 1:
+        urlconf_nodes = [candidate for candidate in tree.body if "urlpatterns" in _targets(candidate)]
+        if len(urlconf_nodes) != 1:
             raise ValidationFailure(
-                f"Django adapter expected one top-level urlpatterns assignment ({len(matches)} found)"
+                f"Django adapter expected one top-level urlpatterns assignment ({len(urlconf_nodes)} found)"
             )
-        node = matches[0]
-        return node.end_lineno or node.lineno, ""
+        urlconf_node = urlconf_nodes[0]
+        return urlconf_node.end_lineno or urlconf_node.lineno, ""
 
     raise ValidationFailure(f"unsupported framework adapter {spec.framework!r}")
 
