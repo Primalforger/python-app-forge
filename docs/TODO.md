@@ -188,11 +188,11 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-29 SQLAlchemy + Alembic migrations** (L): optional SQLAlchemy/Alembic extra; read-only revision planning; explicit irreversible-side-effect consent; exclusive migration lock; atomic private journal; failed/interrupted runs require operator inspection and are never auto-downgraded. Verified by tests/test_migrations.py.
 - [x] **C-30 SQLite repository layer** (M): optional SQLAlchemy SQLite engine with foreign keys, WAL and busy timeout; explicit schema creation; short-lived sessions and atomic transaction scopes; generic typed-model CRUD, required lookup, validated filters/order, bounded pagination and counts; shared in-memory database support. Existing stdlib persistence remains unchanged. Verified by `tests/test_sqlite_repository.py`.
 - [x] **C-31 PostgreSQL adapter** (M, needs C-29): optional SQLAlchemy + psycopg adapter with PostgreSQL-only URL validation, resilient pool pre-ping, validated pool bounds, explicit schema creation, managed sessions/transactions and typed CRUD/filter/order/pagination/count operations. Verified by `tests/test_postgres_repository.py` without requiring a live server.
-- [ ] **C-32 JWT authentication using an established library** (M, web)
-- [ ] **C-33 RBAC** (M, web; needs C-32)
-- [ ] **C-34 CORS, rate limiting and security headers** (M, web)
-- [ ] **C-35 Problem-details error format** (S, web)
-- [ ] **C-36 Health and readiness endpoints** (S, web and service)
+- [x] **C-32 JWT authentication using an established library** (M, web): PyJWT HS256 bearer verification with fixed algorithm allowlisting, issuer/audience and required time claims, bounded token lifetime, minimum secret length, and no embedded password/login system.
+- [x] **C-33 RBAC** (M, web; needs C-32): typed authenticated principal and deny-by-default any-of role dependency; sample writes require editor/admin while reads require authentication.
+- [x] **C-34 CORS, rate limiting and security headers** (M, web): explicit-origin CORS only, bounded per-client sliding-window limiter, defensive browser headers and HTTPS-only HSTS; distributed deployments must use a shared gateway/store.
+- [x] **C-35 Problem-details error format** (S, web): RFC 9457 application/problem+json for HTTP, validation and unexpected errors; unexpected exception details are never reflected.
+- [x] **C-36 Health and readiness endpoints** (S, web and service): unauthenticated liveness and registered dependency readiness probes; readiness returns 503 unless every check returns exactly True.
 - [ ] **C-37 Prometheus metrics** (M)
 - [ ] **C-38 Command palette** (M, desktop)
 - [ ] **C-39 Crash reporter** (M, desktop): local only, with redaction and no hidden network activity.
