@@ -80,7 +80,7 @@ class TableViewTests(unittest.TestCase):
         model = _Model()
         apply_view(model, self.state)
         self.assertEqual([c.key for c in model.columns], self.state["columns"])
-        self.assertEqual(model.sort_keys, [("amount", True)])
+        self.assertEqual(model.sort_keys, [("amount", True)])\n        self.assertEqual(model.visibility, {"name": False, "status": True, "amount": True})
         self.assertEqual(model.filters, [("status", "eq", "open")])
         self.assertEqual((model.filter_mode, model.search_text, model.page_size), ("or", "alpha", 50))
 
