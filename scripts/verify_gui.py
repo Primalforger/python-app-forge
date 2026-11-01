@@ -34,6 +34,7 @@ def main() -> int:
     suite = unittest.TestSuite([
         unittest.defaultTestLoader.loadTestsFromName("tests.test_gui_qt"),
         unittest.defaultTestLoader.loadTestsFromName("tests.test_qt_table"),
+        unittest.defaultTestLoader.loadTestsFromName("tests.test_qt_settings"),
     ])
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     ran = result.testsRun - len(result.skipped)
