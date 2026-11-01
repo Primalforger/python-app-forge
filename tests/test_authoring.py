@@ -25,7 +25,9 @@ class AuthoringTests(ForgeTestCase):
         self.assertEqual(self.cli("component", "validate", str(v))[0], 0)
         code, out, _ = self.cli("--json", "catalog", "add", str(v))
         self.assertEqual((code, json.loads(out)["result"]["added"]), (0, "acme.widget@1.0.0"))
-        self.assertEqual(self.cli("component", "verify", "acme.widget")[0], 0)
+        code, verify_out, verify_err = self.cli("--json", "component", "verify", "acme.widget")
+        self.assertEqual(code, 0, verify_err)
+        self.assertEqual(json.loads(verify_out)["result"]["interface_contracts"], [])
         proj = self.tmp / "proj"
         self.assertEqual(self.cli("init", "--archetype", "cli", "--name", "Uses Widget", "--out", str(proj),
                                   "--component", "acme.widget")[0], 0)
@@ -36,9 +38,6 @@ class AuthoringTests(ForgeTestCase):
         v = self.scaffold()
         manifest = (v / "component.toml").read_text().replace(
             "provides = []", 'provides = ["ui.widget@1.0"]'
-        ).replace(
-            'tests = ["tests/test_widget.py"]',
-            'tests = ["tests/test_widget.py", "tests/test_widget.py"]'
         )
         manifest += '\n[[interfaces.contract_tests]]\ninterface = "ui.widget@1.0"\ntests = ["tests/test_widget.py"]\n'
         (v / "component.toml").write_text(manifest)
