@@ -9,6 +9,7 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, List
 
 from app_forge import __version__
 from app_forge.domain.errors import ValidationFailure
@@ -170,7 +171,7 @@ class TemplateEngine:
                 return (0,)
         return max(matches, key=version_key)
 
-    def validate_inputs(self, info: TemplateInfo, raw: dict) -> dict[str, str]:
+    def validate_inputs(self, info: TemplateInfo, raw: dict) -> dict[str, Any]:
         p: list[str] = []
         name = str(raw.get("name", ""))
         if not _NAME.match(name):
@@ -194,7 +195,7 @@ class TemplateEngine:
                 "forge_version": __version__, "entry_module": info.entry_module,
                 "entry_function": info.entry_function}
 
-    def expand(self, info: TemplateInfo) -> list[TemplateInfo]:
+    def expand(self, info: TemplateInfo) -> List[TemplateInfo]:
         """Resolve a bundle's pinned template dependencies in deterministic, cycle-safe order."""
         ordered: list[TemplateInfo] = []
         seen: set[tuple[str, str]] = set()
@@ -226,7 +227,7 @@ class TemplateEngine:
                 f"but its included templates provide {sorted(actual_archetypes)}")
         return ordered
 
-    def render(self, info: TemplateInfo, variables: dict[str, str]) -> dict[str, str]:
+    def render(self, info: TemplateInfo, variables: dict[str, Any]) -> dict[str, str]:
         """Render all included template trees into one shared package without overwriting collisions."""
         expanded = self.expand(info)
         variables = dict(variables)
@@ -237,6 +238,7 @@ class TemplateEngine:
             return "".join(f'    "{p}",\n' for p in pkgs)
         variables["dependencies_block"] = block(python_packages)
         variables["dev_dependencies_block"] = block(dev_packages)
+        render_variables = {key: value for key, value in variables.items() if isinstance(value, str)}
         files: dict[str, str] = {}
         common_added = False
         for item in expanded:
@@ -257,7 +259,7 @@ class TemplateEngine:
                         part = "." + part[4:] if part.startswith("dot_") else part
                         parts.append(part.replace("__package__", variables["package"]))
                     rel = "/".join(parts)
-                    content = render_text(src.read_text(encoding="utf-8"), variables)
+                    content = render_text(src.read_text(encoding="utf-8"), render_variables)
                     if rel in files and files[rel] != content:
                         raise ValidationFailure(f"Included templates both define {rel!r} with different content")
                     files[rel] = content

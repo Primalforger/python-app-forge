@@ -49,7 +49,7 @@ def create_baseline(template_id: str, template_version: str, archetype: str,
     selected_archetypes = list(dict.fromkeys(archetypes or [archetype]))
     if not selected_archetypes or archetype not in selected_archetypes or any(a not in ("desktop", "web", "cli", "service") for a in selected_archetypes):
         raise ValueError("baseline archetypes must include the primary archetype and use supported values")
-    template = {"id": template_id, "version": template_version, "archetype": archetype}
+    template: dict[str, Any] = {"id": template_id, "version": template_version, "archetype": archetype}
     if len(selected_archetypes) > 1:
         template["archetypes"] = selected_archetypes
     payload: dict[str, Any] = {
