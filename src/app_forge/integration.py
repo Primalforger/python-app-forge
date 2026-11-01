@@ -21,7 +21,8 @@ from typing import Callable
 
 from app_forge.analyzer import ProjectAnalyzer
 from app_forge.catalog.registry import CatalogEntry, ComponentRegistry
-from app_forge.domain.errors import ConflictFailure, SecurityBlock, ValidationFailure
+from app_forge.domain.errors import ConflictFailure, OperationCancelled, SecurityBlock, ValidationFailure
+from app_forge.cancellation import CancellationToken, ProgressCallback
 from app_forge.domain.models import ChangePlan, FileChange
 from app_forge.domain.pydeps import combine, compare as compare_requirements, parse_requirement, satisfiable
 from app_forge.domain.versioning import Constraint, Version
@@ -769,12 +770,18 @@ class IntegrationEngine:
         return self._s.checkpoints_dir / plan_id
 
     def apply(self, plan_id: str, *, verify: bool = True, auto_recover: bool = False,
-              fault: FaultHook | None = None) -> dict:
+              fault: FaultHook | None = None, cancel_token: CancellationToken | None = None,
+              progress: ProgressCallback | None = None) -> dict:
         plan = self.load_plan(plan_id)
         with project_lock(self._s.locks_dir, Path(plan.project_path), f"apply {plan_id}"):
-            return self._apply_locked(plan_id, verify=verify, auto_recover=auto_recover, fault=fault)
+            return self._apply_locked(plan_id, verify=verify, auto_recover=auto_recover, fault=fault,
+                                      cancel_token=cancel_token, progress=progress)
 
-    def _apply_locked(self, plan_id: str, *, verify: bool, auto_recover: bool, fault: FaultHook | None) -> dict:
+    def _apply_locked(self, plan_id: str, *, verify: bool, auto_recover: bool, fault: FaultHook | None,
+                      cancel_token: CancellationToken | None = None,
+                      progress: ProgressCallback | None = None) -> dict:
+        if cancel_token:
+            cancel_token.raise_if_cancelled()
         plan = self.load_plan(plan_id)
         if plan.status != "approved":
             raise SecurityBlock(f"Plan {plan_id} is {plan.status}: an approved plan is required before any change",
@@ -806,7 +813,12 @@ class IntegrationEngine:
         ck = self._ckpt_dir(plan_id)
         (ck / "blobs").mkdir(parents=True, exist_ok=True)
         entries = []
-        for c in actionable:
+        for index, c in enumerate(actionable, 1):
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
+            if progress:
+                progress({"stage": "checkpoint", "message": f"Checkpointing {c.path}",
+                          "current": index, "total": len(actionable)})
             tgt = safe_join(root, c.path)
             if c.before_sha:
                 (ck / "blobs" / c.before_sha).write_bytes(tgt.read_bytes())
@@ -815,20 +827,33 @@ class IntegrationEngine:
                             "after_encoding": c.content_encoding,
                             "existed_dirs": [p.relative_to(root).as_posix() for p in
                                              [tgt.parent, *tgt.parents] if p != root and root in p.parents and p.exists()]})
+        if cancel_token:
+            cancel_token.raise_if_cancelled()
         (ck / "manifest.json").write_text(json.dumps({"plan_id": plan_id, "entries": entries}, indent=1),
                                           encoding="utf-8")
         report: dict = {"plan_id": plan_id, "project": str(root), "changed": [], "verification": None}
         try:
             for i, c in enumerate(actionable):
+                if cancel_token:
+                    cancel_token.raise_if_cancelled()
+                if progress:
+                    progress({"stage": "apply", "message": f"Applying {c.path}",
+                              "current": i + 1, "total": len(actionable)})
                 if fault:
                     fault(c.path, i)
                 self._apply_one(root, c)
                 report["changed"].append(c.path)
+                if cancel_token:
+                    cancel_token.raise_if_cancelled()
         except BaseException as exc:  # includes injected faults and KeyboardInterrupt
             rec = self._recover(plan_id)
             plan = self.load_plan(plan_id)
             plan.status = rec["status"] if rec["status"] != "rolled_back" else "rolled_back"
             self.save_plan(plan)
+            if isinstance(exc, OperationCancelled):
+                report.update({"status": "cancelled", "cancelled": True, "ok": False,
+                               "error": str(exc), "recovery": rec, "exit_code": 5})
+                return report
             report.update({"status": plan.status, "ok": False, "error": f"{type(exc).__name__}: {exc}",
                            "recovery": rec, "exit_code": 5})
             if isinstance(exc, KeyboardInterrupt):
@@ -837,9 +862,21 @@ class IntegrationEngine:
 
         plan.status = "applied"
         if verify:
-            vr = self._verifier.run(root, checks=("syntax", "tests"))
+            if progress:
+                progress({"stage": "verification", "message": "Verifying applied project",
+                          "current": 1, "total": 1})
+            vr = self._verifier.run(root, checks=("syntax", "tests"),
+                                    cancel_token=cancel_token, progress=progress)
             self._store.add_evidence(vr["evidence"])
             report["verification"] = {k: vr[k] for k in ("run_id", "overall", "passed", "failed", "not_run", "complete")}
+            if vr["overall"] == "cancelled":
+                rec = self._recover(plan_id)
+                plan = self.load_plan(plan_id)
+                plan.status = rec["status"]
+                self.save_plan(plan)
+                report.update({"status": "cancelled", "cancelled": True, "ok": False,
+                               "error": "Operation cancelled during verification", "recovery": rec, "exit_code": 5})
+                return report
             if vr["overall"] == "failed":
                 if auto_recover:
                     rec = self._recover(plan_id)
