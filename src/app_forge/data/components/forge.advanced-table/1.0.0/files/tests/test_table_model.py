@@ -101,7 +101,7 @@ class TableTests(unittest.TestCase):
 
     def test_group_by_rejects_invalid_specs_and_non_numeric_values(self):
         m = TableModel(["team", "score"], [{"team": "red", "score": "high"}])
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             m.group_by("missing")
         with self.assertRaises(ValueError):
             m.group_by("team", {"bad": ("median", "score")})
