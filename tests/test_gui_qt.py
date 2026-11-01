@@ -49,6 +49,23 @@ class RealQtTests(ForgeTestCase):
         self.addCleanup(self.win.close)
         self.win.show()
 
+
+    def test_command_palette_filters_and_navigates(self):
+        self.win.nav.setCurrentRow(0)
+        palette = self.gui.CommandPaletteDialog(self.win._command_palette_commands(), self.win)
+        palette.query.setText("table designer")
+        self.assertEqual(palette.results.count(), 1)
+        self.assertEqual(palette.results.item(0).text(), "Go to Table Designer")
+        QTest.keyClick(palette.query, Qt.Key.Key_Return)
+        self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Table Designer"))
+
+    def test_command_palette_shortcut_and_empty_search(self):
+        self.assertEqual(self.win.command_palette_shortcut.key().toString(), "Ctrl+K")
+        palette = self.gui.CommandPaletteDialog(self.win._command_palette_commands(), self.win)
+        self.assertGreaterEqual(palette.results.count(), len(self.gui.NAV))
+        palette.query.setText("no matching command")
+        self.assertEqual(palette.results.count(), 0)
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
