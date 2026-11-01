@@ -24,7 +24,7 @@ from typing import Any, Iterator, Sequence
 from app_forge import __version__
 from app_forge.analyzer import ProjectAnalyzer
 from app_forge.architecture import check_rules, graph_to_mermaid, graph_to_text, module_graph
-from app_forge.catalog import authoring
+from app_forge.catalog import authoring, attestation
 from app_forge.catalog.registry import BUILTIN_COMPONENTS, ComponentRegistry, current_platform, seal_component
 from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements
 from app_forge.compliance_artifacts import load_artifacts, save_artifact
@@ -98,7 +98,8 @@ class ForgeServices:
         self.log = get_logger(verbosity)
         roots = ([("builtin", builtin_root)] if builtin_root else []) + [("user", self.settings.user_catalog)] + [
             (f"extra:{p.name}", p) for p in self.settings.extra_catalog_roots]
-        self.registry = ComponentRegistry(roots, self.store, self.settings.revocations_file)
+        self.registry = ComponentRegistry(roots, self.store, self.settings.revocations_file,
+                                           self.settings.trusted_keys_dir, self.settings.unsigned_component_policy)
         self.templates = TemplateEngine([TEMPLATES_ROOT, self.settings.home / "templates"])
         self.analyzer = ProjectAnalyzer()
         self.verifier = VerificationEngine()
@@ -785,6 +786,28 @@ class ForgeServices:
     def validate_component(self, path: str | Path) -> dict:
         return authoring.validate_component_dir(Path(path))
 
+    def generate_component_signing_key(self, key_id: str, private_path: str | Path, public_path: str | Path) -> dict:
+        return attestation.generate_keypair(Path(private_path).expanduser(), Path(public_path).expanduser(), key_id=key_id)
+
+    def trust_component_key(self, key_id: str, public_path: str | Path) -> dict:
+        source = Path(public_path).expanduser()
+        if not source.is_file():
+            raise ValidationFailure(f"public key not found: {source}")
+        if not key_id or Path(key_id).name != key_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in key_id):
+            raise ValidationFailure("invalid key id")
+        self.settings.trusted_keys_dir.mkdir(parents=True, exist_ok=True)
+        target = self.settings.trusted_keys_dir / f"{key_id}.pub"
+        if target.exists():
+            raise ConflictFailure(f"trusted key {key_id!r} already exists")
+        target.write_bytes(source.read_bytes())
+        self.registry.scan(refresh=True)
+        return {"trusted": key_id, "path": str(target)}
+
+    def sign_component(self, path: str | Path, private_key: str | Path, key_id: str) -> dict:
+        signed = attestation.sign_component(Path(path), Path(private_key).expanduser(), key_id=key_id)
+        return {"attestation": str(signed), "component": str(path), "key_id": key_id}
+
+
     def seal_component_dir(self, path: str | Path) -> dict:
         with self.operation("component_seal", path):
             digest = seal_component(Path(path))
@@ -797,6 +820,8 @@ class ForgeServices:
 
     def add_to_catalog(self, path: str | Path) -> dict:
         with self.operation("catalog_add", path):
-            r = authoring.add_to_catalog(Path(path), self.settings.user_catalog)
+            r = authoring.add_to_catalog(Path(path), self.settings.user_catalog,
+                                         trusted_keys=self.settings.trusted_keys_dir,
+                                         unsigned_policy=self.settings.unsigned_component_policy)
             self.registry.scan(refresh=True)
             return r

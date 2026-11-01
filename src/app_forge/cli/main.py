@@ -197,6 +197,10 @@ def c_component(s, a):
         return r, 0 if r["ok"] else EXIT_VALIDATION
     if act == "seal":
         return s.seal_component_dir(a.target), 0
+    if act == "sign":
+        if not a.key or not a.key_id:
+            raise ValidationFailure("component sign requires --key PRIVATE_KEY --key-id ID")
+        return s.sign_component(a.target, a.key, a.key_id), 0
     if act == "pack":
         return s.pack_component(a.target, a.out or f"{Path(a.target).parent.name}-{Path(a.target).name}.zip"), 0
     if act == "upgrade":
@@ -205,6 +209,16 @@ def c_component(s, a):
         rows = s.project_components(a.project)
         return rows, 0
     raise ValidationFailure(f"Unsupported component action {act!r}")
+
+
+def c_trust(s, a):
+    if a.action == "keygen":
+        if not a.private_out or not a.public_out:
+            raise ValidationFailure("trust keygen requires --private-out and --public-out")
+        return s.generate_component_signing_key(a.target, a.private_out, a.public_out), 0
+    if not a.key_id:
+        raise ValidationFailure("trust add requires --key-id ID")
+    return s.trust_component_key(a.key_id, a.target), 0
 
 
 def c_catalog(s, a):
@@ -448,7 +462,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = acts(grp("component", c_component, "search/inspect/add/remove/verify components"),
               ["search", "inspect", "add", "remove", "upgrade", "outdated", "verify", "enable", "disable", "new",
-               "validate", "seal", "pack"])
+               "validate", "seal", "pack", "sign"])
     sp.add_argument("--query")
     sp.add_argument("--category")
     sp.add_argument("--capability")
@@ -457,6 +471,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--version")
     sp.add_argument("--out", help="for new/pack: output directory or archive")
     sp.add_argument("--summary", help="for new")
+    sp.add_argument("--key", help="sign: Ed25519 private key PEM")
+    sp.add_argument("--key-id", help="sign: trusted key identifier")
     sp.add_argument("--project", help="for add/remove")
     sp.add_argument("--apply", action="store_true", help="for add/remove: approve and apply immediately")
     sp.add_argument("--by", help="approver identity (with --apply)")
@@ -464,6 +480,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--yes", action="store_true")
     sp.add_argument("ids", nargs="*", help="component ids (add: id or id@constraint)")
     sp.set_defaults(_component=True)
+
+    sp = acts(grp("trust", c_trust, "manage component signing keys"), ["keygen", "add"])
+    sp.add_argument("target", help="key id for keygen; public key path for add")
+    sp.add_argument("--key-id", help="trusted key identifier (required for add)")
+    sp.add_argument("--private-out", help="keygen: private key output path")
+    sp.add_argument("--public-out", help="keygen: public key output path")
 
     sp = sp = acts(grp("catalog", c_catalog, "manage the local component catalog"),
               ["list", "validate", "rebuild", "sources", "add"])
@@ -552,7 +574,7 @@ def _normalise(a: argparse.Namespace) -> None:
         elif a.action == "search":
             if a.ids and not a.query:
                 a.query = " ".join(a.ids)
-        elif a.action in ("inspect", "verify", "enable", "disable", "new", "validate", "seal", "pack"):
+        elif a.action in ("inspect", "verify", "enable", "disable", "new", "validate", "seal", "pack", "sign"):
             if not a.ids:
                 raise ValidationFailure(f"usage: forge component {a.action} ID")
             a.target = a.ids[0]
