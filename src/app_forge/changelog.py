@@ -7,18 +7,15 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable
 
-_VERSION = re.compile(r"^v?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z.-]+))?(?:\\+[0-9A-Za-z.-]+)?$")
+_VERSION = re.compile(r"^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$")
 _COMMIT = re.compile(
-    r"^(?P<type>[a-z][a-z0-9-]*)(?:\\((?P<scope>[^()\\r\\n]+)\\))?(?P<breaking>!)?: (?P<subject>.+)$"
+    r"^(?P<type>[a-z][a-z0-9-]*)(?:\((?P<scope>[^()\r\n]+)\))?(?P<breaking>!)?: (?P<subject>.+)$"
 )
 _SECTIONS = (
-    ("Breaking changes", None),
     ("Features", "feat"),
     ("Fixes", "fix"),
     ("Performance", "perf"),
-    ("Other changes", "other"),
 )
-_TYPE_LABELS = {"feat": "feat", "fix": "fix", "perf": "perf"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +32,7 @@ def _single_line(value: str, field: str, *, limit: int = 500) -> str:
     if not isinstance(value, str):
         raise TypeError(f"{field} must be a string")
     value = value.strip()
-    if not value or len(value) > limit or "\\n" in value or "\\r" in value:
+    if not value or len(value) > limit or "\n" in value or "\r" in value:
         raise ValueError(f"{field} must be a non-empty single line of at most {limit} characters")
     return value
 
@@ -55,7 +52,7 @@ def _validate_change(change: ReleaseChange) -> ReleaseChange:
     reference = change.reference
     if reference is not None:
         reference = _single_line(reference, "reference", limit=80)
-        if not re.fullmatch(r"(?:#|GH-)\\d+", reference):
+        if not re.fullmatch(r"(?:#|GH-)\d+", reference):
             raise ValueError("reference must be an issue reference such as #123")
     if not isinstance(change.breaking, bool):
         raise TypeError("breaking must be a boolean")
@@ -77,7 +74,7 @@ def parse_conventional_commit(message: str) -> ReleaseChange:
         for line in lines[1:]
     )
     subject = match.group("subject").strip()
-    reference_match = re.search(r"\\s+((?:#|GH-)\\d+)$", subject)
+    reference_match = re.search(r"\s+((?:#|GH-)\d+)$", subject)
     reference = reference_match.group(1) if reference_match else None
     if reference:
         subject = subject[:reference_match.start()].rstrip()
@@ -129,18 +126,20 @@ def render_release_notes(
         lines.extend(["## Breaking changes", ""])
         lines.extend(_line(item) for item in breaking)
         lines.append("")
-    for heading, kind in _SECTIONS[1:]:
-        selected = [
-            item for item in items
-            if not item.breaking and (item.change_type == kind if kind != "other" else item.change_type not in {"feat", "fix", "perf"})
-        ]
+    for heading, kind in _SECTIONS:
+        selected = [item for item in items if not item.breaking and item.change_type == kind]
         if selected:
             lines.extend([f"## {heading}", ""])
             lines.extend(_line(item) for item in selected)
             lines.append("")
+    other = [item for item in items if not item.breaking and item.change_type not in {"feat", "fix", "perf"}]
+    if other:
+        lines.extend(["## Other changes", ""])
+        lines.extend(_line(item) for item in other)
+        lines.append("")
     if not items:
         lines.extend(["No user-facing changes.", ""])
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def create_release_notes(
@@ -158,7 +157,7 @@ def create_release_notes(
     if root.is_symlink() or not root.is_dir():
         raise ValueError("release notes directory must be a real directory, not a symlink")
     target = root / f"{normalized}.md"
-    with target.open("x", encoding="utf-8", newline="\\n") as stream:
+    with target.open("x", encoding="utf-8", newline="\n") as stream:
         stream.write(content)
     return target
 
