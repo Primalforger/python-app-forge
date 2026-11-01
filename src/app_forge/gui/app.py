@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
         if isinstance(exc, ForgeError):
             self.status.setText(f"{label}: failed ({exc.category})")
             QMessageBox.warning(self, "Operation failed",
-                                "\\n".join([exc.message, *exc.details, exc.hint or ""]).strip())
+                                "\n".join([exc.message, *exc.details, exc.hint or ""]).strip())
         else:
             self.status.setText(f"{label}: internal error")
             QMessageBox.critical(self, "Internal error", f"{type(exc).__name__}: {exc}")
