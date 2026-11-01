@@ -168,7 +168,7 @@ class SqliteRepository(Generic[ModelT]):
             if column is None or name.startswith("_"):
                 raise ValueError(f"unknown filter field: {name!r}")
             statement = statement.where(column == value)
-        sort_name = order_by or self._primary_key
+        sort_name = self._primary_key if order_by is None else order_by
         sort_column = getattr(self.model, sort_name, None)
         if sort_column is None or sort_name.startswith("_"):
             raise ValueError(f"unknown order field: {sort_name!r}")
