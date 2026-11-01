@@ -1,6 +1,5 @@
 import unittest
 
-from app_forge.domain.errors import ValidationFailure
 from app_forge.domain.models import Patch, parse_manifest
 from app_forge.patching import PatchConflict, apply_patch, remove_patch
 from tests.helpers import ForgeTestCase
@@ -19,7 +18,7 @@ class FrameworkAdapterTests(unittest.TestCase):
         result = apply_patch(source, patch, "acme.routes", "pkg")
         self.assertIn("from pkg.routes import router", result.new_text)
         self.assertIn("app.include_router(router)", result.new_text)
-        self.assertEqual(compile(result.new_text, "main.py", "exec"), None)
+        compile(result.new_text, "main.py", "exec")
         again = apply_patch(result.new_text, patch, "acme.routes", "pkg")
         self.assertEqual((again.status, again.new_text), ("unchanged", result.new_text))
         self.assertEqual(remove_patch(result.new_text, "acme.routes", "register", result.sha256), source)
@@ -39,7 +38,7 @@ class FrameworkAdapterTests(unittest.TestCase):
         compile(result.new_text, "urls.py", "exec")
 
     def test_ambiguous_or_invalid_targets_fail_closed(self):
-        with self.assertRaises(ValidationFailure):
+        with self.assertRaises(PatchConflict):
             apply_patch("app = FastAPI()\nother = FastAPI()\n",
                         self.patch("fastapi"), "acme.routes", "pkg")
         with self.assertRaises(ValidationFailure):
@@ -50,7 +49,6 @@ class FrameworkAdapterTests(unittest.TestCase):
 
     def test_registration_patch_manifest_validation(self):
         from app_forge.catalog.registry import BUILTIN_COMPONENTS
-        import pathlib
         import tomllib
         data = tomllib.loads((BUILTIN_COMPONENTS / "forge.themes/1.0.0/component.toml").read_text())
         data["integration"]["patches"] = [{
@@ -66,7 +64,7 @@ class FrameworkAdapterTests(unittest.TestCase):
 
 class ThirdPartyFrameworkIntegrationTests(ForgeTestCase):
     def test_fastapi_component_registers_without_forge_anchor(self):
-        component = self.custom_component(
+        self.custom_component(
             "acme.api-health",
             files={"src/health.py": "from fastapi import APIRouter\nrouter = APIRouter()\n"},
             python_packages=("fastapi>=0.110",),
