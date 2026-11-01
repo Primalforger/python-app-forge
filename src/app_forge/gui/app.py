@@ -1,7 +1,7 @@
 """GUI Shell (MOD-03): PySide6 desktop front end.
 
 It calls ForgeServices only; it never mutates projects itself and never imports the CLI shell.
-Long operations currently run on the UI thread (a known MVP limitation).
+Apply and verification operations run in cancellable background workers.
 Requires: pip install "python-app-forge[gui]"
 """
 from __future__ import annotations
@@ -108,6 +108,9 @@ class MainWindow(QMainWindow):
         self._background_thread = None
         self._background_worker = None
         self._active_cancel_token = None
+        self._background_label = ""
+        self._background_on_success = None
+        self._background_on_cancel = None
         for build in (self._dashboard, self._templates, self._catalog, self._components, self._workbench,
                       self._design_system, self._table_designer, self._architecture, self._quality,
                       self._extensions, self._settings, self._diagnostics):
@@ -163,10 +166,10 @@ class MainWindow(QMainWindow):
         worker = OperationWorker(operation, token)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        worker.progress.connect(lambda event: self._background_progress(label, event))
-        worker.succeeded.connect(lambda result: on_success(result) if on_success else None)
-        worker.failed.connect(lambda exc: self._background_failed(label, exc))
-        worker.cancelled.connect(lambda result: self._background_cancelled(label, result, on_cancel))
+        worker.progress.connect(self._background_progress_event)
+        worker.succeeded.connect(self._background_succeeded_event)
+        worker.failed.connect(self._background_failed_event)
+        worker.cancelled.connect(self._background_cancelled_event)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
@@ -174,6 +177,9 @@ class MainWindow(QMainWindow):
         self._background_thread = thread
         self._background_worker = worker
         self._active_cancel_token = token
+        self._background_label = label
+        self._background_on_success = on_success
+        self._background_on_cancel = on_cancel
         self.nav.setEnabled(False)
         self.stack.setEnabled(False)
         self.cancel_button.setEnabled(True)
@@ -181,13 +187,19 @@ class MainWindow(QMainWindow):
         thread.start()
         return True
 
-    def _background_progress(self, label: str, event: dict) -> None:
+    def _background_progress_event(self, event: dict) -> None:
+        label = self._background_label
         message = str(event.get("message") or event.get("stage") or label)
         current, total = event.get("current"), event.get("total")
         suffix = f" ({current}/{total})" if current is not None and total is not None else ""
         self.status.setText(f"{label}: {message}{suffix}")
 
-    def _background_failed(self, label: str, exc: Exception) -> None:
+    def _background_succeeded_event(self, result: object) -> None:
+        if self._background_on_success:
+            self._background_on_success(result)
+
+    def _background_failed_event(self, exc: Exception) -> None:
+        label = self._background_label
         if isinstance(exc, ForgeError):
             self.status.setText(f"{label}: failed ({exc.category})")
             QMessageBox.warning(self, "Operation failed",
@@ -196,10 +208,11 @@ class MainWindow(QMainWindow):
             self.status.setText(f"{label}: internal error")
             QMessageBox.critical(self, "Internal error", f"{type(exc).__name__}: {exc}")
 
-    def _background_cancelled(self, label: str, result: object, on_cancel=None) -> None:
+    def _background_cancelled_event(self, result: object) -> None:
+        label = self._background_label
         self.status.setText(f"{label}: cancelled")
-        if on_cancel:
-            on_cancel(result)
+        if self._background_on_cancel:
+            self._background_on_cancel(result)
         elif isinstance(result, dict) and result.get("recovery"):
             QMessageBox.information(self, "Operation cancelled",
                                     "The operation was cancelled. Recovery result: " +
@@ -209,6 +222,8 @@ class MainWindow(QMainWindow):
         self._background_thread = None
         self._background_worker = None
         self._active_cancel_token = None
+        self._background_on_success = None
+        self._background_on_cancel = None
         self.nav.setEnabled(True)
         self.stack.setEnabled(True)
         self.cancel_button.setEnabled(False)
