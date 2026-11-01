@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from datetime import datetime, timezone
 
@@ -21,6 +22,8 @@ class HousekeepingTests(ForgeTestCase):
         ck = s.settings.checkpoints_dir / "expired"
         ck.mkdir()
         (ck / "manifest.json").write_text("{}")
+        old_stamp = datetime(2020, 1, 1, tzinfo=timezone.utc).timestamp()
+        os.utime(ck, (old_stamp, old_stamp))
         s.store.add_evidence([{
             "run_id": "old-run", "subject": "project", "check_id": "tests",
             "status": "passed", "detail": "", "duration_s": 0.1, "recorded_at": old,
@@ -57,6 +60,8 @@ class HousekeepingTests(ForgeTestCase):
         ck = s.settings.checkpoints_dir / "expired"
         ck.mkdir()
         (ck / "recovery.json").write_text("{}")
+        old_stamp = datetime(2020, 1, 1, tzinfo=timezone.utc).timestamp()
+        os.utime(ck, (old_stamp, old_stamp))
         s.store.add_evidence([{
             "run_id": "old-run", "subject": "project", "check_id": "tests",
             "status": "passed", "detail": "", "duration_s": 0.1, "recorded_at": old,
