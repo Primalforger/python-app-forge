@@ -143,7 +143,7 @@ class CancellationRecoveryTests(ForgeTestCase):
 
         def edit_after_apply(event):
             if event.get("message") == "Applied src/preserve_user_edit/forms.py":
-                target.write_text("# user edit\\n", encoding="utf-8")
+                target.write_text("# user edit\n", encoding="utf-8")
                 token.cancel()
 
         result = services.apply_plan(plan["plan_id"], verify=False, cancel_token=token, progress=edit_after_apply)
@@ -151,4 +151,4 @@ class CancellationRecoveryTests(ForgeTestCase):
         assert result["cancelled"] is True
         assert result["recovery"]["complete"] is False
         assert "src/preserve_user_edit/forms.py" in result["recovery"]["preserved_user_changes"]
-        assert target.read_text(encoding="utf-8") == "# user edit\\n"
+        assert target.read_text(encoding="utf-8") == "# user edit\n"
