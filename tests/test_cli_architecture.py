@@ -79,6 +79,35 @@ class CliTests(ForgeTestCase):
         self.assertEqual((ops[0]["kind"], ops[0]["status"]), ("create_project", "failed"))
 
 
+
+    def test_output_formats_yaml_and_table(self):
+        code, out, _ = self.run_cli("--output", "yaml", "component", "search", "--query", "pagination")
+        self.assertEqual(code, 0)
+        import yaml
+        rows = yaml.safe_load(out)
+        self.assertEqual(rows[0]["id"], "forge.advanced-table")
+
+        code, out, _ = self.run_cli("--output", "table", "component", "search", "--query", "pagination")
+        self.assertEqual(code, 0)
+        self.assertIn("forge.advanced-table", out)
+        self.assertIn("id", out)
+
+    def test_shell_completion_scripts(self):
+        for shell, expected in (("bash", "complete -F"), ("zsh", "compdef"), ("fish", "complete -c")):
+            code, out, _ = self.run_cli("completion", shell)
+            self.assertEqual(code, 0)
+            self.assertIn(expected, out)
+            self.assertIn("component", out)
+
+    def test_progress_is_consistent_and_stderr_only(self):
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = main(["--home", str(self.home), "--progress", "always", "doctor"])
+        self.assertEqual(code, 0)
+        self.assertIn("forge: running doctor", err.getvalue())
+        self.assertIn("forge: completed", err.getvalue())
+        self.assertNotIn("forge: running", out.getvalue())
+
 class ArchitectureTests(unittest.TestCase):
     def test_platform_obeys_dependency_rules(self):  # Gate 1
         self.assertEqual(check_rules(PKG), [])
