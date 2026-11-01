@@ -698,3 +698,16 @@ acceptance = "Visible columns and headers are exposed; sorting delegates to the 
 modules = ["app_forge.qt_table"]
 verified_by = ["tests/test_qt_table.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-07"
+title = "Schema-driven Qt settings dialog"
+description = "An optional PySide6 dialog builds accessible settings controls from a validated declarative field schema without adding Qt to core dependencies."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "String, integer, float, boolean and choice fields render with typed values; duplicate keys and invalid choices/bounds are rejected; required text and numeric limits are validated before acceptance; real PySide6 tests run in mandatory GUI verification."
+modules = ["app_forge.qt_settings"]
+verified_by = ["tests/test_qt_settings.py"]
+implemented = true
