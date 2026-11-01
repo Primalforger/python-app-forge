@@ -15,7 +15,6 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from app_forge.catalog.registry import compute_artifact_digest
 from app_forge.domain.errors import SecurityBlock, ValidationFailure
 
 ATTESTATION_FILE = "attestation.json"
@@ -52,6 +51,7 @@ def sign_component(version_dir: Path, private_path: Path, *, key_id: str) -> Pat
     version_dir, private_path = Path(version_dir), Path(private_path)
     manifest = tomllib.loads((version_dir / "component.toml").read_text(encoding="utf-8"))
     component = manifest.get("component", {})
+    from app_forge.catalog.registry import compute_artifact_digest
     digest = compute_artifact_digest(version_dir)
     declared = manifest.get("provenance", {}).get("digest")
     if digest != declared:
@@ -80,6 +80,7 @@ def verify_component(version_dir: Path, trusted_keys: Path) -> dict:
         doc = json.loads(attestation.read_text(encoding="utf-8"))
         manifest = tomllib.loads((version_dir / "component.toml").read_text(encoding="utf-8"))
         component = manifest["component"]
+        from app_forge.catalog.registry import compute_artifact_digest
         digest = compute_artifact_digest(version_dir)
         if doc.get("format") != _FORMAT or doc.get("component") != component.get("id") or doc.get("version") != component.get("version"):
             raise SecurityBlock("component attestation identity does not match its manifest")
