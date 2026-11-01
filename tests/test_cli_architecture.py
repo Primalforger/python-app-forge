@@ -72,6 +72,21 @@ class CliTests(ForgeTestCase):
             self.assertEqual(self.run_cli(*argv)[0], 0, argv)
         self.assertEqual(self.run_cli("dependency", "resolve", "forge.advanced-table", "--archetype", "cli")[0], 3)
 
+    def test_hash_chained_audit_cli(self):
+        path = self.tmp / "audit.jsonl"
+        code, out, _ = self.run_cli("--json", "audit", "append", str(path), "--actor", "test-user",
+                                    "--event", '{"action":"created"}')
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(out)["result"]["appended"])
+        code, out, _ = self.run_cli("--json", "audit", "verify", str(path))
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(out)["result"]["ok"])
+        path.write_text(path.read_text(encoding="utf-8").replace("created", "tampered"),
+                        encoding="utf-8")
+        code, out, _ = self.run_cli("--json", "audit", "verify", str(path))
+        self.assertEqual(code, 6)
+        self.assertFalse(json.loads(out)["result"]["ok"])
+
     def test_operation_history_records_failures(self):
         self.run_cli("init", "--archetype", "cli", "--name", "1bad", "--out", str(self.tmp / "x"))
         code, out, _ = self.run_cli("--json", "history", "list")

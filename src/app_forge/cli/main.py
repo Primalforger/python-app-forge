@@ -445,12 +445,30 @@ def c_history(s, a):
     return (s.history(a.limit) if a.action == "list" else s.history_item(a.target)), 0
 
 
+
+def c_audit(s, a):
+    if a.action == "verify":
+        report = s.audit_verify(a.path)
+        return report, 0 if report["ok"] else EXIT_VERIFICATION
+    if not a.actor or not a.event:
+        raise ValidationFailure("audit append requires --actor and --event JSON")
+    try:
+        event = json.loads(a.event)
+    except json.JSONDecodeError as exc:
+        raise ValidationFailure(f"Invalid audit event JSON: {exc.msg}") from None
+    try:
+        record = s.audit_append(a.path, event, actor=a.actor)
+    except ValueError as exc:
+        raise ValidationFailure(str(exc)) from None
+    return {"appended": True, "sequence": record["sequence"], "hash": record["hash"]}, 0
+
+
 def c_gc(s, a):
     return s.garbage_collect(apply=a.apply), 0
 
 
 def c_completion(_services, a):
-    commands = "init template component trust catalog project integrate dependency test quality architecture trace compliance table config plugin doctor gc history completion"
+    commands = "init template component trust catalog project integrate dependency test quality architecture trace compliance table config plugin doctor gc history audit completion"
     if a.shell == "bash":
         script = "_forge_completion() {\n  local cur=\"${COMP_WORDS[COMP_CWORD]}\"\n  if [[ $COMP_CWORD -eq 1 ]]; then\n    COMPREPLY=( $(compgen -W \"" + commands + "\" -- \"$cur\") )\n  elif [[ $COMP_CWORD -eq 2 ]]; then\n    case \"${COMP_WORDS[1]}\" in\n      template) COMPREPLY=( $(compgen -W 'list inspect validate export import' -- \"$cur\") ) ;;\n      component) COMPREPLY=( $(compgen -W 'search inspect add remove upgrade outdated verify enable disable new validate seal pack sign' -- \"$cur\") ) ;;\n      integrate) COMPREPLY=( $(compgen -W 'plan preview conflicts approve apply status recover' -- \"$cur\") ) ;;\n      *) ;;\n    esac\n  fi\n}\ncomplete -F _forge_completion forge\n"
     elif a.shell == "zsh":
@@ -600,6 +618,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = grp("gc", c_gc, "preview or remove expired Forge data")
     sp.add_argument("--apply", action="store_true", help="perform deletion (default is a safe dry run)")
+
+    sp = acts(grp("audit", c_audit, "append and verify hash-chained audit events"), ["append", "verify"])
+    sp.add_argument("path", help="JSONL audit log path")
+    sp.add_argument("--actor", help="append: actor identity")
+    sp.add_argument("--event", help="append: event as a JSON object")
 
     sp = acts(grp("history", c_history, "operation history"), ["list", "inspect", "compare"])
     sp.add_argument("target", nargs="?")

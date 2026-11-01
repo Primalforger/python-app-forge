@@ -726,6 +726,16 @@ class ForgeServices:
             raise ValidationFailure(f"No such operation {operation_id!r}")
         return op
 
+    def audit_append(self, path: str | Path, event: dict, *, actor: str) -> dict:
+        from app_forge.audit_log import HashChainedAuditLog
+
+        return HashChainedAuditLog(path).append(event, actor=actor)
+
+    def audit_verify(self, path: str | Path) -> dict:
+        from app_forge.audit_log import HashChainedAuditLog
+
+        return HashChainedAuditLog(path).verify()
+
     def show_config(self) -> dict:
         return {**self.settings.to_dict(), "platform": current_platform(), "forge_version": __version__}
 
