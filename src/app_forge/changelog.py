@@ -75,8 +75,9 @@ def parse_conventional_commit(message: str) -> ReleaseChange:
     )
     subject = match.group("subject").strip()
     reference_match = re.search(r"\s+((?:#|GH-)\d+)$", subject)
-    reference = reference_match.group(1) if reference_match else None
-    if reference:
+    reference = None
+    if reference_match is not None:
+        reference = reference_match.group(1)
         subject = subject[:reference_match.start()].rstrip()
     return _validate_change(ReleaseChange(
         description=subject,
