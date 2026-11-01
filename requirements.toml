@@ -939,3 +939,15 @@ acceptance = "The library renders a stable navigation and starter pages for over
 modules = ["app_forge.documentation_scaffold"]
 verified_by = ["tests/test_documentation_scaffold.py"]
 implemented = true
+
+[[requirement]]
+id = "C-28"
+title = "Changelog and release notes tooling"
+description = "Provide dependency-free Conventional Commit parsing and deterministic, versioned Markdown release notes."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Conventional Commit subjects, scopes, breaking markers/footers and issue references are parsed; invalid messages, versions, dates and change records fail closed; release notes group breaking changes, features, fixes, performance and other changes deterministically; exclusive creation never overwrites existing notes or follows a symlink directory."
+modules = ["app_forge.changelog"]
+verified_by = ["tests/test_changelog.py"]
+implemented = true
