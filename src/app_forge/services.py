@@ -30,7 +30,9 @@ from app_forge.compliance import build_report, load_requirements, to_markdown, v
 from app_forge.compliance_artifacts import load_artifacts, save_artifact
 from app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
 from app_forge.table_designer import normalize_definition, to_python
-from app_forge.domain.errors import ConflictFailure, ForgeError, SecurityBlock, ValidationFailure
+from app_forge.domain.errors import (ConflictFailure, ForgeError, OperationCancelled, SecurityBlock,
+                                     ValidationFailure)
+from app_forge.cancellation import CancellationToken, ProgressCallback
 from app_forge.domain.models import ChangePlan
 from app_forge.extensions import ExtensionHost
 from app_forge.locks import lock_path, project_lock, read_lock
@@ -113,6 +115,10 @@ class ForgeServices:
         self.log.info("started", extra={"operation_id": op["operation_id"], "operation": kind, "target": str(target)})
         try:
             yield op
+        except OperationCancelled as exc:
+            op["status"] = "cancelled"
+            op["summary"]["message"] = exc.message
+            raise
         except ForgeError as exc:
             op["status"] = "failed"
             op["summary"]["error"] = exc.to_dict()
@@ -468,9 +474,12 @@ class ForgeServices:
         with self.operation("approve_plan", plan_id):
             return self.integration.approve(plan_id, approver).to_dict(include_content=False)
 
-    def apply_plan(self, plan_id: str, *, verify: bool = True, auto_recover: bool = False) -> dict:
+    def apply_plan(self, plan_id: str, *, verify: bool = True, auto_recover: bool = False,
+                   cancel_token: CancellationToken | None = None,
+                   progress: ProgressCallback | None = None) -> dict:
         with self.operation("apply_plan", plan_id) as op:
-            rep = self.integration.apply(plan_id, verify=verify, auto_recover=auto_recover)
+            rep = self.integration.apply(plan_id, verify=verify, auto_recover=auto_recover,
+                                         cancel_token=cancel_token, progress=progress)
             op["summary"] = {"status": rep["status"]}
             if not rep["ok"]:
                 op["status"] = "failed"
@@ -488,14 +497,16 @@ class ForgeServices:
         return self.integration.status(plan_id)
 
     # ------------------------------------------------------------------ verification / quality
-    def verify_project(self, path: str | Path, checks: tuple[str, ...] = ("syntax", "tests")) -> dict:
+    def verify_project(self, path: str | Path, checks: tuple[str, ...] = ("syntax", "tests"), *,
+                       cancel_token: CancellationToken | None = None,
+                       progress: ProgressCallback | None = None) -> dict:
         for c in checks:
             if c not in ALL_CHECKS:
                 raise ValidationFailure(f"Unknown check {c!r}", details=[f"available: {ALL_CHECKS}"])
         with self.operation("verify_project", path) as op:
             if not Path(path).is_dir():
                 raise ValidationFailure(f"Project path {str(path)!r} is not a directory")
-            rep = self.verifier.run(path, checks)
+            rep = self.verifier.run(path, checks, cancel_token=cancel_token, progress=progress)
             self.store.add_evidence(rep["evidence"])
             op["summary"] = {"overall": rep["overall"], "run_id": rep["run_id"]}
             if rep["overall"] == "failed":
