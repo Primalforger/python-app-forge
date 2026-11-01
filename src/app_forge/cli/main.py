@@ -426,6 +426,10 @@ def c_history(s, a):
     return (s.history(a.limit) if a.action == "list" else s.history_item(a.target)), 0
 
 
+def c_gc(s, a):
+    return s.garbage_collect(apply=a.apply), 0
+
+
 # ----------------------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="forge", description="Python App Forge: create, extend, verify applications.")
@@ -558,6 +562,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--yes", action="store_true")
 
     grp("doctor", c_doctor, "environment diagnostics")
+
+    sp = grp("gc", c_gc, "preview or remove expired Forge data")
+    sp.add_argument("--apply", action="store_true", help="perform deletion (default is a safe dry run)")
 
     sp = acts(grp("history", c_history, "operation history"), ["list", "inspect", "compare"])
     sp.add_argument("target", nargs="?")
