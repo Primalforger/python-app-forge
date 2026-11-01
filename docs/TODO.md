@@ -162,7 +162,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-09 Recent files and session state** (S, lib, desktop): bounded newest-first recent-file tracking with deduplication/removal and optional existence filtering; atomic JSON session-state persistence with finite-JSON validation and a configurable size limit. Verified by `tests/test_session.py`.
 - [ ] **C-10 CLI output formatters** (S, lib): table, JSON, YAML, with colour control.
 - [ ] **C-11 CLI progress and prompts** (S, lib)
-- [ ] **C-12 Retry and circuit-breaker library** (S, lib)
+- [x] **C-12 Retry and circuit-breaker library** (S, lib): bounded exponential backoff with jitter and retry predicates; thread-safe closed/open/half-open breaker with a single recovery probe and manual reset. Verified by `tests/test_retry.py`.
 - [ ] **C-13 Feature flags** (S, lib)
 - [ ] **C-14 SQLite job queue** (M, lib, service): persistent jobs with retries and dead-letter handling.
 - [ ] **C-15 Secret providers** (M, lib): environment, OS keyring, file; never logged.
