@@ -154,8 +154,8 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-01 Table: saved views and presets** (S, lib): persistent named presets for column order/visibility, filters, sort, search and page size; validated JSON state, atomic file replacement, and explicit apply/delete operations. Verified by `tests/test_table_views.py`.
 - [x] **C-02 Table: column resize and persistence** (S, lib): validated logical-pixel widths per known column, bounded to 24–2000 px, persisted as schema-versioned JSON with atomic replacement; missing files default cleanly and corrupt or stale column metadata fails closed. Verified by `tests/test_table_layout.py`.
 - [x] **C-03 Table: group-by and aggregates** (M, lib): stable first-seen groups over filtered/searched/sorted rows, with count/sum/average/min/max aggregates, null handling and explicit validation. Pagination is not applied to group contents. Verified by the generated advanced-table component regression tests.
-- [ ] **C-04 Table: server-side mode** (M, lib): the same interface backed by a query callback.
-- [ ] **C-05 Table: XLSX and PDF export adapters** (M, lib): optional dependencies.
+- [x] **C-04 Table: server-side mode** (M, lib): the same interface backed by a query callback.
+- [x] **C-05 Table: XLSX and PDF export adapters** (M, lib): optional `openpyxl` and `reportlab` extras; visible columns and filtered/sorted rows are exported, with stable selected-row export and formula-safe spreadsheet strings.
 - [ ] **C-06 Qt table view adapter** (M, lib): `QAbstractTableModel` over `TableModel`; needs real Qt to verify (G-06).
 - [ ] **C-07 Schema-driven settings dialog** (M, lib, desktop): builds a Qt form from a field schema.
 - [ ] **C-08 Undo/redo stack** (S, lib, desktop)
