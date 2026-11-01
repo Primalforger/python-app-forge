@@ -18,17 +18,18 @@ def _allowed_hosts() -> list[str]:
 def create_app():
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.trustedhost import TrustedHostMiddleware
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field
 
     class ItemIn(BaseModel):
-        name: str
+        name: str = Field(min_length=1, max_length=100)
 
+    docs_enabled = os.environ.get("APP_ENABLE_API_DOCS", "").lower() in {"1", "true", "yes"}
     app = FastAPI(
         title="{{name}}",
         version="0.1.0",
-        docs_url="/docs",
+        docs_url="/docs" if docs_enabled else None,
         redoc_url=None,
-        openapi_url="/openapi.json",
+        openapi_url="/openapi.json" if docs_enabled else None,
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts())
 
@@ -41,7 +42,7 @@ def create_app():
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
         if request.url.scheme == "https":
-            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
 
     store = ItemStore()
