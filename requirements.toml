@@ -887,3 +887,16 @@ acceptance = "Change metadata, affected systems, unique requirement identifiers,
 modules = ["app_forge.change_impact"]
 verified_by = ["tests/test_change_impact.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-24"
+title = "Coverage gate"
+description = "Parse bounded Cobertura reports and enforce configurable inclusive line and optional branch coverage thresholds without runtime dependencies."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Valid Cobertura totals produce correct percentages; thresholds are validated and inclusive; below-threshold results are actionable; absent branch data fails when requested; malformed, empty, oversized, negative, inconsistent, DTD/entity reports fail closed."
+modules = ["app_forge.coverage_gate"]
+verified_by = ["tests/test_coverage_gate.py"]
+implemented = true
