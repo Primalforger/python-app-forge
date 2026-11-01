@@ -48,6 +48,13 @@ class TemplateTests(ForgeTestCase):
                 report = s.verify_project(out)
                 self.assertEqual(report["overall"], "passed", report["evidence"])
 
+    def test_composite_template_archetypes_must_match_included_templates(self):
+        s = self.services()
+        info = s.templates.get("desktop-worker")
+        info.archetypes = ("desktop",)
+        with self.assertRaises(ValidationFailure):
+            s.templates.expand(info)
+
     def test_archetype_component_resolution_accepts_any_member_of_a_composite(self):
         s = self.services()
         self.custom_component("test.desktop-only", archetypes=["desktop"])

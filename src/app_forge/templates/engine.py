@@ -198,33 +198,34 @@ class TemplateEngine:
     def expand(self, info: TemplateInfo) -> List[TemplateInfo]:
         """Resolve a bundle's pinned template dependencies in deterministic, cycle-safe order."""
         ordered: list[TemplateInfo] = []
-        seen: set[tuple[str, str]] = set()
+        resolved: dict[tuple[str, str], set[str]] = {}
         versions: dict[str, str] = {}
         visiting: list[str] = []
 
-        def visit(current: TemplateInfo) -> None:
+        def visit(current: TemplateInfo) -> set[str]:
             if current.id in visiting:
                 raise ValidationFailure("Template include cycle: " + " -> ".join([*visiting, current.id]))
             identity = (current.id, current.version)
             if current.id in versions and versions[current.id] != current.version:
                 raise ValidationFailure(f"Template bundle includes multiple versions of {current.id!r}")
-            if identity in seen:
-                return
+            if identity in resolved:
+                return resolved[identity]
             versions[current.id] = current.version
             visiting.append(current.id)
+            actual = {current.archetype}
             for include in current.includes:
-                visit(self.get(include))
+                actual.update(visit(self.get(include)))
             visiting.pop()
-            seen.add(identity)
+            declared = set(current.archetypes or (current.archetype,))
+            if actual != declared:
+                raise ValidationFailure(
+                    f"Template {current.id!r} declares archetypes {sorted(declared)} "
+                    f"but its includes provide {sorted(actual)}")
+            resolved[identity] = actual
             ordered.append(current)
+            return actual
 
         visit(info)
-        actual_archetypes = {a for item in ordered for a in (item.archetypes or (item.archetype,))}
-        declared_archetypes = set(info.archetypes or (info.archetype,))
-        if actual_archetypes != declared_archetypes:
-            raise ValidationFailure(
-                f"Template {info.id!r} declares archetypes {sorted(declared_archetypes)} "
-                f"but its included templates provide {sorted(actual_archetypes)}")
         return ordered
 
     def render(self, info: TemplateInfo, variables: dict[str, Any]) -> dict[str, str]:
