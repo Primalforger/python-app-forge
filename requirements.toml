@@ -825,3 +825,15 @@ acceptance = "Tests verify bounded retries for idempotent methods, no implicit r
 modules = ["app_forge.http_client", "app_forge.retry"]
 verified_by = ["tests/test_http_client.py"]
 implemented = true
+
+[[requirement]]
+id = "C-20"
+title = "Webhook signature verification"
+description = "Verify timestamped HMAC signatures over raw webhook payloads before parsing or processing inbound events."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "SHA-256 and SHA-512 signatures are verified with constant-time comparison; modified bodies, secrets, malformed signatures and mismatched digests are rejected; timestamps outside the configured freshness window are rejected; strict one-time delivery guidance requires persistent event-ID deduplication."
+modules = ["app_forge.webhook_signatures"]
+verified_by = ["tests/test_webhook_signatures.py"]
+implemented = true
