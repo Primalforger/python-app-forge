@@ -53,7 +53,7 @@ class SecurityTests(ForgeTestCase):
             host.activate("acme-ext")
         host.enable("acme-ext")
         from unittest.mock import patch
-        worker_response = b'{"version":1,"ok":true,"result":null}\\n'
+        worker_response = b'{"version":1,"ok":true,"result":null}\n'
         with patch("app_forge.extensions.subprocess.run",
                    return_value=SimpleNamespace(stdout=worker_response, returncode=0)) as run:
             host.activate("acme-ext")
