@@ -76,10 +76,11 @@ def validate_threat_model(model: ThreatModel) -> ThreatModel:
     system = _required(model.system, "system", limit=200)
     scope = _required(model.scope, "scope")
     assets = _items(model.assets, "assets")
-    boundaries = (
-        tuple(_required(item, "trust_boundaries", limit=500)
-              for item in model.trust_boundaries)
-        if model.trust_boundaries else ()
+    if isinstance(model.trust_boundaries, (str, bytes)):
+        raise TypeError("trust_boundaries must be an iterable of strings")
+    boundaries = tuple(
+        _required(item, "trust_boundaries", limit=500)
+        for item in model.trust_boundaries
     )
     if len(boundaries) > 200 or len({item.casefold() for item in boundaries}) != len(boundaries):
         raise ValueError("trust_boundaries must contain at most 200 unique entries")
@@ -154,7 +155,9 @@ def render_threat_model(model: ThreatModel) -> str:
         lines.extend(f"- {boundary}" for boundary in item.trust_boundaries)
     else:
         lines.append("_No trust boundaries have been recorded._")
-    by_category = {category: [] for category in STRIDECategory}
+    by_category: dict[STRIDECategory, list[Threat]] = {
+        category: [] for category in STRIDECategory
+    }
     for threat in item.threats:
         by_category[threat.category].append(threat)
     lines.extend(["", "## STRIDE analysis", ""])
