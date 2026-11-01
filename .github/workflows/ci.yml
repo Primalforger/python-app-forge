@@ -45,6 +45,37 @@ jobs:
       - name: Run test suite
         run: python -m pytest -q
 
+  real-qt:
+    name: Real Qt GUI (Python 3.11)
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install project, GUI, and development dependencies
+        run: uv pip install --system -e ".[gui,dev]"
+
+      - name: Run mandatory real-PySide6 GUI suite
+        run: python scripts/verify_gui.py
+
   quality:
     name: Lint, types, security, and build
     runs-on: ubuntu-latest

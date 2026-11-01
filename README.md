@@ -83,13 +83,11 @@ security boundaries, compliance statuses and CLI exit codes.
 
 ## Continuous integration
 
-GitHub Actions runs on pushes to `main`, pull requests targeting `main`, a nightly schedule, and manual dispatches. To keep pull-request feedback quick, PRs run a four-job test matrix: Python 3.11 on Ubuntu, Windows, and macOS, plus Python 3.14 on Ubuntu. Pushes to `main`, nightly runs, and manual dispatches run the full 12-job matrix (Python 3.11–3.14 on all three operating systems). Every trigger also runs Ruff linting, mypy type checks, a `pip-audit` dependency scan, and a source/wheel build on Ubuntu. A failed job is reported on the pull request; configure branch protection in GitHub repository settings if these checks should be required before merging.
+GitHub Actions runs on pushes to `main`, pull requests targeting `main`, a nightly schedule, and manual dispatches. To keep pull-request feedback quick, PRs run a four-job test matrix: Python 3.11 on Ubuntu, Windows, and macOS, plus Python 3.14 on Ubuntu. A separate mandatory real-Qt job installs `.[gui,dev]` and runs `python scripts/verify_gui.py` headlessly under PySide6; it fails if PySide6 is missing or every GUI test is skipped. Pushes to `main`, nightly runs, and manual dispatches run the full 12-job matrix (Python 3.11–3.14 on all three operating systems). Every trigger also runs Ruff linting, mypy type checks, a `pip-audit` dependency scan, and a source/wheel build on Ubuntu. A failed job is reported on the pull request; configure branch protection in GitHub repository settings if these checks should be required before merging.
 
 ## What is and is not done
 
-See **docs/spec-coverage.md**. Highlights of the gaps: the **GUI has never run under real PySide6** (its logic is exercised against a stub, and a real-Qt test suite exists but has not been executed; PySide6 was unavailable
-where this was built), extension **process isolation** and **signature verification** are not
-implemented, only 6 of the spec's component families exist, and performance/portability/CI-matrix requirements are unverified.
+See **docs/spec-coverage.md**. Highlights of the gaps: extension **process isolation** is not an OS sandbox, signature verification is not implemented, only 6 of the spec's component families exist, and performance/portability requirements remain unverified. Real-Qt GUI tests now run as a required CI job.
 Nothing in this project is a compliance or certification claim.
 
 Docs: `docs/component-authoring.md`, `docs/compliance-artifacts.md` (compliance records and SBOM), `docs/TODO.md` (open gaps and planned components), `docs/architecture.md`, `docs/adr/` (ADR-001..012), `docs/standards-applicability.md`.

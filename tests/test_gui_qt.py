@@ -16,13 +16,15 @@ try:
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QLineEdit, QListWidget, QMessageBox,
                                    QPlainTextEdit, QPushButton, QTableWidget)
     HAVE_QT = True
-except ImportError:
+    QT_IMPORT_ERROR = ""
+except ImportError as exc:
     HAVE_QT = False
+    QT_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 from tests.helpers import ForgeTestCase
 
 
-@unittest.skipUnless(HAVE_QT, "PySide6 is not installed (pip install -e '.[gui]')")
+@unittest.skipUnless(HAVE_QT, f"PySide6 Qt test imports failed: {QT_IMPORT_ERROR or 'PySide6 is not installed'}")
 class RealQtTests(ForgeTestCase):
     @classmethod
     def setUpClass(cls):
