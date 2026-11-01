@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import yaml
 
+from app_forge.domain.errors import ValidationFailure
 from app_forge.domain.models import Patch
 from app_forge.security import sha256_text
 from app_forge.templates.engine import render_text
@@ -308,11 +309,8 @@ def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace:
         )
         try:
             return apply_registration(text, spec, comp_id, patch.id, replace=replace, expect_sha=expect_sha)
-        except Exception as exc:
-            from app_forge.domain.errors import ValidationFailure
-            if isinstance(exc, ValidationFailure):
-                raise PatchConflict("framework-adapter-unsupported", exc.message) from None
-            raise
+        except ValidationFailure as exc:
+            raise PatchConflict("framework-adapter-unsupported", exc.message) from None
     if patch.kind in ("json-merge", "yaml-merge"):
         return _apply_structured(text, patch, package, patch.kind == "yaml-merge")
     content = render_text(patch.content, {"package": package})
