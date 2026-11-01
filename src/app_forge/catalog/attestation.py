@@ -31,6 +31,8 @@ def generate_keypair(private_path: Path, public_path: Path, *, key_id: str) -> d
     if not key_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in key_id):
         raise ValidationFailure("key id must contain only letters, digits, '.', '_' or '-'")
     private_path, public_path = Path(private_path), Path(public_path)
+    if private_path.resolve() == public_path.resolve():
+        raise ValidationFailure("private and public key paths must be different")
     if private_path.exists() or public_path.exists():
         raise ValidationFailure("refusing to overwrite an existing key")
     private_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +51,8 @@ def generate_keypair(private_path: Path, public_path: Path, *, key_id: str) -> d
 
 def sign_component(version_dir: Path, private_path: Path, *, key_id: str) -> Path:
     version_dir, private_path = Path(version_dir), Path(private_path)
+    if not key_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in key_id):
+        raise ValidationFailure("invalid signing key id")
     manifest = tomllib.loads((version_dir / "component.toml").read_text(encoding="utf-8"))
     component = manifest.get("component", {})
     from app_forge.catalog.registry import compute_artifact_digest
@@ -78,6 +82,8 @@ def verify_component(version_dir: Path, trusted_keys: Path) -> dict:
         return {"status": "unsigned", "key_id": None}
     try:
         doc = json.loads(attestation.read_text(encoding="utf-8"))
+        if not isinstance(doc, dict):
+            raise SecurityBlock("component attestation must be a JSON object")
         manifest = tomllib.loads((version_dir / "component.toml").read_text(encoding="utf-8"))
         component = manifest["component"]
         from app_forge.catalog.registry import compute_artifact_digest
