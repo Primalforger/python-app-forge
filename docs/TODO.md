@@ -70,15 +70,16 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   Composite templates combine desktop + worker or web + scheduler in one package. Template manifests pin included templates; metadata and baselines retain the complete archetype set, component resolution accepts compatible members, and path collisions fail closed.
   *Done when:* composite projects generate and verify with two archetypes sharing one core package.
 
-- [ ] **G-10 Framework-aware adapters for Level 2 projects** (L, needs G-01)
+- [x] **G-10 Framework-aware adapters for Level 2 projects** (L, needs G-01)
   FastAPI, Flask and Django projects are all treated alike. Add per-framework adapters (entry points, config locations,
   registration anchors).
   *Done when:* adding a component to a third-party FastAPI project registers its router automatically.
 
-- [ ] **G-11 Missing compliance artifacts** (M)
-  Generate CMP-05 interface control records, CMP-08 security assessment (threat model), CMP-09 change impact records,
-  CMP-10 release evidence package, CMP-11 exceptions and waivers register.
-  *Done when:* each is produced by a command, validated for completeness, and included in `package-evidence`.
+- [x] **G-11 Compliance artifact records and evidence package** (M)
+  CMP-05, CMP-08, CMP-09, CMP-10 and CMP-11 are authored through the compliance CLI, validated for required content,
+  stored per project, and included in `package-evidence`. Validation rejects empty collections, malformed nested records,
+  duplicate interface/exception identifiers and invalid exception dates; loaded records are revalidated.
+  *Done when:* `tests/test_compliance_artifacts.py` passes and the full CI suite is green.
 
 - [ ] **G-12 SBOM and licence checks** (M)
   Inventory is custom JSON. Emit CycloneDX and SPDX, and check licence compatibility from manifests.
