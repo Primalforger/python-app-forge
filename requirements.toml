@@ -849,3 +849,16 @@ acceptance = "Polling detects created, modified and deleted files; recursive mod
 modules = ["app_forge.file_watcher"]
 verified_by = ["tests/test_file_watcher.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-21"
+title = "Architecture Decision Record generator"
+description = "Render validated ADRs as Markdown and create sequentially numbered records without overwriting existing decisions."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "ADR rendering includes status, date, optional decision participants and the Context, Decision and Consequences sections; invalid fields, statuses, dates and unsafe target directories are rejected; creation selects the next four-digit sequence and exclusively creates a file without overwriting existing records."
+modules = ["app_forge.adr"]
+verified_by = ["tests/test_adr.py"]
+implemented = true
