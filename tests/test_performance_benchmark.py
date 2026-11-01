@@ -41,6 +41,9 @@ class PerformanceBenchmarkTests(unittest.TestCase):
             },
         }
         self.assertEqual(regression_errors(report, baseline), [])
+        # Hosted runner image patch revisions can drift without changing the host class.
+        report["environment"]["runner_image_version"] = "20261018.96.1"
+        self.assertEqual(regression_errors(report, baseline), [])
         report["results"]["catalog"][2]["scan"]["median_seconds"] = 0.31
         self.assertTrue(any("catalog_scan_250" in error for error in regression_errors(report, baseline)))
 

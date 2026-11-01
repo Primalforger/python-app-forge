@@ -8,7 +8,7 @@ from typing import Any
 HOST_FIELDS = (
     "system", "machine", "processor", "python_version",
     "python_implementation", "cpu_count", "runner_image",
-    "runner_image_version", "runner_os", "runner_arch",
+    "runner_os", "runner_arch",
 )
 
 def workload_medians(report: dict[str, Any]) -> dict[str, float]:

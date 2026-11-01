@@ -646,3 +646,16 @@ acceptance = "Widths are bounded integers, unknown columns and malformed or unsu
 modules = ["app_forge.table_layout"]
 verified_by = ["tests/test_table_layout.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-03"
+title = "Table grouping and aggregates"
+description = "The advanced table model groups matching rows by a selected column and calculates validated aggregates."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Grouping preserves first-seen group order, respects filters/search/sort but not pagination, supports count/sum/avg/min/max, handles nulls, and rejects unknown columns, invalid specifications and non-numeric numeric aggregates."
+modules = ["forge.advanced-table"]
+verified_by = ["src/app_forge/data/components/forge.advanced-table/1.0.0/files/tests/test_table_model.py"]
+implemented = true

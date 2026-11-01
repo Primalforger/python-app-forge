@@ -24,7 +24,9 @@ The checked-in `benchmarks/baseline-ubuntu-24.04-py311.json` preserves the first
 reference-host report, including all seven raw samples per workload. Each ceiling is 150% of the
 measured median, rounded up to the nearest millisecond. p95 remains diagnostic. The regression
 checker compares system, architecture, processor, Python minor version, CPU count and GitHub runner
-image version before comparing timings; a host mismatch fails with an explicit rebaseline message.
+image label before comparing timings; the exact runner image patch version is retained in reports
+for diagnostics but may drift between hosted-runner pools without invalidating the host class. A
+material host mismatch fails with an explicit rebaseline message.
 
 CI runs the benchmark and then `scripts/check_performance_regression.py` on the pinned reference
 host. Rebaseline when the runner image, Python minor version, or workload definition changes. The
