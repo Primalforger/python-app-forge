@@ -157,6 +157,20 @@ class RealQtTests(ForgeTestCase):
         self.win.make_plan()
         self.assertFalse(self.win.w_apply.isEnabled())
 
+    def test_table_designer_uses_column_grid(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Table Designer"))
+        self.assertEqual(self.win.td_columns.rowCount(), 3)
+        self.win.td_columns.item(0, 0).setText("order_id")
+        self.win.td_columns.cellWidget(0, 1).setCurrentText("number")
+        self.win.add_table_column()
+        self.assertEqual(self.win.td_columns.rowCount(), 4)
+        self.win.td_columns.setCurrentCell(3, 0)
+        self.win.remove_table_column()
+        self.assertEqual(self.win.td_columns.rowCount(), 3)
+        self.win.design_table()
+        self.assertIn("order_id", self.win.td_out.toPlainText())
+        self.assertTrue(self.win.td_out.toPlainText())
+
     def test_validation_errors_are_shown_not_raised(self):
         self.win.t_name.setText("1 bad name")
         self.win.generate(True)
