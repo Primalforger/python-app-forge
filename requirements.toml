@@ -837,3 +837,15 @@ acceptance = "SHA-256 and SHA-512 signatures are verified with constant-time com
 modules = ["app_forge.webhook_signatures"]
 verified_by = ["tests/test_webhook_signatures.py"]
 implemented = true
+
+[[requirement]]
+id = "C-19"
+title = "File watcher and notifier set"
+description = "Provide a cross-platform bounded file watcher with composable callback, queue and fan-out notifiers."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Polling detects created, modified and deleted files; recursive mode is configurable; symlinks are not followed; scans enforce a file-count bound; watcher threads start and stop cleanly; queue notifiers are bounded and composite notifiers fan out in order."
+modules = ["app_forge.file_watcher"]
+verified_by = ["tests/test_file_watcher.py"]
+implemented = true
