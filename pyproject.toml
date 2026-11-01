@@ -13,7 +13,7 @@ dependencies = ["cryptography>=42", "PyYAML>=6.0.2"]  # Ed25519 component artifa
 
 [project.optional-dependencies]
 gui = ["PySide6>=6.6"]
-dev = ["pytest>=8", "ruff", "mypy"]
+dev = ["pytest>=8", "ruff", "mypy", "jsonschema>=4.25"]
 
 [project.scripts]
 forge = "app_forge.cli.main:main"
