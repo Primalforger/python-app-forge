@@ -75,6 +75,8 @@ def test_title_must_be_single_line_and_have_slug_characters(tmp_path: Path) -> N
 def test_date_and_people_are_validated() -> None:
     with pytest.raises(ValueError, match="YYYY-MM-DD"):
         render_adr(sample(decision_date="2026-1-1"))
+    with pytest.raises(ValueError, match="YYYY-MM-DD"):
+        render_adr(sample(decision_date=""))
     with pytest.raises(TypeError, match="not a string"):
         render_adr(sample(decision_makers="Alice"))
 
