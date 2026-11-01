@@ -306,7 +306,9 @@ class ForgeServices:
                              "interface_contracts_verified": sum(r["status"] == "passed" for r in contract_results)}
             if rep["overall"] == "failed":
                 op["status"] = "failed"
-            return {"component": f"{component_id}@{entry.manifest.version}", "archetype_probe": archetype,\n                    "interface_contracts": contract_results, **{\n                k: rep[k] for k in ("overall", "passed", "failed", "not_run", "complete")}}
+            return {"component": f"{component_id}@{entry.manifest.version}", "archetype_probe": archetype,
+                    "interface_contracts": contract_results, **{
+                k: rep[k] for k in ("overall", "passed", "failed", "not_run", "complete")}}
 
     # ------------------------------------------------------------------ existing projects
     def analyze_project(self, path: str | Path) -> dict:
