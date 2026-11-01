@@ -568,7 +568,7 @@ def _normalise(a: argparse.Namespace) -> None:
         elif a.action == "search":
             if a.ids and not a.query:
                 a.query = " ".join(a.ids)
-        elif a.action in ("inspect", "verify", "enable", "disable", "new", "validate", "seal", "pack"):
+        elif a.action in ("inspect", "verify", "enable", "disable", "new", "validate", "seal", "pack", "sign"):
             if not a.ids:
                 raise ValidationFailure(f"usage: forge component {a.action} ID")
             a.target = a.ids[0]
