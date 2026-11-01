@@ -222,6 +222,10 @@ def parse_manifest(data: dict) -> ComponentManifest:
             p.append(f"{where}.kind must be one of {PATCH_KINDS}")
         if not pfile or str(pfile).startswith("/") or ".." in str(pfile).replace("\\", "/").split("/"):
             p.append(f"{where}.file {pfile!r} must be a relative path without '..'")
+        else:
+            path_error = _portable_relative_path(pfile)
+            if path_error:
+                p.append(f"{where}.file {pfile!r}: {path_error}")
         comment, position = raw.get("comment", "#"), raw.get("position", "after")
         if comment not in COMMENT_STYLES:
             p.append(f"{where}.comment must be one of {COMMENT_STYLES}")
