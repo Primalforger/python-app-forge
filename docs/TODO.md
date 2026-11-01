@@ -168,7 +168,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-15 Secret providers** (M, lib): environment (read-only), optional OS keyring adapter, and owner-permission-only JSON file store; secret wrappers redact string/repr output and backend errors are sanitized. File storage is plaintext at rest and documented accordingly.
 - [x] **C-16 Hash-chained audit log** (M, lib): append-only canonical JSONL events with sequence numbers, UTC timestamps, actor/event metadata, previous-hash links and SHA-256 record hashes; cross-process append locking; `forge audit append` and `forge audit verify` report tampering and malformed records without repairing them. The chain is tamper-evident, not tamper-proof.
 - [x] **C-17 File store abstraction** (S, lib): root-confined local filesystem with traversal and symlink rejection, bounded reads/writes, atomic replacement, deterministic listing and explicit file deletion. Verified by `tests/test_file_store.py`.
-- [ ] **C-18 Retrying HTTP client** (M, lib): timeouts, backoff, redaction in logs.
+- [x] **C-18 Retrying HTTP client** (M, lib): dependency-free HTTP client with bounded timeouts and response bodies, conservative retries for idempotent methods, Retry-After support, redacted retry diagnostics and explicit opt-in for unsafe-method retries. Verified by `tests/test_http_client.py`.
 - [ ] **C-19 File watcher and notifier set** (M, lib, automation)
 - [ ] **C-20 Webhook signature verification** (S, lib): HMAC with replay protection.
 
