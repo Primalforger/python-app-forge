@@ -57,11 +57,15 @@ def _validate(record: ArchitectureDecision) -> ArchitectureDecision:
     status = _text(record.status, "status", limit=20).lower()
     if status not in _STATUSES:
         raise ValueError(f"status must be one of: {', '.join(sorted(_STATUSES))}")
-    decision_date = record.decision_date or date.today().isoformat()
+    decision_date = (
+        date.today().isoformat()
+        if record.decision_date is None
+        else record.decision_date
+    )
     try:
         parsed_date = date.fromisoformat(decision_date)
     except (TypeError, ValueError) as exc:
-        raise ValueError("decision_date must be an ISO-8601 calendar date") from exc
+        raise ValueError("decision_date must use YYYY-MM-DD format (ISO-8601 calendar date)") from exc
     if parsed_date.isoformat() != decision_date:
         raise ValueError("decision_date must use YYYY-MM-DD format")
     supersedes = record.supersedes
@@ -129,7 +133,10 @@ def create_adr(directory: str | Path, record: ArchitectureDecision) -> Path:
             highest = max(highest, int(match.group(1)))
     if highest >= 9999:
         raise ValueError("ADR sequence is exhausted (maximum 9999)")
-    target = root / f"{highest + 1:04d}-{_slug(item.title)}.md"
+    slug = _slug(item.title)
+    if any(path.name.endswith(f"-{slug}.md") for path in root.iterdir()):
+        raise FileExistsError(f"an ADR for {item.title!r} already exists")
+    target = root / f"{highest + 1:04d}-{slug}.md"
     with target.open("x", encoding="utf-8", newline="\n") as stream:
         stream.write(render_adr(item))
     return target
