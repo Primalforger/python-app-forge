@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from app_forge.catalog.attestation import generate_keypair, sign_component, verify_component
+from app_forge.services import ForgeServices
 from app_forge.domain.errors import SecurityBlock
 from app_forge.settings import ForgeSettings
 from tests.helpers import ForgeTestCase
@@ -39,7 +40,7 @@ class ComponentAttestationTests(ForgeTestCase):
         component_root = self.tmp / "catalog"
         self.custom_component("acme.unsigned", root=component_root)
         settings = ForgeSettings(home=self.home, unsigned_component_policy="deny")
-        services = self.services(builtin=False, settings=settings)
+        services = ForgeServices(settings, builtin_root=None)
         report = services.validate_catalog()
         self.assertFalse(report["ok"])
         self.assertTrue(any("unsigned component rejected" in item["error"] for item in report["quarantined"]))
