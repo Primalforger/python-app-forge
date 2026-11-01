@@ -21,6 +21,7 @@ class _Stub(metaclass=_Meta):
     def __init__(self, *a, **k):
         self._text = a[0] if a and isinstance(a[0], str) else ""
         self._items, self._selected, self._accessible = {}, [], ""
+        self._combo_items = []
         self._cell_widgets, self._rows, self._current_row = {}, 0, -1
         INSTANCES.append(self)
 
@@ -41,8 +42,16 @@ class _Stub(metaclass=_Meta):
     def setPlainText(self, t): self._text = str(t)
     def currentText(self): return self._text
     def addItems(self, items):  # like QComboBox, the first item becomes current
-        items = list(items)
-        self._text = items[0] if items else ""
+        self._combo_items = list(items)
+        self._text = self._combo_items[0] if self._combo_items else ""
+    def findText(self, value):
+        try:
+            return self._combo_items.index(value)
+        except ValueError:
+            return -1
+    def setCurrentIndex(self, index):
+        if 0 <= index < len(self._combo_items):
+            self._text = self._combo_items[index]
     def setItem(self, r, c, item): self._items[(r, c)] = item
     def item(self, r, c): return self._items.get((r, c))
     def rowCount(self): return self._rows
