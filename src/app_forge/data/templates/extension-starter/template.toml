@@ -1,0 +1,12 @@
+schema_version = 1
+
+[template]
+id = "forge-extension"
+name = "Python App Forge extension starter"
+version = "1.0.0"
+archetype = "cli"
+summary = "A separately packaged Forge extension with an entry point, JSON-safe methods and trust-first guidance."
+
+[entry]
+module = "extension"
+function = "main"
