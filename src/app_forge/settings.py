@@ -14,6 +14,10 @@ class ForgeSettings:
     extra_catalog_roots: list[Path] = field(default_factory=list)
     unsigned_component_policy: str = "warn"
     catalog_sources: list[str] = field(default_factory=list)
+    plan_retention_days: int = 30
+    checkpoint_retention_days: int = 30
+    evidence_retention_days: int = 365
+    operation_retention_days: int = 365
 
     @classmethod
     def load(cls, home: Path | None = None) -> "ForgeSettings":
@@ -26,6 +30,15 @@ class ForgeSettings:
             s.extra_catalog_roots = [Path(p) for p in data.get("catalog_roots", [])]
             s.unsigned_component_policy = str(data.get("unsigned_component_policy", "warn"))
             s.catalog_sources = [str(url) for url in data.get("catalog_sources", [])]
+            retention = data.get("retention", {})
+            if not isinstance(retention, dict):
+                raise ValueError("[retention] must be a TOML table")
+            for key in ("plan_retention_days", "checkpoint_retention_days", "evidence_retention_days", "operation_retention_days"):
+                if key in retention:
+                    value = retention[key]
+                    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 36500:
+                        raise ValueError(f"retention.{key} must be an integer between 1 and 36500")
+                    setattr(s, key, value)
         if s.unsigned_component_policy not in ("allow", "warn", "deny"):
             raise ValueError("unsigned_component_policy must be allow, warn, or deny")
         return s
@@ -67,4 +80,8 @@ class ForgeSettings:
                 "extra_catalog_roots": [str(p) for p in self.extra_catalog_roots],
                 "unsigned_component_policy": self.unsigned_component_policy,
                 "catalog_sources": list(self.catalog_sources),
+                "retention": {"plan_retention_days": self.plan_retention_days,
+                              "checkpoint_retention_days": self.checkpoint_retention_days,
+                              "evidence_retention_days": self.evidence_retention_days,
+                              "operation_retention_days": self.operation_retention_days},
                 "db_path": str(self.db_path), "user_catalog": str(self.user_catalog)}
