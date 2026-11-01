@@ -78,10 +78,11 @@ class SqliteRepositoryTests(unittest.TestCase):
             self.authors.list(order_by="not_a_column")
         with self.assertRaises(ValueError):
             self.authors.list(filters={"not_a_column": "x"})
+        author = self.authors.add(name="Existing")
         with self.assertRaises(ValueError):
-            self.authors.update(1, unknown="x")
+            self.authors.update(author.id, unknown="x")
         with self.assertRaises(ValueError):
-            self.authors.update(1, id=2)
+            self.authors.update(author.id, id=2)
 
     def test_foreign_keys_are_enabled(self):
         with self.assertRaises(Exception):
