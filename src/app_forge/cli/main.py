@@ -481,6 +481,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("ids", nargs="*", help="component ids (add: id or id@constraint)")
     sp.set_defaults(_component=True)
 
+    sp = acts(grp("trust", c_trust, "manage component signing keys"), ["keygen", "add"])
+    sp.add_argument("target", help="key id for keygen; public key path for add")
+    sp.add_argument("--key-id", help="trusted key identifier (required for add)")
+    sp.add_argument("--private-out", help="keygen: private key output path")
+    sp.add_argument("--public-out", help="keygen: public key output path")
+
     sp = sp = acts(grp("catalog", c_catalog, "manage the local component catalog"),
               ["list", "validate", "rebuild", "sources", "add"])
     sp.add_argument("path", nargs="?")
