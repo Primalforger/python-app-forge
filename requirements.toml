@@ -607,3 +607,16 @@ acceptance = "YAML output parses to the same structured result, table output ren
 modules = ["app_forge.cli.main"]
 verified_by = ["tests/test_cli_architecture.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-19"
+title = "Windows and macOS path portability hardening"
+description = "Manifest paths reject Windows-incompatible separators, characters, reserved device names, trailing dots/spaces, oversized path segments, and case/Unicode-normalization collisions before component installation."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Portable-path validation rejects unsafe and non-portable manifest paths, including Windows reserved names, oversized segments, case-insensitive and Unicode-normalization collisions; the CI pull-request matrix exercises Windows, macOS and Linux."
+modules = ["app_forge.domain.models", "app_forge.catalog.registry"]
+verified_by = ["tests/test_cross_platform_paths.py"]
+implemented = true
