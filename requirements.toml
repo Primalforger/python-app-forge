@@ -813,3 +813,15 @@ acceptance = "Tests prove path containment, symlink rejection, atomic bounded wr
 modules = ["app_forge.file_store"]
 verified_by = ["tests/test_file_store.py"]
 implemented = true
+
+[[requirement]]
+id = "C-18"
+title = "Retrying HTTP client"
+description = "Dependency-free HTTP client with bounded timeouts, conservative retries, Retry-After support, response-size limits and redacted retry diagnostics."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Tests verify bounded retries for idempotent methods, no implicit retries for unsafe methods, transient status and transport handling, Retry-After caps, timeout and response-size validation, URL validation, and redacted diagnostics."
+modules = ["app_forge.http_client", "app_forge.retry"]
+verified_by = ["tests/test_http_client.py"]
+implemented = true
