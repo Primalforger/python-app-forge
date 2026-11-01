@@ -73,6 +73,8 @@ def refresh_catalog(sources: list[str], catalog_root: Path, trusted_keys: Path,
                 artifact_url, expected = item.get("url"), item.get("sha256")
                 if not all(isinstance(x, str) and x for x in (component_id, version, artifact_url, expected)):
                     raise ValidationFailure("catalog entries require id, version, url and sha256 strings")
+                if not isinstance(expected, str):
+                    raise ValidationFailure("catalog archive sha256 must be a string")
                 if len(expected) != 71 or not expected.startswith("sha256:") or any(
                     c not in "0123456789abcdef" for c in expected[7:]
                 ):
