@@ -453,6 +453,8 @@ def c_audit(_services, a):
     if a.action == "verify":
         report = log.verify()
         return report, 0 if report["ok"] else EXIT_VERIFICATION
+    if not a.actor or not a.event:
+        raise ValidationFailure("audit append requires --actor and --event JSON")
     try:
         event = json.loads(a.event)
     except json.JSONDecodeError as exc:
