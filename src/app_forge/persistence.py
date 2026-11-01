@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import builtins
 import sqlite3
+import time
 from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -171,6 +172,7 @@ class SqliteStore:
 
 
 # Durable job storage lives beside the other SQLite adapters in this module.
+_MAX_PAYLOAD_BYTES = 1_048_576
 import math
 import uuid
 from dataclasses import dataclass
