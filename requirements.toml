@@ -1064,3 +1064,16 @@ acceptance = "The prometheus extra installs prometheus-client; isolated registri
 modules = ["app_forge.metrics"]
 verified_by = ["tests/test_metrics.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-38"
+title = "Desktop command palette"
+description = "Provide a searchable keyboard-driven command palette in the optional PySide6 desktop shell."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Ctrl+K opens a modal command palette; all primary screens and common desktop actions are discoverable; case-insensitive multi-term search filters commands; Enter or activating a result invokes its action; empty results are handled safely; the core package remains free of a Qt dependency."
+modules = ["app_forge.gui.app"]
+verified_by = ["tests/test_gui_qt.py"]
+implemented = true
