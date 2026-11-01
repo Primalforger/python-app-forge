@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout,
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem,
+                               QPlainTextEdit, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QListWidgetItem,
                                QVBoxLayout, QWidget)
 
 from app_forge import __version__
@@ -84,6 +85,52 @@ class OperationWorker(QObject):
             self.finished.emit()
 
 
+class CommandPaletteDialog(QDialog):
+    """Keyboard-driven, searchable launcher for desktop screens and common actions."""
+
+    def __init__(self, commands: list[tuple[str, str, Any]], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Command Palette")
+        self.setAccessibleName("Command palette")
+        self.setModal(True)
+        self.resize(560, 420)
+        self._commands = commands
+        layout = QVBoxLayout(self)
+        self.query = QLineEdit()
+        self.query.setPlaceholderText("Type a command or screen name…")
+        self.query.setAccessibleName("Search commands")
+        self.results = QListWidget()
+        self.results.setAccessibleName("Command results")
+        layout.addWidget(self.query)
+        layout.addWidget(self.results, 1)
+        self.query.textChanged.connect(self._filter)
+        self.results.itemActivated.connect(self._activate_item)
+        self.query.returnPressed.connect(self._activate_current)
+        self._filter("")
+
+    def _filter(self, text: str) -> None:
+        terms = text.casefold().split()
+        self.results.clear()
+        for label, keywords, callback in self._commands:
+            haystack = f"{label} {keywords}".casefold()
+            if all(term in haystack for term in terms):
+                item = QListWidgetItem(label)
+                item.setData(Qt.ItemDataRole.UserRole, callback)
+                self.results.addItem(item)
+        if self.results.count():
+            self.results.setCurrentRow(0)
+
+    def _activate_current(self) -> None:
+        item = self.results.currentItem()
+        if item is not None:
+            self._activate_item(item)
+
+    def _activate_item(self, item: QListWidgetItem) -> None:
+        callback = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+        callback()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, services: ForgeServices):
         super().__init__()
@@ -117,6 +164,9 @@ class MainWindow(QMainWindow):
                       self._quality, self._extensions, self._settings, self._diagnostics):
             self.stack.addWidget(build())
         self.nav.currentRowChanged.connect(self._navigate)
+        self.command_palette_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
+        self.command_palette_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.command_palette_shortcut.activated.connect(self.open_command_palette)
         right = QVBoxLayout()
         right.addWidget(self.stack, 1)
         status_row = QHBoxLayout()
@@ -128,6 +178,23 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
         self.nav.setCurrentRow(0)
         self.apply_theme()
+
+    def _command_palette_commands(self) -> list[tuple[str, str, Any]]:
+        commands = [
+            (f"Go to {name}", f"open navigate screen {name}", lambda row=i: self.nav.setCurrentRow(row))
+            for i, name in enumerate(NAV)
+        ]
+        commands.extend([
+            ("Refresh dashboard", "reload recent operations history", self.refresh_dashboard),
+            ("Run diagnostics", "doctor health environment", self.run_doctor),
+            ("Toggle dark theme", "appearance light dark theme", lambda: self.set_theme(
+                "light" if self.theme == "dark" else "dark")),
+        ])
+        return commands
+
+    def open_command_palette(self) -> None:
+        palette = CommandPaletteDialog(self._command_palette_commands(), self)
+        palette.exec()
 
     # -- helpers --------------------------------------------------------------------------
     def apply_theme(self) -> None:
@@ -760,7 +827,12 @@ class MainWindow(QMainWindow):
         return w
 
     def toggle_theme(self, on: bool) -> None:
-        self.theme = "dark" if on else "light"
+        self.set_theme("dark" if on else "light")
+
+    def set_theme(self, theme: str) -> None:
+        if theme not in ("light", "dark"):
+            raise ValueError("theme must be 'light' or 'dark'")
+        self.theme = theme
         self.apply_theme()
 
     def _diagnostics(self) -> QWidget:
