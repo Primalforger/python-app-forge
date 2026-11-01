@@ -542,3 +542,16 @@ acceptance = "Generated CycloneDX 1.5 and SPDX 2.3 documents validate against th
 modules = ["app_forge.supply_chain", "app_forge.services", "app_forge.cli"]
 verified_by = ["tests/test_supply_chain.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-22"
+title = "Retention-aware housekeeping"
+description = "The forge gc command previews or removes expired terminal plans, old checkpoints, evidence and completed operation history using validated configurable retention periods."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Dry-run is the default and makes no changes; apply prunes only expired eligible records; pending and approved plans remain; retention values are validated; filesystem and malformed-record errors are reported."
+modules = ["app_forge.settings", "app_forge.persistence", "app_forge.services", "app_forge.cli"]
+verified_by = ["tests/test_housekeeping.py"]
+implemented = true

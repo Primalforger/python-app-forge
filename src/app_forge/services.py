@@ -17,6 +17,7 @@ import shutil
 import sys
 import tempfile
 import tomllib
+from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Sequence
@@ -617,6 +618,103 @@ class ForgeServices:
         (out / "MANIFEST.sha256.json").write_text(json.dumps(manifest, indent=1, sort_keys=True), encoding="utf-8")
         return {"directory": str(out), "files": sorted([*files, "MANIFEST.sha256.json"]),
                 "evidence_records": len(ev), "compliance_artifacts": len(artifacts), "gaps": report["gaps"]}
+
+    # ------------------------------------------------------------------ housekeeping
+    def garbage_collect(self, *, apply: bool = False, now: datetime | None = None) -> dict:
+        """Preview or remove expired plans, checkpoints, evidence and completed history.
+
+        Planned and approved plans are never collected. A checkpoint is eligible only when
+        its plan is expired, or when it is an old orphan with no corresponding plan.
+        """
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            raise ValidationFailure("garbage collection clock must be timezone-aware")
+
+        def cutoff(days: int) -> datetime:
+            return now - timedelta(days=days)
+
+        def parse_time(value: object, fallback: float) -> datetime:
+            try:
+                if isinstance(value, str) and value:
+                    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=timezone.utc)
+                    return parsed.astimezone(timezone.utc)
+            except (ValueError, OverflowError):
+                pass
+            return datetime.fromtimestamp(fallback, timezone.utc)
+
+        plan_cutoff = cutoff(self.settings.plan_retention_days)
+        checkpoint_cutoff = cutoff(self.settings.checkpoint_retention_days)
+        expired_plans: list[Path] = []
+        terminal_plans: set[str] = set()
+        protected_plans: list[str] = []
+        errors: list[str] = []
+        for path in sorted(self.settings.plans_dir.glob("*.json")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                status = data.get("status")
+                if status in ("planned", "approved", "running"):
+                    protected_plans.append(path.stem)
+                    continue
+                terminal_plans.add(path.stem)
+                created = parse_time(data.get("created_at"), path.stat().st_mtime)
+                if created < plan_cutoff:
+                    expired_plans.append(path)
+            except (OSError, UnicodeError, json.JSONDecodeError, AttributeError) as exc:
+                errors.append(f"{path.name}: {type(exc).__name__}: {exc}")
+
+        expired_ids = {p.stem for p in expired_plans}
+        checkpoint_dirs: list[Path] = []
+        for path in sorted(self.settings.checkpoints_dir.iterdir()):
+            if path.is_symlink() or not path.is_dir():
+                continue
+            checkpoint_old = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < checkpoint_cutoff
+            if checkpoint_old and (path.name in terminal_plans or not (self.settings.plans_dir / f"{path.name}.json").exists()):
+                checkpoint_dirs.append(path)
+
+        evidence_cutoff = cutoff(self.settings.evidence_retention_days).isoformat()
+        operations_cutoff = cutoff(self.settings.operation_retention_days).isoformat()
+        database = self.store.prune_history(evidence_cutoff, operations_cutoff, apply=apply)
+
+        removed = {"plans": 0, "checkpoints": 0}
+        if apply:
+            for path in expired_plans:
+                try:
+                    path.unlink()
+                    removed["plans"] += 1
+                except OSError as exc:
+                    errors.append(f"{path.name}: {type(exc).__name__}: {exc}")
+            for path in checkpoint_dirs:
+                try:
+                    if path.name in expired_ids and (self.settings.plans_dir / f"{path.name}.json").exists():
+                        continue  # keep recovery data if deleting its plan failed
+                    shutil.rmtree(path)
+                    removed["checkpoints"] += 1
+                except OSError as exc:
+                    errors.append(f"{path.name}: {type(exc).__name__}: {exc}")
+
+        return {
+            "mode": "applied" if apply else "dry_run",
+            "retention_days": {
+                "plans": self.settings.plan_retention_days,
+                "checkpoints": self.settings.checkpoint_retention_days,
+                "evidence": self.settings.evidence_retention_days,
+                "operations": self.settings.operation_retention_days,
+            },
+            "candidates": {
+                "plans": [p.stem for p in expired_plans],
+                "checkpoints": [p.name for p in checkpoint_dirs],
+                "evidence": database["evidence"],
+                "operations": database["operations"],
+            },
+            "protected_plans": protected_plans,
+            "removed": removed if apply else {"plans": 0, "checkpoints": 0},
+            "database_deleted": database if apply else {"evidence": 0, "operations": 0},
+            "errors": errors,
+        }
 
     # ------------------------------------------------------------------ misc
     def history(self, limit: int = 50) -> list[dict]:

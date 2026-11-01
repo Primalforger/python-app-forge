@@ -81,33 +81,33 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   duplicate interface/exception identifiers and invalid exception dates; loaded records are revalidated.
   *Done when:* `tests/test_compliance_artifacts.py` passes and the full CI suite is green.
 
-- [ ] **G-12 SBOM and licence checks** (M)
+- [x] **G-12 SBOM and licence checks** (M)
   Emit CycloneDX 1.5 and SPDX 2.3 from validated project inventory. Preserve SPDX licence expressions, flag denied identifiers even inside expressions, and keep unresolved dependency licences explicit rather than treating them as approved.
   *Done when:* output validates against the official schemas and an incompatible-licence fixture is flagged.
 
-- [ ] **G-13 Binary assets and file modes** (S)
+- [x] **G-13 Binary assets and file modes** (S)
   Components are text-only. Support images, fonts and icons, and preserve executable bits.
   *Done when:* a component ships a PNG and an executable script and both survive apply and recover unchanged.
 
-- [ ] **G-14 Interface contract tests** (M)
+- [x] **G-14 Interface contract tests** (M)
   `component verify` only checks that files copy in and tests pass. Add real contract tests per declared interface
   (`provides` / `requires`) with version compatibility rules.
   *Done when:* a component that breaks its declared interface fails verification.
 
-- [ ] **G-15 GUI background work** (M)
+- [x] **G-15 GUI background work** (M)
   Long operations block the UI thread; no progress or cancel.
   *Done when:* apply and verify run in worker threads with progress and a working Cancel (tested under real Qt).
 
-- [ ] **G-16 Extension process isolation** (L)
+- [x] **G-16 Extension process isolation** (L)
   Untrusted extensions are only refused, never isolated.
   *Done when:* an extension runs in a separate process over a narrow IPC contract with filesystem and network restrictions,
   and a test proves it cannot read outside its allowed paths.
 
-- [ ] **G-17 Signatures and attestation** (M)
+- [x] **G-17 Signatures and attestation** (M)
   Provenance is a SHA-256 digest only.
   *Done when:* signed component artifacts are verified before install and unsigned ones follow a configurable policy.
 
-- [ ] **G-18 Online catalog refresh** (L, needs G-17)
+- [x] **G-18 Online catalog refresh** (L, needs G-17)
   Offline-only today. Add an explicit refresh that downloads, verifies and then accepts artifacts (never silently).
   *Done when:* refresh works against a test server, rejects tampered artifacts, and offline mode is unaffected.
 
@@ -132,7 +132,8 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
 
 ### P2: ecosystem and polish
 
-- [ ] **G-22 Housekeeping** (S): `forge gc` for old plans, checkpoints and evidence; retention settings.
+- [x] **G-22 Housekeeping** (S): `forge gc` previews or removes expired terminal plans, old checkpoints, evidence and completed operation history. Retention periods are configurable; dry-run is the default, pending/approved plans are protected, and malformed records are reported rather than silently removed.
+  *Done when:* `tests/test_housekeeping.py` proves dry-run safety, retention pruning and preservation of pending plans.
 - [ ] **G-23 Table Designer grid editor** (M): replace the JSON editor with a column grid.
 - [ ] **G-24 Dedicated GUI screens** (M): separate Project Wizard, Generation Review, Configuration Center and Diagnostics bundle
   screens (currently merged).
