@@ -23,9 +23,9 @@ from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
 from app_forge.settings import ForgeSettings
 
-NAV = ["Dashboard", "Template Studio", "Component Catalog", "Component Manager", "Integration Workbench",
-       "Design System", "Table Designer", "Architecture Explorer", "Quality and Compliance",
-       "Extension Manager", "Settings", "Diagnostics"]
+NAV = ["Dashboard", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
+       "Integration Workbench", "Design System", "Table Designer", "Architecture Explorer",
+       "Quality and Compliance", "Extension Manager", "Configuration Center", "Diagnostics"]
 
 
 def _title(text: str) -> QLabel:
@@ -112,9 +112,9 @@ class MainWindow(QMainWindow):
         self._background_on_success = None
         self._background_on_cancel = None
         self._closing_after_worker = False
-        for build in (self._dashboard, self._templates, self._catalog, self._components, self._workbench,
-                      self._design_system, self._table_designer, self._architecture, self._quality,
-                      self._extensions, self._settings, self._diagnostics):
+        for build in (self._dashboard, self._templates, self._generation_review, self._catalog, self._components,
+                      self._workbench, self._design_system, self._table_designer, self._architecture,
+                      self._quality, self._extensions, self._settings, self._diagnostics):
             self.stack.addWidget(build())
         self.nav.currentRowChanged.connect(self._navigate)
         right = QVBoxLayout()
@@ -293,9 +293,9 @@ class MainWindow(QMainWindow):
         form.addRow("Components", self.t_comps)
         v.addLayout(form)
         btns = QHBoxLayout()
-        review = QPushButton("Review generation plan")
+        review = QPushButton("Open Generation Review")
         create = QPushButton("Create project")
-        review.clicked.connect(lambda: self.generate(True))
+        review.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Generation Review")))
         create.clicked.connect(lambda: self.generate(False))
         btns.addWidget(review)
         btns.addWidget(create)
@@ -305,6 +305,29 @@ class MainWindow(QMainWindow):
         self.t_out_box.setReadOnly(True)
         v.addWidget(self.t_out_box, 1)
         return w
+
+    def _generation_review(self) -> QWidget:
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(_title("Generation Review"))
+        v.addWidget(QLabel("Build a dry-run plan from the Project Wizard settings. Review it here before creating files."))
+        review = QPushButton("Build generation plan")
+        review.setAccessibleName("Build generation plan")
+        review.clicked.connect(self.review_generation)
+        v.addWidget(review)
+        self.gr_out = QPlainTextEdit()
+        self.gr_out.setAccessibleName("Generation plan review")
+        self.gr_out.setReadOnly(True)
+        v.addWidget(self.gr_out, 1)
+        return w
+
+    def review_generation(self) -> None:
+        comps = [c.strip() for c in self.t_comps.text().split(",") if c.strip()]
+        out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
+        res = self._run("Generation review", lambda: self.s.create_project(
+            self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=True))
+        if res:
+            self.gr_out.setPlainText(json.dumps(res, indent=2))
 
     def generate(self, dry: bool) -> None:
         comps = [c.strip() for c in self.t_comps.text().split(",") if c.strip()]
@@ -725,7 +748,7 @@ class MainWindow(QMainWindow):
     def _settings(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(_title("Settings"))
+        v.addWidget(_title("Configuration Center"))
         dark = QCheckBox("Dark theme")
         dark.setAccessibleName("Dark theme")
         dark.toggled.connect(self.toggle_theme)
