@@ -4,7 +4,7 @@ from {{package}}.health import clear_readiness_checks, readiness_payload, regist
 class ServiceHealthTests(unittest.TestCase):
     def test_ready_when_all_checks_pass(self):
         clear_readiness_checks()
-        register_readiness_check("database-ready", lambda: True)
+        register_readiness_check("database", lambda: True)
         self.assertEqual(readiness_payload(), ({"status": "ready", "checks": {"database": True}}, 200))
     def test_not_ready_when_check_fails_or_raises(self):
         register_readiness_check("queue", lambda: False)
