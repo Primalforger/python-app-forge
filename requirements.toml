@@ -517,3 +517,15 @@ acceptance = "A third-party FastAPI project accepts a component router through a
 modules = ["app_forge.framework_adapters", "app_forge.patching", "app_forge.integration"]
 verified_by = ["tests/test_framework_adapters.py", "tests/test_patching.py"]
 implemented = true
+
+[[requirement]]
+id = "G-11"
+title = "Compliance artifact generation and evidence package"
+description = "CMP-05, CMP-08, CMP-09, CMP-10 and CMP-11 are available through the compliance CLI, validated for completeness, retained per project, and included in integrity-manifested evidence packages."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "All five artifact types reject missing, empty and malformed required content; duplicate interface/exception identifiers and invalid exception dates are rejected; saved records are revalidated when loaded; package-evidence includes validated records and their SHA-256 manifest entry."
+modules = ["app_forge.compliance_artifacts", "app_forge.services", "app_forge.cli"]
+verified_by = ["tests/test_compliance_artifacts.py"]
+implemented = true
