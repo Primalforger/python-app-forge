@@ -6,6 +6,8 @@ environment where this project was written (PySide6 could not be installed there
     pip install -e ".[gui]" && python scripts/verify_gui.py
 """
 import os
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -89,6 +91,37 @@ class RealQtTests(ForgeTestCase):
                 self.assertNotEqual(w.focusPolicy(), Qt.FocusPolicy.NoFocus, f"{cls.__name__} cannot take focus")
         for w in self.win.findChildren(QCheckBox) + self.win.findChildren(QPushButton):
             self.assertTrue(w.text().strip(), "button without a label")
+
+    def _wait_for_background(self, timeout=10):
+        deadline = time.monotonic() + timeout
+        while self.win._background_thread is not None and time.monotonic() < deadline:
+            self.app.processEvents()
+            QTest.qWait(10)
+        self.app.processEvents()
+        self.assertIsNone(self.win._background_thread, "background worker did not finish before timeout")
+
+    def test_verification_runs_in_background_and_can_cancel(self):
+        started = threading.Event()
+
+        def slow_verify(path, *, cancel_token=None, progress=None):
+            started.set()
+            if progress:
+                progress({"stage": "tests", "message": "Waiting in test runner"})
+            cancel_token.wait(5)
+            return {"overall": "cancelled", "passed": 0, "failed": 0, "not_run": [],
+                    "complete": False, "run_id": "run-cancelled"}
+
+        with mock.patch.object(self.s, "verify_project", side_effect=slow_verify):
+            self.win.nav.setCurrentRow(self.gui.NAV.index("Quality and Compliance"))
+            self.win.verify()
+            self.assertTrue(started.wait(2))
+            self.app.processEvents()
+            self.assertTrue(self.win.cancel_button.isEnabled())
+            self.assertIn("Waiting in test runner", self.win.status.text())
+            self.win.cancel_button.click()
+            self._wait_for_background()
+        self.assertFalse(self.win.cancel_button.isEnabled())
+        self.assertIn('"overall": "cancelled"', self.win.q_out.toPlainText())
 
     def test_integration_workbench_end_to_end(self):
         proj = self.make_project(self.s, "cli", "Qt Flow")
