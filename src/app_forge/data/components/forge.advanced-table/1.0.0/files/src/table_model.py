@@ -11,7 +11,7 @@ from __future__ import annotations
 import csv
 import io
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 OPS = ("eq", "ne", "contains", "gt", "gte", "lt", "lte", "between", "in")
 
@@ -140,6 +140,63 @@ class TableModel:
         pages = max(1, -(-len(rows) // size))
         number = min(max(1, number), pages)
         return Page(rows[(number - 1) * size: number * size], number, size, len(rows), pages)
+
+
+    # -- grouping / aggregation ---------------------------------------------------------
+    def group_by(self, column: str, aggregates: Mapping[str, tuple[str, str]] | None = None) -> list[dict]:
+        """Group filtered and searched rows by a column and calculate aggregates.
+
+        Each aggregate maps an output name to (operation, source_column).
+        Supported operations are count, sum, avg, min and max. Use "*" as the
+        source for count to count every row in a group; otherwise count ignores
+        null values. Numeric operations reject booleans and non-numeric values.
+        Groups retain first-seen order and their source rows retain current sort
+        order. Pagination is deliberately not applied.
+        """
+        self._column(column)
+        specs = dict(aggregates or {})
+        if any(not isinstance(name, str) or not name for name in specs):
+            raise ValueError("aggregate names must be non-empty strings")
+        allowed = {"count", "sum", "avg", "min", "max"}
+        for name, spec in specs.items():
+            if (not isinstance(spec, tuple) or len(spec) != 2
+                    or spec[0] not in allowed or not isinstance(spec[1], str)):
+                raise ValueError(f"invalid aggregate specification for {name!r}")
+            operation, source = spec
+            if operation == "count" and source == "*":
+                continue
+            self._column(source)
+
+        grouped: dict[Any, list[dict]] = {}
+        for row in self.result_rows():
+            value = row.get(column)
+            try:
+                grouped.setdefault(value, []).append(row)
+            except TypeError as exc:
+                raise ValueError(f"grouping values in {column!r} must be hashable") from exc
+
+        output = []
+        for value, rows in grouped.items():
+            values: dict[str, Any] = {}
+            for name, (operation, source) in specs.items():
+                selected = [row.get(source) for row in rows] if source != "*" else [1] * len(rows)
+                present = [item for item in selected if item is not None]
+                if operation == "count":
+                    values[name] = len(present)
+                elif not present:
+                    values[name] = None
+                elif operation in {"sum", "avg"}:
+                    if any(isinstance(item, bool) or not isinstance(item, (int, float)) for item in present):
+                        raise ValueError(f"{operation} aggregate {name!r} requires numeric values")
+                    total = sum(present)
+                    values[name] = total if operation == "sum" else total / len(present)
+                else:
+                    try:
+                        values[name] = min(present) if operation == "min" else max(present)
+                    except TypeError as exc:
+                        raise ValueError(f"{operation} aggregate {name!r} values are not comparable") from exc
+            output.append({"key": value, "rows": rows, "count": len(rows), "aggregates": values})
+        return output
 
     # -- selection / export -------------------------------------------------------------
     def select(self, row_id: int, selected: bool = True) -> None:
