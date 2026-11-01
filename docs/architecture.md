@@ -82,3 +82,10 @@ creation, short-lived sessions and atomic transaction scopes. Credentials are
 not included in adapter-generated error messages. PostgresRepository provides
 typed-model CRUD, required lookup, validated filtering and ordering, bounded
 pagination and counts. No connection or schema mutation occurs at import time.
+
+
+## Web application security baseline (C-32–C-36)
+
+The generated FastAPI template uses PyJWT for short-lived HS256 bearer tokens with fixed algorithm allowlisting, issuer/audience and required time claims. It intentionally does not implement passwords or act as an identity provider: token issuance must follow authentication by an application's trusted identity system. Role dependencies deny by default.
+
+CORS is disabled unless exact origins are configured. The optional rate limiter is process-local and suitable only as a single-process baseline; multi-worker deployments need a shared gateway or store. Browser headers are applied centrally, with HSTS only on HTTPS requests. API errors use RFC 9457 problem details and suppress unexpected exception details. Liveness is independent of dependencies; readiness checks are explicitly registered and fail closed.
