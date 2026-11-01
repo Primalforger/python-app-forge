@@ -620,3 +620,16 @@ acceptance = "Portable-path validation rejects unsafe and non-portable manifest 
 modules = ["app_forge.domain.models", "app_forge.catalog.registry"]
 verified_by = ["tests/test_cross_platform_paths.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-01"
+title = "Table saved views and presets"
+description = "Named table views persist column order and visibility, sort keys, filters, search text and page size in validated JSON without storing row data or executable content."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Saved views round-trip, list deterministically, apply to a table model, delete idempotently, reject unsafe names and invalid columns/operators/non-JSON values, and fail closed on corrupt storage. Writes use atomic replacement."
+modules = ["app_forge.table_views"]
+verified_by = ["tests/test_table_views.py"]
+implemented = true
