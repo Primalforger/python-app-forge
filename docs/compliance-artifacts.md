@@ -43,3 +43,18 @@ A denied identifier produces a non-zero validation exit code. Missing licence me
 `forge compliance package-evidence` includes the compliance report, retained verification evidence, project inventory, all validated compliance records, CycloneDX and SPDX SBOMs, and the licence-policy report. Every file is listed in `MANIFEST.sha256.json` with its SHA-256 digest.
 
 The package is an integrity-checked collection of source records and generated inventories. A hash manifest detects accidental changes; it is not a digital signature, authenticity proof, or certification.
+
+
+## Python SBOM library API
+
+The inventory-to-document functions are also available without invoking the CLI:
+
+```python
+from app_forge.supply_chain import generate_sboms, serialize_sbom
+
+documents = generate_sboms(inventory)  # CycloneDX 1.5 and SPDX 2.3
+cyclonedx_json = serialize_sbom(documents["cyclonedx"])
+spdx_only = generate_sboms(inventory, formats=("spdx",))
+```
+
+`generate_sboms` accepts one or both supported format names and rejects empty, duplicate or unknown format selections. The returned mapping follows the requested format order. `serialize_sbom` emits canonical compact JSON with sorted object keys, UTF-8 characters preserved, non-finite numbers rejected and a final newline. The same document therefore serializes byte-for-byte identically across calls. To keep generated documents reproducible, callers should pass stable inventory metadata (including `generated_at`) rather than relying on wall-clock defaults.
