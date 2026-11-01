@@ -70,25 +70,24 @@ def safe_environ(passthrough: tuple[str, ...] = ()) -> dict[str, str]:
 
 def _stop_process(proc: subprocess.Popen, *, process_group: bool, grace: float = 1.0) -> tuple[str, str]:
     """Terminate a child (and its POSIX descendants), escalating to kill and always reaping it."""
-    if proc.poll() is None:
+    if process_group and os.name == "posix":
         try:
-            if process_group and os.name == "posix":
-                os.killpg(proc.pid, signal.SIGTERM)
-            else:
-                proc.terminate()
+            os.killpg(proc.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+    elif proc.poll() is None:
+        proc.terminate()
+    try:
+        return proc.communicate(timeout=grace)
+    except subprocess.TimeoutExpired:
         try:
-            return proc.communicate(timeout=grace)
-        except subprocess.TimeoutExpired:
-            try:
-                if process_group and os.name == "posix":
-                    os.killpg(proc.pid, signal.SIGKILL)
-                else:
-                    proc.kill()
-            except ProcessLookupError:
-                pass
-    return proc.communicate()
+            if process_group and os.name == "posix":
+                os.killpg(proc.pid, signal.SIGKILL)
+            elif proc.poll() is None:
+                proc.kill()
+        except ProcessLookupError:
+            pass
+        return proc.communicate()
 
 
 def run_command(args: list[str], *, cwd: Path, timeout: float = 600, env: dict | None = None,
