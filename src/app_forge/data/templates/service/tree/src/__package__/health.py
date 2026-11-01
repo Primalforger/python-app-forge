@@ -10,6 +10,9 @@ def register_readiness_check(name: str, check: Callable[[], bool]) -> None:
         raise TypeError("readiness check must be callable")
     _checks[name] = check
 
+def clear_readiness_checks() -> None:
+    _checks.clear()
+
 def readiness_payload() -> tuple[dict, int]:
     results: dict[str, bool] = {}
     for name, check in _checks.items():
