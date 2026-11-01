@@ -1,4 +1,8 @@
 import unittest
+import json
+from pathlib import Path
+
+from jsonschema import Draft7Validator
 
 from app_forge.domain.errors import ValidationFailure
 from app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
@@ -17,6 +21,21 @@ class SupplyChainTests(unittest.TestCase):
                  "publisher": "Acme"},
             ],
         }
+
+    def test_generated_documents_validate_against_official_json_schemas(self):
+        schema_dir = Path(__file__).parent / "schemas"
+        cyclonedx_schema = json.loads(
+            (schema_dir / "cyclonedx-bom-1.5.schema.json").read_text(encoding="utf-8")
+        )
+        spdx_schema = json.loads(
+            (schema_dir / "spdx-2.3.schema.json").read_text(encoding="utf-8")
+        )
+        cyclonedx = build_cyclonedx(self.inventory)
+        spdx = build_spdx(self.inventory)
+        Draft7Validator.check_schema(cyclonedx_schema)
+        Draft7Validator.check_schema(spdx_schema)
+        Draft7Validator(cyclonedx_schema).validate(cyclonedx)
+        Draft7Validator(spdx_schema).validate(spdx)
 
     def test_cyclonedx_document_has_expected_format_and_components(self):
         bom = build_cyclonedx(self.inventory)
