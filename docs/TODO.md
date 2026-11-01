@@ -151,7 +151,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 
 ### Quick wins (no blockers)
 
-- [ ] **C-01 Table: saved views and presets** (S, lib): named filter, sort and column presets (spec 5.3 "state persistence").
+- [x] **C-01 Table: saved views and presets** (S, lib): persistent named presets for column order/visibility, filters, sort, search and page size; validated JSON state, atomic file replacement, and explicit apply/delete operations. Verified by `tests/test_table_views.py`.
 - [ ] **C-02 Table: column resize and persistence** (S, lib)
 - [ ] **C-03 Table: group-by and aggregates** (M, lib)
 - [ ] **C-04 Table: server-side mode** (M, lib): the same interface backed by a query callback.
