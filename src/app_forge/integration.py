@@ -868,12 +868,8 @@ class IntegrationEngine:
             if progress:
                 progress({"stage": "verification", "message": "Verifying applied project",
                           "current": 1, "total": 1})
-            verify_options = {}
-            if cancel_token is not None:
-                verify_options["cancel_token"] = cancel_token
-            if progress is not None:
-                verify_options["progress"] = progress
-            vr = self._verifier.run(root, checks=("syntax", "tests"), **verify_options)
+            vr = self._verifier.run(root, checks=("syntax", "tests"),
+                                    cancel_token=cancel_token, progress=progress)
             self._store.add_evidence(vr["evidence"])
             report["verification"] = {k: vr[k] for k in ("run_id", "overall", "passed", "failed", "not_run", "complete")}
             if vr["overall"] == "cancelled":

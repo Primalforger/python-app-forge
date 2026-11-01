@@ -17,10 +17,9 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComb
                                QVBoxLayout, QWidget)
 
 from app_forge import __version__
-from app_forge.cancellation import CancellationToken
 from app_forge.domain.errors import ForgeError, OperationCancelled
 from app_forge.gui.theme import TOKENS, check_theme, stylesheet
-from app_forge.services import ForgeServices
+from app_forge.services import CancellationToken, ForgeServices
 from app_forge.settings import ForgeSettings
 
 NAV = ["Dashboard", "Template Studio", "Component Catalog", "Component Manager", "Integration Workbench",
@@ -105,9 +104,9 @@ class MainWindow(QMainWindow):
         self.cancel_button.setAccessibleName("Cancel background operation")
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self.cancel_background_operation)
-        self._background_thread = None
-        self._background_worker = None
-        self._active_cancel_token = None
+        self._background_thread: QThread | None = None
+        self._background_worker: OperationWorker | None = None
+        self._active_cancel_token: CancellationToken | None = None
         self._background_label = ""
         self._background_on_success = None
         self._background_on_cancel = None

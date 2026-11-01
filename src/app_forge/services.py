@@ -480,12 +480,8 @@ class ForgeServices:
                    cancel_token: CancellationToken | None = None,
                    progress: ProgressCallback | None = None) -> dict:
         with self.operation("apply_plan", plan_id) as op:
-            apply_options = {}
-            if cancel_token is not None:
-                apply_options["cancel_token"] = cancel_token
-            if progress is not None:
-                apply_options["progress"] = progress
-            rep = self.integration.apply(plan_id, verify=verify, auto_recover=auto_recover, **apply_options)
+            rep = self.integration.apply(plan_id, verify=verify, auto_recover=auto_recover,
+                                         cancel_token=cancel_token, progress=progress)
             op["summary"] = {"status": rep["status"]}
             if rep.get("cancelled"):
                 op["status"] = "cancelled"
@@ -514,12 +510,7 @@ class ForgeServices:
         with self.operation("verify_project", path) as op:
             if not Path(path).is_dir():
                 raise ValidationFailure(f"Project path {str(path)!r} is not a directory")
-            verify_options = {}
-            if cancel_token is not None:
-                verify_options["cancel_token"] = cancel_token
-            if progress is not None:
-                verify_options["progress"] = progress
-            rep = self.verifier.run(path, checks, **verify_options)
+            rep = self.verifier.run(path, checks, cancel_token=cancel_token, progress=progress)
             self.store.add_evidence(rep["evidence"])
             op["summary"] = {"overall": rep["overall"], "run_id": rep["run_id"]}
             if rep["overall"] == "cancelled":

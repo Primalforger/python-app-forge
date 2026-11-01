@@ -90,7 +90,7 @@ def _stop_process(proc: subprocess.Popen, *, process_group: bool, grace: float =
         return proc.communicate()
 
 
-def run_command(args: list[str], *, cwd: Path, timeout: float = 600, env: dict | None = None,
+def run_command(args: list[str], *, cwd: Path, timeout: float = 600, env: dict[str, str] | None = None,
                 inherit_env: bool = True, cancel_token=None, poll_interval: float = 0.1) -> subprocess.CompletedProcess:
     """Run an explicit command, optionally stopping it promptly when a cancellation token is set.
 
@@ -104,14 +104,18 @@ def run_command(args: list[str], *, cwd: Path, timeout: float = 600, env: dict |
     if cancel_token is not None:
         cancel_token.raise_if_cancelled()
     full_env = {**(os.environ if inherit_env else {}), **(env or {})}
-    kwargs = {"cwd": str(cwd), "stdout": subprocess.PIPE, "stderr": subprocess.PIPE,
-              "text": True, "env": full_env, "shell": False}
     process_group = os.name == "posix"
     if process_group:
-        kwargs["start_new_session"] = True
-    elif os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-    proc = subprocess.Popen(args, **kwargs)
+        proc = subprocess.Popen(
+            args, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, env=full_env, shell=False, start_new_session=True,
+        )
+    else:
+        creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+        proc = subprocess.Popen(
+            args, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, env=full_env, shell=False, creationflags=creationflags,
+        )
     started = time.monotonic()
     try:
         while True:
