@@ -46,7 +46,7 @@ class ServerSideTableTests(unittest.TestCase):
             self.model.add_filter("missing", "eq", 1)
         with self.assertRaises(ValueError):
             self.model.add_filter("id", "invalid", 1)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             self.model.set_sort(("missing", False))
         with self.assertRaises(ValueError):
             self.model.page(0)
