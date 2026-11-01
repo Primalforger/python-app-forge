@@ -70,7 +70,10 @@ class FeatureFlags:
         with self._lock:
             if key not in self._defaults:
                 raise KeyError(f"unknown feature flag: {key}")
-            return self._overrides.pop(key, None) is not None
+            if key not in self._overrides:
+                return False
+            del self._overrides[key]
+            return True
 
     def snapshot(self) -> dict[str, bool]:
         """Return a stable copy of all currently evaluated flag values."""
