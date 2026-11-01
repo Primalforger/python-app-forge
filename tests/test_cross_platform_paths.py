@@ -28,3 +28,10 @@ class PortableManifestPathTests(ForgeTestCase):
         seal_component(root)
         with self.assertRaises(ValidationFailure):
             parse_manifest(tomllib.loads(path.read_text(encoding="utf-8")))
+
+    def test_portable_path_helper_rejects_backslashes_and_invalid_names(self):
+        from app_forge.domain.models import _portable_relative_path
+
+        for value in ("src\\\\module.py", "src/bad:name.py", "src/trailing./file.py", "src/NUL.txt"):
+            with self.subTest(value=value):
+                self.assertTrue(_portable_relative_path(value))
