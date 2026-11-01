@@ -253,7 +253,7 @@ def parse_manifest(data: dict) -> ComponentManifest:
             p.append(f"{where}.tests must be a non-empty array of relative test paths")
             tests = []
         for test in tests:
-            normalized = test.replace("\\\\", "/")
+            normalized = test.replace("\\", "/")
             if normalized.startswith("/") or "\\\\x00" in test or ".." in normalized.split("/"):
                 p.append(f"{where}.tests contains unsafe path {test!r}")
         if isinstance(interface, str) and isinstance(tests, list):
