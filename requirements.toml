@@ -788,3 +788,16 @@ acceptance = "Secret values are available only through explicit reveal; str/repr
 modules = ["app_forge.secret_providers"]
 verified_by = ["tests/test_secret_providers.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-16"
+title = "Hash-chained audit log"
+description = "Append-only canonical JSONL audit events are linked by SHA-256 hashes and can be verified independently from the command line."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Appending creates monotonically sequenced records with actor, ISO-8601 timestamp, event, previous hash and content hash; verification detects modified, removed, reordered and malformed records; invalid logs cannot be appended to; concurrent writers preserve a single valid chain; CLI append and verify commands return meaningful output and a nonzero verification exit code for tampering."
+modules = ["app_forge.audit_log", "app_forge.cli.main"]
+verified_by = ["tests/test_audit_log.py", "tests/test_cli_architecture.py"]
+implemented = true
