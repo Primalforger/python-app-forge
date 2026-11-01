@@ -102,6 +102,20 @@ class TomlAndJsonTests(unittest.TestCase):
         self.assertEqual(d["project"]["name"], "x")
         self.assertEqual(remove_patch(r.new_text, "acme.c", "cfg", r.sha256), self.BASE)
 
+    def test_add_key_to_existing_toml_table_and_remove_exactly(self):
+        base = '[project]\nname = "x"\n\n[tool.acme]\nexisting = true\n'
+        patch = Patch("key", "pyproject.toml", "toml-table", content="[tool.acme]\nadded = 42\n")
+        result = apply_patch(base, patch, "acme.c", "pkg")
+        self.assertEqual(tomllib.loads(result.new_text)["tool"]["acme"], {"existing": True, "added": 42})
+        self.assertEqual(remove_patch(result.new_text, "acme.c", "key", result.sha256), base)
+
+    def test_existing_toml_key_conflict_is_rejected(self):
+        base = '[tool.acme]\nadded = 1\n'
+        patch = Patch("key", "pyproject.toml", "toml-table", content="[tool.acme]\nadded = 42\n")
+        with self.assertRaises(PatchConflict) as cm:
+            apply_patch(base, patch, "acme.c", "pkg")
+        self.assertEqual(cm.exception.code, "config-key-conflict")
+
     def test_existing_identical_tables_are_left_alone(self):
         text = self.BASE + '\n[tool.ruff]\nline-length = 100\n\n[tool.ruff.lint]\nselect = ["F"]\n'
         self.assertEqual(apply_patch(text, self.P, "acme.c", "pkg").status, "unchanged")
@@ -131,6 +145,36 @@ class TomlAndJsonTests(unittest.TestCase):
         with self.assertRaises(PatchConflict) as cm:
             apply_patch(json.dumps({"a": {"b": 99}}), p, "acme.c", "mypkg")
         self.assertEqual(cm.exception.code, "config-key-conflict")
+
+
+    def test_json_merge_removal_preserves_unrelated_values_and_detects_edits(self):
+        p = Patch("cfg", "c.json", "json-merge", data={"forge": {"flag": True}, "items": ["forge-item"]})
+        r = apply_patch('{"user": 1, "items": ["user-item"]}', p, "acme.c", "pkg")
+        changed = json.loads(r.new_text)
+        changed["user"] = 2
+        changed["items"].append("later-user-item")
+        restored = json.loads(remove_patch(json.dumps(changed), "acme.c", "cfg", r.sha256,
+                                           kind="json-merge", ownership=r.ownership))
+        self.assertEqual(restored, {"user": 2, "items": ["user-item", "later-user-item"]})
+        changed["forge"]["flag"] = False
+        with self.assertRaises(PatchConflict) as cm:
+            remove_patch(json.dumps(changed), "acme.c", "cfg", r.sha256,
+                         kind="json-merge", ownership=r.ownership)
+        self.assertEqual(cm.exception.code, "patch-modified")
+
+    def test_yaml_merge_round_trip_and_safe_removal(self):
+        p = Patch("cfg", "settings.yaml", "yaml-merge", data={"service": {"enabled": True}, "labels": ["forge"]})
+        r = apply_patch("service:\n  name: api\nlabels:\n  - user\n", p, "acme.c", "pkg")
+        self.assertEqual(r.status, "applied")
+        self.assertIn("enabled: true", r.new_text)
+        restored = remove_patch(r.new_text, "acme.c", "cfg", r.sha256,
+                                kind="yaml-merge", ownership=r.ownership)
+        self.assertEqual(__import__("yaml").safe_load(restored), {"service": {"name": "api"}, "labels": ["user"]})
+
+    def test_structured_removal_requires_ownership(self):
+        with self.assertRaises(PatchConflict) as cm:
+            remove_patch('{"a": 1}', "acme.c", "cfg", None, kind="json-merge")
+        self.assertEqual(cm.exception.code, "patch-ownership-missing")
 
 
 class PatchManifestValidationTests(unittest.TestCase):
@@ -290,7 +334,10 @@ class PatchFlowTests(ForgeTestCase):
         s.apply_plan(p["plan_id"])
         self.assertEqual(json.loads((proj / "settings.json").read_text()), {"name": "x", "feature": True})
         rp = s.plan_remove(proj, ["acme.json"])
-        self.assertTrue(any("remove them manually" in w for w in rp["warnings"]))
+        self.assertEqual(rp["conflicts"], [])
+        s.approve_plan(rp["plan_id"], "t")
+        self.assertEqual(s.apply_plan(rp["plan_id"])["status"], "applied")
+        self.assertEqual(json.loads((proj / "settings.json").read_text()), {"name": "x"})
         (proj / "settings.json").write_text('{"feature": false}\n')
         s2 = self.services()
         proj2 = self.make_project(s2, "cli", "Json Two", where=self.tmp / "two")

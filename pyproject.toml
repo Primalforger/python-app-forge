@@ -9,7 +9,7 @@ description = "Local-first, componentized Python application engineering platfor
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = ["cryptography>=42"]  # Ed25519 component artifact signatures
+dependencies = ["cryptography>=42", "PyYAML>=6.0.2"]  # Ed25519 component artifact signatures
 
 [project.optional-dependencies]
 gui = ["PySide6>=6.6"]

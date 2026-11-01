@@ -478,3 +478,16 @@ acceptance = "A named-host baseline report is checked in and per-workload regres
 modules = ["app_forge.catalog.registry", "app_forge.services"]
 verified_by = ["scripts/benchmark_performance.py", "scripts/check_performance_regression.py", "tests/test_performance_benchmark.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-27"
+title = "Reversible structured configuration patches"
+description = "TOML table patches can add keys to existing tables; JSON and YAML merges persist ownership and safely remove only unchanged Forge-added values."
+priority = "P1"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Existing TOML table key insertion is exactly reversible. JSON/YAML merge uninstall removes only unchanged Forge-owned keys and list items, preserves unrelated values, and refuses modified or untracked ownership."
+modules = ["app_forge.patching", "app_forge.integration"]
+verified_by = ["tests/test_patching.py"]
+implemented = true
