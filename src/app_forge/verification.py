@@ -56,6 +56,8 @@ class VerificationEngine:
                     self._tool(root, check, add, timeout, cancel_token, progress)
                 else:
                     add(check, "not_run", "unknown check")
+                if cancel_token:
+                    cancel_token.raise_if_cancelled()
             except OperationCancelled:
                 add(check, "cancelled", "cancelled by user", time.monotonic() - t0)
                 cancelled = True
@@ -73,14 +75,15 @@ class VerificationEngine:
     def _syntax(self, root: Path, add, t0: float, cancel_token=None, progress=None) -> None:
         bad = []
         n = 0
+        seen = 0
         excludes = self._excludes(root)
-        files = list(walk_files(root))
-        for index, f in enumerate(files, 1):
+        for f in walk_files(root):
             if cancel_token:
                 cancel_token.raise_if_cancelled()
-            if progress and index % 25 == 0:
+            seen += 1
+            if progress and seen % 25 == 0:
                 progress({"stage": "syntax", "message": f"Scanning {f.relative_to(root).as_posix()}",
-                          "current": index, "total": len(files)})
+                          "current": seen, "total": None})
             if f.suffix == ".py" and not any(f.relative_to(root).as_posix().startswith(x) for x in excludes):
                 n += 1
                 try:

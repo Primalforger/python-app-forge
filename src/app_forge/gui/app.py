@@ -195,6 +195,7 @@ class MainWindow(QMainWindow):
         self.status.setText(f"{label}: {message}{suffix}")
 
     def _background_succeeded_event(self, result: object) -> None:
+        self.status.setText(f"{self._background_label}: done")
         if self._background_on_success:
             self._background_on_success(result)
 
