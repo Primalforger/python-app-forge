@@ -49,7 +49,7 @@ class ComponentAttestationTests(ForgeTestCase):
         settings.ensure()
         trusted = settings.trusted_keys_dir / "release-key.pub"
         trusted.write_bytes(public_key.read_bytes())
-        added = add_to_catalog(archive, settings.user_catalog)
+        added = add_to_catalog(archive, settings.user_catalog, trusted_keys=settings.trusted_keys_dir)
         self.assertEqual(added["added"], "acme.release@1.0.0")
         services = ForgeServices(settings, builtin_root=None)
         entry = services.registry.require("acme.release")
