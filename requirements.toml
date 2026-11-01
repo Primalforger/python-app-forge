@@ -1001,7 +1001,7 @@ source = "docs/TODO.md"
 method = "test"
 acceptance = "The generated web template uses an established JWT library, enforces a minimum secret length, fixed HS256 algorithm allowlisting, issuer/audience and exp/nbf/iat claims, rejects malformed/expired tokens, and does not invent a password or login system."
 modules = ["web-fastapi.auth"]
-verified_by = ["src/app_forge/data/templates/web/tree/tests/test_security.py"]
+verified_by = ["tests/test_web_template_asvs.py"]
 implemented = true
 
 [[requirement]]
@@ -1013,7 +1013,7 @@ source = "docs/TODO.md"
 method = "test"
 acceptance = "Unauthenticated requests are rejected, authenticated reads work, role-restricted writes reject insufficient roles, and permitted roles are accepted."
 modules = ["web-fastapi.auth", "web-fastapi.api"]
-verified_by = ["src/app_forge/data/templates/web/tree/tests/test_api_security.py"]
+verified_by = ["tests/test_web_template_asvs.py"]
 implemented = true
 
 [[requirement]]
@@ -1025,7 +1025,7 @@ source = "docs/TODO.md"
 method = "test"
 acceptance = "CORS is disabled unless explicit origins are configured, wildcard origins are rejected, credentialed CORS is disabled, rate settings are bounded, excess requests return 429 with Retry-After, and defensive headers plus HTTPS-only HSTS are applied."
 modules = ["web-fastapi.security"]
-verified_by = ["src/app_forge/data/templates/web/tree/tests/test_api_security.py", "tests/test_web_template_asvs.py"]
+verified_by = ["tests/test_web_template_asvs.py"]
 implemented = true
 
 [[requirement]]
@@ -1049,5 +1049,5 @@ source = "docs/TODO.md"
 method = "test"
 acceptance = "Liveness remains available without authentication; readiness reports named checks and returns 503 if any check fails, raises or returns a value other than exactly True."
 modules = ["web-fastapi.health", "web-fastapi.api", "service-worker.health"]
-verified_by = ["src/app_forge/data/templates/web/tree/tests/test_security.py", "src/app_forge/data/templates/web/tree/tests/test_api_security.py", "src/app_forge/data/templates/service/tree/tests/test_health.py"]
+verified_by = ["src/app_forge/data/templates/web/tree/tests/test_readiness.py", "src/app_forge/data/templates/service/tree/tests/test_health.py"]
 implemented = true
