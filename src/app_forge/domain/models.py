@@ -116,6 +116,22 @@ def _req(d: dict, key: str, kind: type, problems: list[str], where: str = "") ->
     return d[key]
 
 
+def _portable_relative_path(value: object) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        return "path must be a non-empty relative path"
+    if value.startswith("/") or "\\\\" in value or re.match(r"^[A-Za-z]:", value):
+        return "path must be relative and use forward-slash separators"
+    parts = value.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return "path contains an unsafe segment"
+    for part in parts:
+        if part.endswith((".", " ")) or any(ord(ch) < 32 or ch in '<>:\"|?*' for ch in part):
+            return "path contains a character unsupported on Windows"
+        if part.split(".", 1)[0].upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
+            return "path contains a reserved Windows device name"
+    return ""
+
+
 def parse_manifest(data: dict) -> ComponentManifest:
     """Validate a manifest dict (schema v1). Nothing is inferred; missing required values fail."""
     p: list[str] = []
