@@ -647,6 +647,7 @@ class ForgeServices:
         plan_cutoff = cutoff(self.settings.plan_retention_days)
         checkpoint_cutoff = cutoff(self.settings.checkpoint_retention_days)
         expired_plans: list[Path] = []
+        terminal_plans: set[str] = set()
         protected_plans: list[str] = []
         errors: list[str] = []
         for path in sorted(self.settings.plans_dir.glob("*.json")):
@@ -658,6 +659,7 @@ class ForgeServices:
                 if status in ("planned", "approved", "running"):
                     protected_plans.append(path.stem)
                     continue
+                terminal_plans.add(path.stem)
                 created = parse_time(data.get("created_at"), path.stat().st_mtime)
                 if created < plan_cutoff:
                     expired_plans.append(path)
@@ -669,11 +671,8 @@ class ForgeServices:
         for path in sorted(self.settings.checkpoints_dir.iterdir()):
             if path.is_symlink() or not path.is_dir():
                 continue
-            if path.name in expired_ids:
-                checkpoint_dirs.append(path)
-                continue
-            plan_path = self.settings.plans_dir / f"{path.name}.json"
-            if not plan_path.exists() and datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < checkpoint_cutoff:
+            checkpoint_old = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < checkpoint_cutoff
+            if checkpoint_old and (path.name in terminal_plans or not (self.settings.plans_dir / f"{path.name}.json").exists()):
                 checkpoint_dirs.append(path)
 
         evidence_cutoff = cutoff(self.settings.evidence_retention_days).isoformat()
@@ -690,6 +689,8 @@ class ForgeServices:
                     errors.append(f"{path.name}: {type(exc).__name__}: {exc}")
             for path in checkpoint_dirs:
                 try:
+                    if path.name in expired_ids and (self.settings.plans_dir / f"{path.name}.json").exists():
+                        continue  # keep recovery data if deleting its plan failed
                     shutil.rmtree(path)
                     removed["checkpoints"] += 1
                 except OSError as exc:
