@@ -61,8 +61,11 @@ class MigrationRunnerTests(unittest.TestCase):
         )
         runtime_package = ModuleType("alembic.runtime")
         runtime_package.__path__ = []
+        alembic_package = ModuleType("alembic")
+        alembic_package.__path__ = []
+        alembic_package.runtime = runtime_package
         with patch.dict(sys.modules, {
-            "alembic": ModuleType("alembic"),
+            "alembic": alembic_package,
             "alembic.runtime": runtime_package,
             "alembic.runtime.migration": runtime,
         }):
