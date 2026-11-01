@@ -581,3 +581,16 @@ acceptance = "Navigation exposes the dedicated screens; the wizard opens a separ
 modules = ["app_forge.gui.app", "app_forge.services"]
 verified_by = ["tests/test_upgrade_cli_gui.py", "tests/test_gui_qt.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-25"
+title = "Plain library and Forge extension templates"
+description = "Built-in templates generate a dependency-free importable Python library and a separately packaged Forge extension starter with entry-point metadata, tests and trust-first guidance."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Both templates generate valid project trees; the library has no runtime dependencies and a tested public API; the extension declares the app_forge.plugins entry-point group and includes JSON-safe example methods and explicit trust/security guidance; generated-project verification passes."
+modules = ["app_forge.templates.engine", "app_forge.data.templates.library", "app_forge.data.templates.extension-starter"]
+verified_by = ["tests/test_templates_components.py"]
+implemented = true
