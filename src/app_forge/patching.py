@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 import re
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+import yaml
 
 from app_forge.domain.models import Patch
 from app_forge.security import sha256_text
@@ -27,6 +29,7 @@ class PatchResult:
     new_text: str
     sha256: str       # of the managed block (insert/toml-table) or of the merged data (json-merge)
     status: str       # applied | unchanged
+    ownership: list[dict] = field(default_factory=list)
 
 
 def _n(text: str) -> str:
@@ -175,37 +178,74 @@ class _AlreadyPresent(Exception):
 
 
 # ----------------------------------------------------------------------------------- json merge
-def _merge(target: dict, data: dict, path: str, added: list[str]) -> None:
-    for k, v in data.items():
-        here = f"{path}.{k}" if path else k
-        if k not in target:
-            target[k] = v
-            added.append(here)
-        elif isinstance(target[k], dict) and isinstance(v, dict):
-            _merge(target[k], v, here, added)
-        elif isinstance(target[k], list) and isinstance(v, list):
-            for item in v:
-                if item not in target[k]:
-                    target[k].append(item)
-                    added.append(f"{here}[]")
-        elif target[k] != v:
-            raise PatchConflict("config-key-conflict", f"{here} already has a different value")
+def _merge(target: dict, data: dict, path: list, owned: list[dict]) -> None:
+    for key, value in data.items():
+        here = path + [key]
+        if key not in target:
+            target[key] = value
+            owned.append({"path": here, "list_item": False, "value": value})
+        elif isinstance(target[key], dict) and isinstance(value, dict):
+            _merge(target[key], value, here, owned)
+        elif isinstance(target[key], list) and isinstance(value, list):
+            for item in value:
+                if item not in target[key]:
+                    target[key].append(item)
+                    owned.append({"path": here, "list_item": True, "value": item})
+        elif target[key] != value:
+            raise PatchConflict("config-key-conflict", f"{'.'.join(map(str, here))} already has a different value")
 
 
-def _apply_json(text: str, patch: Patch, package: str) -> PatchResult:
+def _structured_load(text: str, patch: Patch, yaml_format: bool):
     try:
-        doc = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise PatchConflict("target-unparseable", f"{patch.file} is not valid JSON: {exc}") from None
+        doc = yaml.safe_load(text) if yaml_format else json.loads(text)
+    except (yaml.YAMLError, json.JSONDecodeError) as exc:
+        raise PatchConflict("target-unparseable", f"{patch.file} is not valid {'YAML' if yaml_format else 'JSON'}: {exc}") from None
     if not isinstance(doc, dict):
-        raise PatchConflict("target-unparseable", f"{patch.file} must contain a JSON object")
+        raise PatchConflict("target-unparseable", f"{patch.file} must contain a mapping/object")
+    return doc
+
+
+def _structured_dump(doc: dict, text: str, yaml_format: bool) -> str:
+    rendered = yaml.safe_dump(doc, sort_keys=False, allow_unicode=True) if yaml_format else json.dumps(doc, indent=2, ensure_ascii=False)
+    return rendered + (_nl(text) if text.endswith(("\n", "\r")) else "")
+
+
+def _apply_structured(text: str, patch: Patch, package: str, yaml_format: bool) -> PatchResult:
+    doc = _structured_load(text, patch, yaml_format)
     data = _render_data(patch.data, {"package": package})
-    added: list[str] = []
-    _merge(doc, data, "", added)
+    owned: list[dict] = []
+    _merge(doc, data, [], owned)
     sha = sha256_text(json.dumps(data, sort_keys=True))
-    if not added:
-        return PatchResult(text, sha, "unchanged")
-    return PatchResult(json.dumps(doc, indent=2, ensure_ascii=False) + _nl(text), sha, "applied")
+    if not owned:
+        return PatchResult(text, sha, "unchanged", [])
+    return PatchResult(_structured_dump(doc, text, yaml_format), sha, "applied", owned)
+
+
+def _remove_structured(text: str, ownership: list[dict] | None, patch_file: str, yaml_format: bool) -> str:
+    if not ownership:
+        raise PatchConflict("patch-ownership-missing", f"ownership metadata for {patch_file} is missing; refusing unsafe automatic removal")
+    doc = _structured_load(text, Patch("remove", patch_file, "yaml-merge" if yaml_format else "json-merge"), yaml_format)
+    for item in reversed(ownership):
+        path = item.get("path")
+        if not isinstance(path, list) or not path:
+            raise PatchConflict("patch-ownership-corrupt", "stored structured-patch ownership is invalid")
+        parent = doc
+        for key in path[:-1]:
+            if not isinstance(parent, dict) or key not in parent:
+                raise PatchConflict("patch-modified", f"owned value at {'.'.join(map(str, path))} is missing or changed")
+            parent = parent[key]
+        key = path[-1]
+        if item.get("list_item"):
+            values = parent.get(key) if isinstance(parent, dict) else None
+            value = item.get("value")
+            if not isinstance(values, list) or value not in values:
+                raise PatchConflict("patch-modified", f"owned list item at {'.'.join(map(str, path))} is missing or changed")
+            values.remove(value)
+        else:
+            if not isinstance(parent, dict) or key not in parent or parent[key] != item.get("value"):
+                raise PatchConflict("patch-modified", f"owned value at {'.'.join(map(str, path))} was edited; Forge will not delete it")
+            del parent[key]
+    return _structured_dump(doc, text, yaml_format)
 
 
 # ----------------------------------------------------------------------------------- public API
@@ -256,8 +296,8 @@ def _toml_existing_table(text: str, content: str, patch: Patch, comp_id: str):
 def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace: bool = False,
                 expect_sha: str | None = None) -> PatchResult:
     """Apply one patch to `text`. Raises PatchConflict for anything unsafe or ambiguous."""
-    if patch.kind == "json-merge":
-        return _apply_json(text, patch, package)
+    if patch.kind in ("json-merge", "yaml-merge"):
+        return _apply_structured(text, patch, package, patch.kind == "yaml-merge")
     content = render_text(patch.content, {"package": package})
     if patch.kind == "insert":
         return _apply_block(text, patch, comp_id, content, replace=replace, expect_sha=expect_sha,
@@ -293,8 +333,10 @@ def apply_patch(text: str, patch: Patch, comp_id: str, package: str, *, replace:
     raise PatchConflict("patch-invalid", f"unknown patch kind {patch.kind!r}")
 
 
-def remove_patch(text: str, comp_id: str, pid: str, expect_sha: str | None) -> str:
-    """Remove a marked block, only if it still matches what Forge recorded."""
+def remove_patch(text: str, comp_id: str, pid: str, expect_sha: str | None, *, kind: str = "insert", ownership: list[dict] | None = None) -> str:
+    """Remove a marked block or only the unchanged structured values Forge owns."""
+    if kind in ("json-merge", "yaml-merge"):
+        return _remove_structured(text, ownership, pid, kind == "yaml-merge")
     lines = text.splitlines(keepends=True)
     found = find_block(lines, comp_id, pid)
     if not found:
