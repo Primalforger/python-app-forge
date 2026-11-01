@@ -82,6 +82,16 @@ Plan-time failures you may see: `anchor-missing`, `anchor-ambiguous`, `patch-tar
   (Forge projects) or advised (others); incompatible → conflict; looser than needed → flagged for review; never silently rewritten.
 * Interfaces are versioned contracts, separate from component-to-component dependencies: `provides = ["ui.table@1.0"]` declares an exact interface version; `requires = ["ui.themes@^1.0"]` accepts any compatible provider version. A requirement without `@` accepts any version. Providers must declare a version; requirements may use the normal Forge constraints (`^`, `~`, comparisons, or `*`). Forge validates declarations when loading a catalog and checks requirements against providers selected for installation or already present in the project. Missing providers report `missing-interface`; providers with no matching version report `incompatible-interface`.
 
+A provider can opt into executable contract coverage by mapping each provided interface to one or more contributed test files:
+
+```toml
+[[interfaces.contract_tests]]
+interface = "ui.table@1.0"
+tests = ["tests/contracts/test_table_contract.py"]
+```
+
+Every mapped test must also appear in `[verification].tests` and be contributed by the component. `forge component verify` runs the normal syntax/test probe and reports each mapped interface as `passed`, `failed`, or `incomplete`. A provided interface with no mapping is reported as `not_verified`; this is deliberately non-fatal for older components, and a successful general test suite is not presented as proof of an unmapped interface. Contract assertions remain authored by the component publisher; Forge executes the tests but does not infer interface behavior.
+
 ## Rules worth knowing
 
 * The digest covers `files/` **and** `component.toml`: change anything → `forge component seal`.

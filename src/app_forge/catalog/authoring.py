@@ -184,6 +184,13 @@ def validate_component_dir(vdir: Path) -> dict:
                 problems.append(f"{f.src} is not valid Python after rendering: {exc.msg} (line {exc.lineno})")
         if redact(rendered) != rendered:
             warnings.append(f"{f.src} contains something that looks like a secret; never ship credentials")
+    declared_tests = set(manifest.verification_tests)
+    for contract in manifest.interface_contract_tests:
+        for test in contract.tests:
+            if test not in declared_tests:
+                problems.append(
+                    f"interface contract {contract.interface!r} test {test!r} must also appear in verification.tests"
+                )
     for t in manifest.verification_tests:
         if t not in dests:
             problems.append(f"verification test {t!r} is not contributed by any integration.files entry")

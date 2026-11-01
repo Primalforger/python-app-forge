@@ -293,10 +293,21 @@ class ForgeServices:
                 rep = self.verifier.run(out, checks=("syntax", "tests"))
             self.store.add_evidence([{**r, "subject": f"component:{component_id}@{entry.manifest.version}"}
                                      for r in rep["evidence"]])
-            op["summary"] = {"overall": rep["overall"]}
+            contract_results = []
+            mapped = {item.interface: item.tests for item in entry.manifest.interface_contract_tests}
+            for interface in entry.manifest.provides:
+                tests = mapped.get(interface, ())
+                status = ("not_verified" if not tests else
+                          "passed" if rep["overall"] == "passed" else
+                          "failed" if rep["overall"] == "failed" else "incomplete")
+                contract_results.append({"interface": interface, "status": status, "tests": list(tests)})
+            op["summary"] = {"overall": rep["overall"],
+                             "interface_contracts": len(contract_results),
+                             "interface_contracts_verified": sum(r["status"] == "passed" for r in contract_results)}
             if rep["overall"] == "failed":
                 op["status"] = "failed"
-            return {"component": f"{component_id}@{entry.manifest.version}", "archetype_probe": archetype, **{
+            return {"component": f"{component_id}@{entry.manifest.version}", "archetype_probe": archetype,
+                    "interface_contracts": contract_results, **{
                 k: rep[k] for k in ("overall", "passed", "failed", "not_run", "complete")}}
 
     # ------------------------------------------------------------------ existing projects

@@ -25,12 +25,40 @@ class AuthoringTests(ForgeTestCase):
         self.assertEqual(self.cli("component", "validate", str(v))[0], 0)
         code, out, _ = self.cli("--json", "catalog", "add", str(v))
         self.assertEqual((code, json.loads(out)["result"]["added"]), (0, "acme.widget@1.0.0"))
-        self.assertEqual(self.cli("component", "verify", "acme.widget")[0], 0)
+        code, verify_out, verify_err = self.cli("--json", "component", "verify", "acme.widget")
+        self.assertEqual(code, 0, verify_err)
+        self.assertEqual(json.loads(verify_out)["result"]["interface_contracts"], [])
         proj = self.tmp / "proj"
         self.assertEqual(self.cli("init", "--archetype", "cli", "--name", "Uses Widget", "--out", str(proj),
                                   "--component", "acme.widget")[0], 0)
         self.assertEqual(self.cli("test", "run", str(proj))[0], 0)
         self.assertEqual(self.cli("catalog", "add", str(v))[0], 3)  # versions are immutable
+
+    def test_interface_contract_tests_are_validated_and_reported(self):
+        v = self.scaffold()
+        manifest = (v / "component.toml").read_text().replace(
+            "provides = []", 'provides = ["ui.widget@1.0"]'
+        )
+        manifest += '\n[[interfaces.contract_tests]]\ninterface = "ui.widget@1.0"\ntests = ["tests/test_widget.py"]\n'
+        (v / "component.toml").write_text(manifest)
+        self.assertEqual(self.cli("component", "seal", str(v))[0], 0)
+        self.assertEqual(self.cli("component", "validate", str(v))[0], 0)
+        self.assertEqual(self.cli("catalog", "add", str(v))[0], 0)
+        code, out, err = self.cli("--json", "component", "verify", "acme.widget")
+        self.assertEqual(code, 0, err)
+        contract = json.loads(out)["result"]["interface_contracts"][0]
+        self.assertEqual(contract["interface"], "ui.widget@1.0")
+        self.assertEqual(contract["status"], "passed")
+
+    def test_interface_contract_tests_must_reference_provided_interface(self):
+        v = self.scaffold()
+        manifest = (v / "component.toml").read_text()
+        manifest += '\n[[interfaces.contract_tests]]\ninterface = "ui.missing@1.0"\ntests = ["tests/test_widget.py"]\n'
+        (v / "component.toml").write_text(manifest)
+        self.cli("component", "seal", str(v))
+        code, out, _ = self.cli("--json", "component", "validate", str(v))
+        self.assertEqual(code, 2)
+        self.assertIn("must exactly match", " ".join(json.loads(out)["result"]["problems"]))
 
     def test_validate_catches_the_common_mistakes(self):
         v = self.scaffold()
