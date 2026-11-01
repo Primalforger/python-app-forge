@@ -763,3 +763,15 @@ acceptance = "Flag names and values are validated; duplicate registration and un
 modules = ["app_forge.feature_flags"]
 verified_by = ["tests/test_feature_flags.py"]
 implemented = true
+
+[[requirement]]
+id = "C-14"
+title = "Persistent SQLite job queue"
+description = "A standard-library SQLite queue persists JSON jobs and safely coordinates multiple workers with leases, bounded retries and dead-letter handling."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Jobs persist across queue instances; claims are atomic across concurrent workers; worker ownership is enforced; expired leases are reclaimed; attempts are bounded; failures are delayed or dead-lettered; dead jobs can be explicitly redriven; invalid payloads and queue settings are rejected."
+modules = ["app_forge.job_queue"]
+verified_by = ["tests/test_job_queue.py"]
+implemented = true
