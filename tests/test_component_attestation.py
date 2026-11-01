@@ -57,19 +57,17 @@ class ComponentAttestationTests(ForgeTestCase):
         self.assertEqual(verify_component(entry.root, settings.trusted_keys_dir)["status"], "verified")
 
     def test_unsigned_policy_deny_quarantines_unsigned_components(self):
-        component_root = self.tmp / "catalog"
-        self.custom_component("acme.unsigned", root=component_root)
         settings = ForgeSettings(home=self.home, unsigned_component_policy="deny")
+        self.custom_component("acme.unsigned", root=settings.user_catalog)
         services = ForgeServices(settings, builtin_root=None)
         report = services.validate_catalog()
         self.assertFalse(report["ok"])
         self.assertTrue(any("unsigned component rejected" in item["error"] for item in report["quarantined"]))
 
     def test_unsigned_policy_warn_keeps_legacy_components_available(self):
-        component_root = self.tmp / "catalog"
-        self.custom_component("acme.legacy", root=component_root)
         settings = ForgeSettings(home=self.home, unsigned_component_policy="warn")
-        services = self.services(builtin=False, settings=settings)
+        self.custom_component("acme.legacy", root=settings.user_catalog)
+        services = ForgeServices(settings, builtin_root=None)
         entry = services.registry.require("acme.legacy")
         self.assertEqual(entry.state, "installed")
         self.assertIn("unsigned artifact", entry.state_reason)
