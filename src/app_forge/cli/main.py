@@ -114,7 +114,7 @@ def _table(value) -> str:
 
 
 def _emit(args, result) -> None:
-    output = "json" if args.json else args.output
+    output = "json" if getattr(args, "json", False) else getattr(args, "output", "text")
     if output == "json":
         print(json.dumps({"ok": True, "result": result}, indent=2, sort_keys=True, default=str))
     elif output == "yaml":
