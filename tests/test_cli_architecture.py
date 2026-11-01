@@ -66,7 +66,7 @@ class CliTests(ForgeTestCase):
 
     def test_misc_commands(self):
         for argv in (["doctor"], ["catalog", "validate"], ["catalog", "list"], ["config", "show"], ["template", "list"],
-                     ["history", "list"], ["architecture", "check-rules"], ["plugin", "list"],
+                     ["history", "list"], ["gc"], ["architecture", "check-rules"], ["plugin", "list"],
                      ["dependency", "resolve", "forge.advanced-table", "--archetype", "desktop"],
                      ["dependency", "explain", "forge.advanced-table"]):
             self.assertEqual(self.run_cli(*argv)[0], 0, argv)
