@@ -116,6 +116,22 @@ def _req(d: dict, key: str, kind: type, problems: list[str], where: str = "") ->
     return d[key]
 
 
+def _portable_relative_path(value: object) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        return "path must be a non-empty relative path"
+    if value.startswith("/") or "\\" in value or re.match(r"^[A-Za-z]:", value):
+        return "path must be relative and use forward-slash separators"
+    parts = value.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return "path contains an unsafe segment"
+    for part in parts:
+        if part.endswith((".", " ")) or any(ord(ch) < 32 or ch in '<>:\"|?*' for ch in part):
+            return "path contains a character unsupported on Windows"
+        if part.split(".", 1)[0].upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
+            return "path contains a reserved Windows device name"
+    return ""
+
+
 def parse_manifest(data: dict) -> ComponentManifest:
     """Validate a manifest dict (schema v1). Nothing is inferred; missing required values fail."""
     p: list[str] = []
@@ -166,17 +182,30 @@ def parse_manifest(data: dict) -> ComponentManifest:
         except ValidationFailure as e:
             p.append(f"dependency {k}: {e.message}")
     files = []
+    source_names: dict[str, str] = {}
+    destination_names: dict[str, str] = {}
     for f in integ.get("files", []):
         if not isinstance(f, dict) or "src" not in f or "dest" not in f:
             p.append("each integration.files entry needs 'src' and 'dest'")
             continue
-        if f["src"].startswith("/") or ".." in f["src"].split("/"):
-            p.append(f"unsafe integration source path {f['src']!r}")
-        if f["dest"].startswith("/") or ".." in f["dest"].replace("\\", "/").split("/"):
-            p.append(f"unsafe integration destination path {f['dest']!r}")
+        src, dest = f["src"], f["dest"]
+        for field_name, path_value in (("integration.files src", src), ("integration.files dest", dest)):
+            error = _portable_relative_path(path_value)
+            if error:
+                p.append(f"{field_name} {path_value!r}: {error}")
+        if isinstance(src, str):
+            folded = src.casefold()
+            if folded in source_names and source_names[folded] != src:
+                p.append(f"integration.files sources {source_names[folded]!r} and {src!r} collide on case-insensitive filesystems")
+            source_names[folded] = src
+        if isinstance(dest, str):
+            folded = dest.replace("{{package}}", "__forge_package__").casefold()
+            if folded in destination_names:
+                p.append(f"integration.files destinations {destination_names[folded]!r} and {dest!r} collide on case-insensitive filesystems")
+            destination_names[folded] = dest
         if "binary" in f and not isinstance(f["binary"], bool):
-            p.append(f"integration.files binary flag for {f['src']!r} must be boolean")
-        files.append(FileContribution(f["src"], f["dest"], f.get("binary", False)))
+            p.append(f"integration.files binary flag for {src!r} must be boolean")
+        files.append(FileContribution(src, dest, f.get("binary", False)))
     patches, seen_ids = [], set()
     for i, raw in enumerate(integ.get("patches", [])):
         where = f"integration.patches[{i}]"
@@ -193,6 +222,10 @@ def parse_manifest(data: dict) -> ComponentManifest:
             p.append(f"{where}.kind must be one of {PATCH_KINDS}")
         if not pfile or str(pfile).startswith("/") or ".." in str(pfile).replace("\\", "/").split("/"):
             p.append(f"{where}.file {pfile!r} must be a relative path without '..'")
+        else:
+            path_error = _portable_relative_path(pfile)
+            if path_error:
+                p.append(f"{where}.file {pfile!r}: {path_error}")
         comment, position = raw.get("comment", "#"), raw.get("position", "after")
         if comment not in COMMENT_STYLES:
             p.append(f"{where}.comment must be one of {COMMENT_STYLES}")
