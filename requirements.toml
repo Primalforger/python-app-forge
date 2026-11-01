@@ -1037,7 +1037,7 @@ source = "docs/TODO.md"
 method = "test"
 acceptance = "HTTP and validation errors return the problem-details media type with status/title/detail; unexpected exceptions return a generic 500 body without exception text."
 modules = ["web-fastapi.problems"]
-verified_by = ["src/app_forge/data/templates/web/tree/tests/test_api_security.py"]
+verified_by = ["tests/test_web_template_asvs.py"]
 implemented = true
 
 [[requirement]]
