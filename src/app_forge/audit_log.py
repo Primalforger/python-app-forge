@@ -85,7 +85,7 @@ class HashChainedAuditLog:
         with _LOCK, lock_path.open("a+", encoding="utf-8") as lock_stream:
             _lock_file(lock_stream)
             try:
-                with self.path.open("a+", encoding="utf-8", newline="\\n") as stream:
+                with self.path.open("a+", encoding="utf-8", newline="\n") as stream:
                     stream.seek(0)
                     records, valid = self._read_stream(stream)
                     if not valid["ok"]:
@@ -99,7 +99,7 @@ class HashChainedAuditLog:
                     }
                     record["hash"] = _digest(record)
                     stream.seek(0, os.SEEK_END)
-                    stream.write(_canonical(record).decode("utf-8") + "\\n")
+                    stream.write(_canonical(record).decode("utf-8") + "\n")
                     stream.flush()
                     os.fsync(stream.fileno())
                     return record.copy()
