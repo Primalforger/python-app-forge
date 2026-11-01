@@ -64,7 +64,11 @@ def run_benchmarks(workdir: Path, catalog_sizes: list[int], iterations: int) -> 
       "recorded_at_utc":datetime.now(timezone.utc).isoformat(),
       "environment":{"platform":platform.platform(),"system":platform.system(),"machine":platform.machine(),
        "processor":platform.processor() or "not reported","python":sys.version,
-       "python_implementation":platform.python_implementation(),"cpu_count":os.cpu_count()},
+       "python_version":f"{sys.version_info.major}.{sys.version_info.minor}",
+       "python_implementation":platform.python_implementation(),"cpu_count":os.cpu_count(),
+       "runner_image":os.getenv("FORGE_RUNNER_IMAGE","unspecified"),
+       "runner_image_version":os.getenv("ImageVersion","unknown"),
+       "runner_os":os.getenv("RUNNER_OS","unknown"),"runner_arch":os.getenv("RUNNER_ARCH","unknown")},
       "configuration":{"catalog_sizes":catalog_sizes,"iterations":iterations},
       "results":{"catalog":catalog,"project_generation":{"projects_generated":iterations,
        "template":"cli","timing":summarize(projects)}}}
