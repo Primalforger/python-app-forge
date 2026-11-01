@@ -251,7 +251,7 @@ def parse_manifest(data: dict) -> ComponentManifest:
                 p.append(f"{where}.registration.framework must be fastapi|flask|django")
             for key in ("module", "symbol"):
                 value = registration.get(key, "")
-                if not isinstance(value, str) or not value or not all(part.isidentifier() for part in value.split(".")):
+                if not isinstance(value, str) or not value or not all(part.isidentifier() for part in value.replace("{{package}}", "forge_package").split(".")):
                     p.append(f"{where}.registration.{key} must be a dotted Python identifier")
             application = registration.get("application", "")
             if application and (not isinstance(application, str) or not application.isidentifier()):
