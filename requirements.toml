@@ -724,3 +724,16 @@ acceptance = "Commands execute before being recorded; undo and redo preserve his
 modules = ["app_forge.undo"]
 verified_by = ["tests/test_undo.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-09"
+title = "Recent files and desktop session state"
+description = "A framework-independent store maintains a bounded recent-file list and persists JSON-safe desktop session metadata."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Recent files are normalized, newest-first, deduplicated, bounded and removable; optional existing-only filtering works; session state round-trips nested JSON values, rejects non-finite or non-JSON data and oversized payloads, and uses atomic writes with fail-closed loading."
+modules = ["app_forge.session"]
+verified_by = ["tests/test_session.py"]
+implemented = true
