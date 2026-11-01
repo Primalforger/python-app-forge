@@ -136,8 +136,8 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   *Done when:* `tests/test_housekeeping.py` proves dry-run safety, retention pruning and preservation of pending plans.
 - [x] **G-23 Table Designer grid editor** (M): replace the raw JSON editor with an accessible editable column grid. Users can add/remove columns, edit keys and select validated data types; existing sort/filter/page/export defaults are preserved when generating code.
   *Done when:* the real-Qt suite verifies grid editing, add/remove behavior and successful code generation.
-- [ ] **G-24 Dedicated GUI screens** (M): separate Project Wizard, Generation Review, Configuration Center and Diagnostics bundle
-  screens (currently merged).
+- [x] **G-24 Dedicated GUI screens** (M): separate Project Wizard, Generation Review, Configuration Center and Diagnostics screens. Project inputs live in the wizard; a dedicated dry-run review screen previews the generated plan without creating files; configuration and diagnostics have distinct navigation entries.
+  *Done when:* navigation exposes all four screens, generation review is read-only, and stub plus real-Qt tests cover the wizard-to-review flow.
 - [ ] **G-25 More templates** (M): plain library, and a template for writing Forge extensions.
 - [ ] **G-26 CLI polish** (S): shell completion, `--output yaml|table`, consistent progress output.
 
