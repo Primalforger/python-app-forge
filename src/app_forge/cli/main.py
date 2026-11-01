@@ -222,6 +222,8 @@ def c_trust(s, a):
 
 
 def c_catalog(s, a):
+    if a.action == "refresh":
+        return s.refresh_catalog(a.source or None), 0
     if a.action == "list":
         return s.list_catalog(), 0
     if a.action == "add":
@@ -488,8 +490,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--public-out", help="keygen: public key output path")
 
     sp = sp = acts(grp("catalog", c_catalog, "manage the local component catalog"),
-              ["list", "validate", "rebuild", "sources", "add"])
+              ["list", "validate", "rebuild", "sources", "add", "refresh"])
     sp.add_argument("path", nargs="?")
+    sp.add_argument("--source", action="append", default=[], help="refresh: catalog index URL (repeatable; overrides configured sources)")
 
     sp = acts(grp("project", c_project, "inspect and analyze projects"),
               ["inspect", "analyze", "inventory", "validate", "adopt", "lock-status", "unlock", "update"])

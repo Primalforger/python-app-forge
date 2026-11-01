@@ -24,14 +24,14 @@ from typing import Any, Iterator, Sequence
 from app_forge import __version__
 from app_forge.analyzer import ProjectAnalyzer
 from app_forge.architecture import check_rules, graph_to_mermaid, graph_to_text, module_graph
-from app_forge.catalog import authoring, attestation
+from app_forge.catalog import authoring, attestation, remote
 from app_forge.catalog.registry import BUILTIN_COMPONENTS, ComponentRegistry, current_platform, seal_component
 from app_forge.compliance import build_report, load_requirements, to_markdown, validate_requirements
 from app_forge.compliance_artifacts import load_artifacts, save_artifact
 from app_forge.supply_chain import build_cyclonedx, build_spdx, check_license_policy
 from app_forge.table_designer import normalize_definition, to_python
 from app_forge.domain.errors import (ConflictFailure, ForgeError, OperationCancelled, SecurityBlock,
-                                     ValidationFailure)
+                                     Unavailable, ValidationFailure)
 from app_forge.cancellation import CancellationToken, ProgressCallback
 from app_forge.domain.models import ChangePlan
 from app_forge.extensions import ExtensionHost
@@ -257,6 +257,19 @@ class ForgeServices:
         e = self.registry.require(component_id, version)
         return {**e.summary(), "manifest": e.manifest.to_dict(),
                 "other_versions": [x.manifest.version for x in self.registry.versions(component_id)]}
+
+    def refresh_catalog(self, sources: Sequence[str] | None = None) -> dict:
+        """Explicitly fetch and verify configured remote catalogs; ordinary scans stay offline."""
+        if self.settings.offline:
+            raise Unavailable("catalog refresh is disabled while offline mode is enabled")
+        selected = list(sources) if sources else list(self.settings.catalog_sources)
+        with self.operation("catalog_refresh", ", ".join(selected)) as op:
+            result = remote.refresh_catalog(selected, self.settings.user_catalog,
+                                            self.settings.trusted_keys_dir,
+                                            self.settings.unsigned_component_policy)
+            self.registry.scan(refresh=True)
+            op["summary"] = {"refreshed": result["refreshed"]}
+            return result
 
     def list_catalog(self) -> dict:
         res = self.registry.scan(refresh=True)

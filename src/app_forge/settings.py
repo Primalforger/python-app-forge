@@ -13,6 +13,7 @@ class ForgeSettings:
     offline: bool = True
     extra_catalog_roots: list[Path] = field(default_factory=list)
     unsigned_component_policy: str = "warn"
+    catalog_sources: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, home: Path | None = None) -> "ForgeSettings":
@@ -24,6 +25,7 @@ class ForgeSettings:
             s.offline = bool(data.get("offline", True))
             s.extra_catalog_roots = [Path(p) for p in data.get("catalog_roots", [])]
             s.unsigned_component_policy = str(data.get("unsigned_component_policy", "warn"))
+            s.catalog_sources = [str(url) for url in data.get("catalog_sources", [])]
         if s.unsigned_component_policy not in ("allow", "warn", "deny"):
             raise ValueError("unsigned_component_policy must be allow, warn, or deny")
         return s
@@ -64,4 +66,5 @@ class ForgeSettings:
         return {"home": str(self.home), "offline": self.offline,
                 "extra_catalog_roots": [str(p) for p in self.extra_catalog_roots],
                 "unsigned_component_policy": self.unsigned_component_policy,
+                "catalog_sources": list(self.catalog_sources),
                 "db_path": str(self.db_path), "user_catalog": str(self.user_catalog)}
