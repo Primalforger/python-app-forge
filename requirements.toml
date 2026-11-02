@@ -1126,3 +1126,16 @@ acceptance = "Manifest parsing validates tool switches, contract shape, unique n
 modules = ["app_forge.quality"]
 verified_by = ["tests/test_quality.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-43"
+title = "Manifest-driven PyInstaller desktop packaging"
+description = "Validate a PyInstaller application manifest, render a deterministic project-local spec and explicitly build on declared native target platforms."
+priority = "P1"
+source = "docs/TODO.md C-43"
+method = "test"
+acceptance = "The optional packaging extra installs PyInstaller; manifest validation rejects unsafe names, paths, modules, flags and unsupported platforms; entry points and data assets must exist and resolve inside the project without symlink escapes; generated specs are deterministic and support one-file/one-directory, windowed/console, icons, data files, hidden imports and package collection; spec creation never overwrites existing files; builds run the current interpreter with an argument vector and no shell, enforce declared native platform support, bound time and output, and report failure accurately. Unit and CLI tests pass on the CI OS matrix; native application launch evidence is recorded per supported OS before release."
+modules = ["app_forge.packaging", "app_forge.cli.main"]
+verified_by = ["tests/test_packaging.py", "tests/test_cli_architecture.py"]
+implemented = true
