@@ -109,7 +109,7 @@ def render_pre_commit(config: QualityConfig) -> str:
 
 def _toml_string(value: str) -> str:
     """Encode a validated TOML string without allowing multiline injection."""
-    if not isinstance(value, str) or not value or any(char in value for char in "\\r\\n\\0"):
+    if not isinstance(value, str) or not value or any(char in value for char in "\r\n\0"):
         raise ValueError("import-linter values must be non-empty single-line strings")
     return json.dumps(value, ensure_ascii=True)
 
@@ -138,7 +138,7 @@ def render_import_linter(package: str, config: QualityConfig) -> str:
             "forbidden_modules = " + json.dumps(list(contract.forbidden_modules)),
             "",
         ])
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def render_quality_files(manifest: Mapping[str, Any], package: str) -> dict[str, str]:
