@@ -196,7 +196,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-37 Prometheus metrics** (M): optional prometheus-client instrumentation with an isolated registry, request counter, duration histogram, in-flight gauge, FastAPI middleware and scrape endpoint; validates bounded route-template labels and normalizes unknown methods. Verified by `tests/test_metrics.py`.
 - [x] **C-38 Command palette** (M, desktop): searchable Ctrl+K palette for every primary screen plus dashboard refresh, diagnostics and theme actions; case-insensitive multi-term filtering and Enter/activation dispatch. Verified by real-Qt tests.
 - [x] **C-39 Crash reporter** (M, desktop): unexpected desktop exceptions are written to bounded local JSON reports with secret redaction, no local-variable capture, owner-private POSIX permissions, retention pruning and no network activity.
-- [ ] **C-40 Dockerfile, systemd and Windows-service generators** (M)
+- [x] **C-40 Dockerfile, systemd and Windows-service generators** (M)
 - [ ] **C-41 CI/CD pipeline generator** (M)
 - [ ] **C-42 Pre-commit and import-linter config from manifests** (M)
 - [ ] **C-43 PyInstaller packaging** (L, desktop): per-OS verification needs G-06/G-19.
