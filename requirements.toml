@@ -1151,3 +1151,16 @@ acceptance = "Workflow definitions reject duplicate IDs, missing dependencies an
 modules = ["app_forge.workflow", "app_forge.cancellation"]
 verified_by = ["tests/test_workflow_engine.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-20"
+title = "OWASP ASVS verification map for the web template"
+description = "Generated FastAPI web projects include a versioned ASVS verification map, executable checks for implemented security controls, and explicit deployment-owned gaps."
+priority = "P1"
+source = "docs/TODO.md G-20"
+method = "test"
+acceptance = "The generated project includes an OWASP ASVS 5.0.0 mapping for authentication, session management, access control, validation, data protection, API security and configuration; generated tests exercise implemented authentication/authorization, input validation, security headers, docs defaults, host/CORS allowlists, rate limiting and weak-secret rejection; the mapping explicitly identifies deployment-owned controls and does not claim full ASVS conformance."
+modules = ["app_forge.data.templates.web"]
+verified_by = ["tests/test_web_asvs.py"]
+implemented = true
