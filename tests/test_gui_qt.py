@@ -66,6 +66,34 @@ class RealQtTests(ForgeTestCase):
         palette.query.setText("no matching command")
         self.assertEqual(palette.results.count(), 0)
 
+    def test_desktop_session_restores_theme_and_active_screen(self):
+        self.win.set_theme("dark")
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Integration Workbench"))
+        self.win.close()
+        saved = self.gui.SessionStateStore(self.home / "gui-session.json").load()
+        self.assertEqual(saved["theme"], "dark")
+        self.assertEqual(saved["screen"], self.gui.NAV.index("Integration Workbench"))
+        self.assertIn("geometry", saved)
+        restored = self.gui.MainWindow(self.services())
+        self.addCleanup(restored.close)
+        self.assertEqual(restored.theme, "dark")
+        self.assertEqual(restored.nav.currentRow(), self.gui.NAV.index("Integration Workbench"))
+
+    def test_recent_projects_menu_remembers_opens_and_clears(self):
+        project = self.tmp / "recent-project"
+        project.mkdir()
+        expected = str(project.resolve())
+        self.win._remember_project(str(project))
+        self.assertEqual(self.win.recent_projects.list(existing_only=True), [expected])
+        actions = self.win._recent_projects_menu.actions()
+        recent_action = next(action for action in actions if action.text() == expected)
+        recent_action.trigger()
+        self.assertEqual(self.win.w_path.text(), expected)
+        self.assertEqual(self.win.q_path.text(), expected)
+        self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Integration Workbench"))
+        self.win._clear_recent_projects()
+        self.assertEqual(self.win.recent_projects.list(), [])
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
