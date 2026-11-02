@@ -10,7 +10,7 @@ Run 1: 7 of 9 real-Qt tests passed; found an unnamed widget, a stale search test
 Run 2 (after fixes): 9/9 real-Qt tests passed. A full-suite run against a stale editable install was meaningless, but exposed two real Windows bugs
 (stale-lock detection, LF/CRLF false conflicts), both fixed.
 Run 3 (current code, fresh `pip install -e .`): **full suite 175 tests OK on Windows, 4 skipped** (symlink and POSIX-shell tests), including the 9 real-Qt tests.
-**G-06 is complete.** The pull-request CI matrix now verifies all three operating systems and Python 3.11/3.12, including the real-Qt GUI suite on Windows, macOS and Linux.
+**G-06 is complete.** The pull-request CI matrix verifies all three operating systems and Python 3.11/3.12 for both the full suite and mandatory real-Qt GUI suite (six combinations each).
 
 Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component upgrade, all spec CLI groups, 12 GUI screens
 (logic tested against a Qt stand-in), real-Qt test suite written, CI workflow written.

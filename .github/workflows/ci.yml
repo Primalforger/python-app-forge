@@ -50,13 +50,14 @@ jobs:
         run: python -m pytest -q
 
   real-qt:
-    name: Real Qt GUI (${{ matrix.os }}, Python 3.11)
+    name: Real Qt GUI (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12"]
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
@@ -72,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
