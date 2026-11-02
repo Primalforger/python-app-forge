@@ -105,12 +105,24 @@ def test_renderer_is_deterministic_and_has_no_filesystem_side_effects(tmp_path, 
     assert render_import_linter("sample_app", cfg) == first[".importlinter"]
 
 
-def test_yaml_and_ini_outputs_have_expected_formats():
+def test_yaml_and_import_linter_toml_outputs_have_expected_formats():
     yaml = render_pre_commit(QualityConfig())
-    assert tomllib.loads("enabled = true")["enabled"] is True
     assert yaml.startswith("minimum_pre_commit_version:")
-    assert "[importlinter]" in render_import_linter("sample_app", QualityConfig(
+    assert "repos:" in yaml
+    rendered = render_import_linter("sample_app", QualityConfig(
         import_linter=True, contracts=(
             ForbiddenImportContract("boundary", ("sample_app.domain",), ("sample_app.gui",)),
         )
     ))
+    parsed = tomllib.loads(rendered)
+    assert parsed["importlinter"]["root_package"] == "sample_app"
+    assert parsed["importlinter"]["contracts"][0]["type"] == "forbidden"
+    assert parsed["importlinter"]["contracts"][0]["source_modules"] == ["sample_app.domain"]
+
+
+def test_contract_modules_must_be_within_root_package():
+    config = QualityConfig(import_linter=True, contracts=(
+        ForbiddenImportContract("boundary", ("sample_app.domain",), ("other_package.secret",)),
+    ))
+    with pytest.raises(ValueError, match="root package"):
+        render_import_linter("sample_app", config)
