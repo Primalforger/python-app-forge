@@ -135,3 +135,16 @@ remain argument vectors rather than shell-interpolated strings. Rendering is
 deterministic and has no host, process, or network side effects. Generated
 artifacts are starting points: operators remain responsible for accounts,
 permissions, secret delivery, writable paths, logging, image pinning and testing.
+
+
+## CI/CD pipeline generators (C-41)
+
+The dependency-free `app_forge.cicd` authoring API renders matching GitHub
+Actions and GitLab CI verification pipelines from one validated configuration.
+Both outputs support a Python-version matrix, install/test commands, optional
+linting, optional dependency auditing and optional distribution builds.
+Generated workflows use read-only GitHub repository permissions and do not
+contain credentials. Rendering is deterministic and has no filesystem,
+network or provider side effects. The files are starter pipelines: branch
+protection, trusted publishing, release approvals, secret scopes and deployment
+environments must be configured in the provider.
