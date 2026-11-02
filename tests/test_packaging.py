@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -71,6 +70,7 @@ def test_spec_generation_is_deterministic_and_includes_configuration(tmp_path):
     assert "collect_submodules('sample_app.plugins')" in first
     assert "assets/logo.png" in first
     assert "tkinter" in first
+    compile(first, "generated.spec", "exec")
 
 
 def test_spec_generation_requires_existing_entry_and_data(tmp_path):
@@ -125,3 +125,10 @@ def test_build_rejects_escape_paths_and_invalid_timeout(tmp_path):
     (root / "forge.spec").write_text("# spec", encoding="utf-8")
     with pytest.raises(ValueError, match="timeout"):
         build_pyinstaller("forge.spec", root, timeout=0)
+
+def test_build_rejects_undeclared_native_platform(tmp_path):
+    root = project(tmp_path)
+    (root / "forge.spec").write_text("# spec", encoding="utf-8")
+    other = "windows" if sys.platform != "win32" else "linux"
+    with pytest.raises(ValueError, match="current platform"):
+        build_pyinstaller("forge.spec", root, platforms=[other])
