@@ -63,8 +63,9 @@ class RecentProjectsTests(unittest.TestCase):
         self.store.add(a)
         self.assertEqual(self.store.list(), [str(a.resolve()), str(b.resolve())])
         self.assertEqual(self.store.list(existing_only=True), [str(a.resolve()), str(b.resolve())])
-        self.store.add(missing) if False else None
-        self.assertEqual(self.store.list(existing_only=True), self.store.list())
+        a.rmdir()
+        self.assertEqual(self.store.list(), [str(a.resolve()), str(b.resolve())])
+        self.assertEqual(self.store.list(existing_only=True), [str(b.resolve())])
 
     def test_rejects_non_directory_and_clear(self):
         file_path = self.root / "project.txt"
