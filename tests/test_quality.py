@@ -32,9 +32,11 @@ def test_manifest_generates_pre_commit_and_import_linter_files():
     assert list(files) == [".pre-commit-config.yaml", ".importlinter"]
     assert "rev: v5.0.0" in files[".pre-commit-config.yaml"]
     assert "ruff check --force-exclude" in files[".pre-commit-config.yaml"]
-    assert "root_package = sample_app" in files[".importlinter"]
-    assert "source_modules = sample_app.domain" in files[".importlinter"]
-    assert "forbidden_modules = sample_app.infrastructure, sample_app.gui" in files[".importlinter"]
+    parsed = tomllib.loads(files[".importlinter"])
+    assert parsed["importlinter"]["root_package"] == "sample_app"
+    contract = parsed["importlinter"]["contracts"][0]
+    assert contract["source_modules"] == ["sample_app.domain"]
+    assert contract["forbidden_modules"] == ["sample_app.infrastructure", "sample_app.gui"]
 
 
 def test_pre_commit_only_manifest_omits_import_linter_file():
@@ -67,6 +69,7 @@ def test_manifest_tool_switches_must_be_boolean(value):
 
 @pytest.mark.parametrize("contract", [
     {},
+    {"source_modules": ["sample_app"], "forbidden_modules": ["sample_app.gui"]},
     {"name": "bad", "source_modules": "sample_app", "forbidden_modules": ["other"]},
     {"name": "bad", "source_modules": ["../escape"], "forbidden_modules": ["other"]},
     {"name": "bad", "source_modules": ["sample_app"], "forbidden_modules": []},
