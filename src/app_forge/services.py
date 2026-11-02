@@ -950,3 +950,29 @@ class ForgeServices:
                                          unsigned_policy=self.settings.unsigned_component_policy)
             self.registry.scan(refresh=True)
             return r
+
+
+def create_pyinstaller_spec(
+    manifest: dict[str, Any], project_root: str | Path, output: str | Path
+) -> dict[str, Any]:
+    """Application-service boundary for rendering a desktop packaging spec."""
+    from app_forge.packaging import pyinstaller_config_from_manifest, write_pyinstaller_spec
+
+    config = pyinstaller_config_from_manifest(manifest)
+    spec_path = write_pyinstaller_spec(manifest, project_root, output)
+    return {"spec": str(spec_path), "name": config.name, "platforms": list(config.platforms)}
+
+
+def build_pyinstaller_package(
+    manifest: dict[str, Any], spec_path: str | Path, project_root: str | Path, *,
+    dist_path: str | Path = "dist", work_path: str | Path = "build/pyinstaller",
+    clean: bool = False, timeout: int = 1800,
+) -> dict[str, Any]:
+    """Application-service boundary for an explicit native PyInstaller build."""
+    from app_forge.packaging import build_pyinstaller, pyinstaller_config_from_manifest
+
+    config = pyinstaller_config_from_manifest(manifest)
+    return build_pyinstaller(
+        spec_path, project_root, dist_path=dist_path, work_path=work_path,
+        clean=clean, timeout=timeout, platforms=config.platforms,
+    )
