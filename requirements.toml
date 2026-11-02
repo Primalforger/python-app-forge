@@ -1114,3 +1114,15 @@ acceptance = "Configuration rejects unsafe project names, unsupported or duplica
 modules = ["app_forge.cicd"]
 verified_by = ["tests/test_cicd.py"]
 implemented = true
+
+[[requirement]]
+id = "C-42"
+title = "Manifest-driven pre-commit and import-linter configuration"
+description = "Render deterministic pre-commit and import-linter configuration from validated optional quality settings in a project/template manifest."
+priority = "P1"
+source = "docs/TODO.md C-42"
+method = "test"
+acceptance = "Manifest parsing validates tool switches, contract shape, unique names and safe dotted module paths; pre-commit hooks are pinned and import-linter forbidden contracts are valid TOML scoped to the configured root package; disabled tools are omitted; rendering is deterministic and has no filesystem or network side effects."
+modules = ["app_forge.quality"]
+verified_by = ["tests/test_quality.py"]
+implemented = true
