@@ -157,8 +157,8 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-07 Schema-driven settings dialog** (M, lib, desktop): optional PySide6 dialog builds accessible text, integer, float, boolean and choice controls from validated field mappings; required fields and numeric bounds are enforced before acceptance. Verified by real-Qt tests.
 - [x] **C-08 Undo/redo stack** (S, lib, desktop): framework-independent command history with execute/undo/redo, redo-branch invalidation, bounded history and failure-safe stack transitions. Verified by `tests/test_undo.py`.
 - [x] **C-09 Recent files and session state** (S, lib, desktop): bounded newest-first recent-file tracking with deduplication/removal and optional existence filtering; atomic JSON session-state persistence with finite-JSON validation and a configurable size limit. Verified by `tests/test_session.py`.
-- [ ] **C-10 CLI output formatters** (S, lib): table, JSON, YAML, with colour control.
-- [ ] **C-11 CLI progress and prompts** (S, lib)
+- [x] **C-10 CLI output formatters** (S, lib): table, JSON, YAML, with colour control.
+- [x] **C-11 CLI progress and prompts** (S, lib)
 - [x] **C-12 Retry and circuit-breaker library** (S, lib): bounded exponential backoff with jitter and retry predicates; thread-safe closed/open/half-open breaker with a single recovery probe and manual reset. Verified by `tests/test_retry.py`.
 - [x] **C-13 Feature flags** (S, lib): thread-safe in-process boolean registry with validated names, immutable registered defaults, explicit runtime overrides, override clearing and defensive snapshots; unknown flags fail closed. Verified by `tests/test_feature_flags.py`.
 - [x] **C-14 SQLite job queue** (M, lib, service): persistent JSON-only jobs with atomic multi-worker claims, expiring leases, bounded attempts, retry scheduling, dead-letter inspection and explicit redrive. Verified by `tests/test_job_queue.py`.
