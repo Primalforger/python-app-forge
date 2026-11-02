@@ -18,6 +18,8 @@ from pathlib import Path
 from app_forge.security import redact
 
 
+_SECRET_ASSIGNMENT = re.compile(r"(?i)\\b(?:password|passwd|secret|token|api[_-]?key|authorization)\\b\\s*[:=]\\s*\\S*")
+
 _SENSITIVE = re.compile(
     r"(?i)(bearer\s+)[A-Za-z0-9._~+/-]+=*|"
     r"((?:https?://)[^:/\s]+:)[^@/\s]+@|"
@@ -27,6 +29,8 @@ _SENSITIVE = re.compile(
 
 def _clean(value: str, home: Path) -> str:
     value = redact(value)
+    # Tracebacks include source lines; remove credential labels even when no value follows.
+    value = _SECRET_ASSIGNMENT.sub("[REDACTED]", value)
     value = _SENSITIVE.sub(lambda m: (m.group(1) or "") + "[REDACTED]", value)
     value = value.replace(str(home), "~")
     return value[:32_000]
