@@ -98,9 +98,8 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   *Done when:* apply and verify run in worker threads with progress and a working Cancel (tested under real Qt).
 
 - [x] **G-16 Extension process isolation** (L)
-  Untrusted extensions are only refused, never isolated.
-  *Done when:* an extension runs in a separate process over a narrow IPC contract with filesystem and network restrictions,
-  and a test proves it cannot read outside its allowed paths.
+  Linux extension invocation requires bubblewrap with isolated user/PID/IPC/UTS/network namespaces, no host-home mount, read-only runtime/package mounts, and writable caller-allowlisted directories. Unsupported platforms and missing sandbox support fail closed; trust approval remains required.
+  *Verified by:* `tests/test_extension_isolation.py` checks the sandbox profile, fail-closed behavior, allowlist validation, and (where runner kernel support permits) denial of sibling-file access.
 
 - [x] **G-17 Signatures and attestation** (M)
   Provenance is a SHA-256 digest only.
