@@ -115,8 +115,7 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   Untested: case-insensitive filesystems, CRLF files, long paths, path separators in manifests.
   *Done when:* the CI matrix covers these cases with dedicated tests.
 
-- [ ] **G-20 OWASP ASVS checks for the web template** (M)
-  Referenced in the spec, not implemented.
+- [x] **G-20 OWASP ASVS checks for the web template** (M): generated web projects include an ASVS 5.0.0 verification map, focused API/security tests and explicit deployment-owned gaps.
   *Done when:* the web template has a mapped ASVS checklist with automated checks and documented gaps.
 
 - [x] **G-21 Performance baselines** (M)

@@ -23,4 +23,4 @@ The sample item list/read routes require a valid bearer token. Creating items ad
 - Register checks during startup with `register_readiness_check("database", check_callable)`.
 - Errors use RFC 9457 `application/problem+json` responses and do not expose unexpected exception text.
 
-The in-memory item store is demonstration code, not durable or multi-worker storage. Review the repository ASVS mapping and deployment threat model before production use.
+The in-memory item store is demonstration code, not durable or multi-worker storage. Review [ASVS.md](ASVS.md) and the deployment threat model before production use. The mapping distinguishes automated starter checks from controls that require deployment evidence or manual review.

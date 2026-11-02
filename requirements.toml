@@ -457,14 +457,14 @@ implemented = true
 
 [[requirement]]
 id = "G-20"
-title = "OWASP ASVS baseline for the web template"
-description = "The built-in FastAPI web template has a documented ASVS 4.0.3 control mapping, secure defaults, automated regression checks, and explicit production gaps."
+title = "OWASP ASVS verification map for the web template"
+description = "Generated FastAPI web projects include a versioned ASVS 5.0.0 verification map, executable checks for implemented controls, secure defaults and explicit deployment-owned gaps."
 priority = "P1"
 source = "docs/TODO.md"
 method = "test"
-acceptance = "The ASVS mapping and deployment checklist are present; web template security regression tests pass."
-modules = ["app_forge.data.templates.web"]
-verified_by = ["tests/test_web_template_asvs.py"]
+acceptance = "Generated projects include an ASVS 5.0.0 mapping for authentication, session management, access control, validation, data protection, API security and configuration; generated security tests cover implemented controls when web dependencies are installed; deployment-owned controls are explicitly identified and no full ASVS conformance is claimed."
+modules = ["app_forge.templates.engine"]
+verified_by = ["tests/test_web_asvs.py"]
 implemented = true
 
 [[requirement]]
