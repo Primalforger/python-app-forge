@@ -73,7 +73,7 @@ def render_dockerfile(config: DeploymentConfig) -> str:
 def render_systemd_unit(config: DeploymentConfig) -> str:
     env = "".join(f"Environment={_quote(k + '=' + v)}\n" for k, v in config.environment)
     return ("[Unit]\n"
-            f"Description={config.description}\nWants=network-online.target\nAfter=network-online.target\n\n"
+            f"Description={config.description.replace(chr(37), chr(37) * 2)}\nWants=network-online.target\nAfter=network-online.target\n\n"
             "[Service]\nType=simple\n"
             f"WorkingDirectory={_quote(config.working_directory)}\n"
             "ExecStart=" + " ".join(_quote(x) for x in _argv(config)) + "\n"
