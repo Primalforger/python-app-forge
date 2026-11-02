@@ -106,7 +106,7 @@ def _emit(args, result) -> None:
         _emit_conflict_report(result)
     else:
         payload = {"ok": True, "result": result} if output == "json" else result
-        print(format_output(payload, output, color=color)
+        print(format_output(payload, output, color=color))
 
 
 def _specs(items: list[str]) -> dict[str, str]:
