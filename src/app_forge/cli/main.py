@@ -100,13 +100,16 @@ def _emit(args, result) -> None:
     output = "json" if getattr(args, "json", False) else getattr(args, "output", "text")
     color_mode = getattr(args, "color", "auto")
     color = color_mode == "always" or (color_mode == "auto" and sys.stdout.isatty())
-    if isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
+    if output == "json":
+        print(format_output({"ok": True, "result": result}, output, color=color))
+    elif output in {"yaml", "table"}:
+        print(format_output(result, output, color=color))
+    elif isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
         _emit_template_update_preview(result)
     elif isinstance(result, dict) and result.get("kind") == "conflict-report":
         _emit_conflict_report(result)
     else:
-        payload = {"ok": True, "result": result} if output == "json" else result
-        print(format_output(payload, output, color=color))
+        print(format_output(result, output, color=color))
 
 
 def _specs(items: list[str]) -> dict[str, str]:
