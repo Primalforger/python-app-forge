@@ -23,7 +23,6 @@ from app_forge.domain.errors import ForgeError, OperationCancelled
 from app_forge.observability import CrashReporter
 from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
-from app_forge.session import RecentFilesStore, SessionStateStore
 from app_forge.settings import ForgeSettings
 
 NAV = ["Dashboard", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
@@ -138,10 +137,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.s = services
         self.crash_reporter = CrashReporter(services.settings.home / "crashes")
-        self.session_store = SessionStateStore(services.settings.home / "gui-session.json")
-        self.recent_projects = RecentFilesStore(services.settings.home / "recent-projects.json", max_items=10)
         try:
-            self._saved_session = self.session_store.load()
+            self._saved_session = services.load_desktop_session()
         except ValueError as exc:
             self._saved_session = {}
             self._record_crash(exc, "Loading desktop session")
@@ -207,7 +204,7 @@ class MainWindow(QMainWindow):
     def _refresh_recent_projects_menu(self) -> None:
         self._recent_projects_menu.clear()
         try:
-            projects = self.recent_projects.list(existing_only=True)
+            projects = self.s.list_recent_projects(existing_only=True)
         except ValueError as exc:
             projects = []
             self._record_crash(exc, "Loading recent projects")
@@ -226,7 +223,7 @@ class MainWindow(QMainWindow):
         if not path.strip() or not candidate.is_dir():
             return
         try:
-            self.recent_projects.add(candidate)
+            self.s.add_recent_project(candidate)
             self._refresh_recent_projects_menu()
         except (OSError, ValueError) as exc:
             self._record_crash(exc, "Saving recent project")
@@ -239,7 +236,7 @@ class MainWindow(QMainWindow):
 
     def _clear_recent_projects(self) -> None:
         try:
-            self.recent_projects.clear()
+            self.s.clear_recent_projects()
         except OSError as exc:
             self._record_crash(exc, "Clearing recent projects")
         self._refresh_recent_projects_menu()
@@ -252,7 +249,7 @@ class MainWindow(QMainWindow):
             "maximized": self.isMaximized(),
         }
         try:
-            self.session_store.save(state)
+            self.s.save_desktop_session(state)
         except (OSError, ValueError) as exc:
             self._record_crash(exc, "Saving desktop session")
 
