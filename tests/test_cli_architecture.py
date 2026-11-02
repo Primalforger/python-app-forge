@@ -110,10 +110,10 @@ class CliTests(ForgeTestCase):
     def test_pyinstaller_spec_command(self):
         project = self.tmp / "desktop"
         (project / "src").mkdir(parents=True)
-        (project / "src" / "main.py").write_text("print('hello')\\n", encoding="utf-8")
+        (project / "src" / "main.py").write_text("print('hello')\n", encoding="utf-8")
         manifest = project / "project.toml"
         manifest.write_text(
-            '[packaging.pyinstaller]\\nname = "DesktopApp"\\nentry_point = "src/main.py"\\n',
+            '[packaging.pyinstaller]\nname = "DesktopApp"\nentry_point = "src/main.py"\n',
             encoding="utf-8",
         )
         code, out, _ = self.run_cli(
