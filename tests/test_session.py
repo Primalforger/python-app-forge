@@ -55,7 +55,7 @@ class RecentProjectsTests(unittest.TestCase):
         self.store = RecentProjectsStore(self.root / "projects.json", max_items=2)
 
     def test_newest_first_deduplicated_and_directory_filtered(self):
-        a, b, missing = (self.root / name for name in ("a", "b", "missing"))
+        a, b = (self.root / name for name in ("a", "b"))
         a.mkdir()
         b.mkdir()
         self.store.add(a)
