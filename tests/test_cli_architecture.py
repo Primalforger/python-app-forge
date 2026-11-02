@@ -107,6 +107,28 @@ class CliTests(ForgeTestCase):
         self.assertIn("forge.advanced-table", out)
         self.assertIn("id", out)
 
+    def test_pyinstaller_spec_command(self):
+        project = self.tmp / "desktop"
+        (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("print('hello')\\n", encoding="utf-8")
+        manifest = project / "project.toml"
+        manifest.write_text(
+            '[packaging.pyinstaller]\\nname = "DesktopApp"\\nentry_point = "src/main.py"\\n',
+            encoding="utf-8",
+        )
+        code, out, _ = self.run_cli(
+            "--json", "package", "spec", str(manifest), "--project", str(project),
+            "--out", "packaging/desktop.spec",
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["result"]["name"], "DesktopApp")
+        self.assertTrue((project / "packaging" / "desktop.spec").is_file())
+        code, _, _ = self.run_cli(
+            "package", "spec", str(manifest), "--project", str(project),
+            "--out", "packaging/desktop.spec",
+        )
+        self.assertNotEqual(code, 0)
+
     def test_shell_completion_scripts(self):
         for shell, expected in (("bash", "complete -F"), ("zsh", "compdef"), ("fish", "complete -c")):
             code, out, _ = self.run_cli("completion", shell)
