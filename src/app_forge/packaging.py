@@ -173,21 +173,21 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
     common = (
         "# -*- mode: python ; coding: utf-8 -*-\n"
         "from PyInstaller.utils.hooks import collect_submodules\n\n"
-        "a = Analysis(\n"
+        f"hiddenimports = {hidden}\n"
+        + ("\n".join(collect_lines) + "\n" if collect_lines else "")
+        + "a = Analysis(\n"
         f"    [{_py(str(entry))}],\n"
         f"    pathex=[{_py(str(root))}],\n"
         "    binaries=[],\n"
         f"    datas={datas},\n"
-        f"    hiddenimports={hidden},\n"
+        "    hiddenimports=hiddenimports,\n"
         "    hookspath=[],\n"
         "    hooksconfig={},\n"
         "    runtime_hooks=[],\n"
         f"    excludes={excludes},\n"
         "    noarchive=False,\n"
         ")\n"
-        "hiddenimports = list(a.hiddenimports)\n"
-        + ("\n".join(collect_lines) + "\n" if collect_lines else "")
-        + "pyz = PYZ(a.pure)\n"
+        "pyz = PYZ(a.pure)\n"
     )
     icon_arg = f", icon={_py(icon_value)}" if icon_value else ""
     if config.onefile:
@@ -234,6 +234,7 @@ def build_pyinstaller(
     work_path: str | Path = "build/pyinstaller",
     clean: bool = False,
     timeout: int = 1800,
+    platforms: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Run the installed PyInstaller against a project-local spec without a shell."""
     root = Path(project_root).resolve()
@@ -249,6 +250,12 @@ def build_pyinstaller(
         raise ValueError("spec_path must name an existing .spec file inside the project")
     if not isinstance(clean, bool):
         raise ValueError("clean must be a boolean")
+    if platforms is not None:
+        if not platforms or any(item not in _PLATFORMS for item in platforms):
+            raise ValueError("platforms must be a non-empty subset of linux, macos and windows")
+        current = "windows" if sys.platform == "win32" else "macos" if sys.platform == "darwin" else "linux"
+        if current not in platforms:
+            raise ValueError(f"manifest does not declare support for the current platform: {current}")
     command = [sys.executable, "-m", "PyInstaller", str(spec), "--noconfirm",
                "--distpath", str(dist), "--workpath", str(work)]
     if clean:
