@@ -199,7 +199,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-40 Dockerfile, systemd and Windows-service generators** (M)
 - [x] **C-41 CI/CD pipeline generator** (M)
 - [x] **C-42 Pre-commit and import-linter config from manifests** (M): validated optional quality tables render pinned pre-commit hygiene/Ruff hooks and explicit import-linter forbidden contracts as deterministic files; generation is side-effect free and rejects unsafe module names.
-- [ ] **C-43 PyInstaller packaging** (L, desktop): per-OS verification needs G-06/G-19.
+- [x] **C-43 PyInstaller packaging** (L, desktop): validated `[packaging.pyinstaller]` manifests generate deterministic, reviewable spec files; project-relative entry points, icons and data assets are checked for traversal and symlink escapes; explicit native builds use the current interpreter without a shell, enforce declared target OS support, and are available through an optional PyInstaller extra. Verified by `tests/test_packaging.py` and CLI coverage. Native release artifacts still require build-and-launch evidence on each supported OS (G-06/G-19).
 - [ ] **C-44 Small workflow engine** (L, automation)
 
 ---
