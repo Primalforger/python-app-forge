@@ -248,7 +248,10 @@ class MainWindow(QMainWindow):
         worker.failed.connect(self._background_failed_event)
         worker.cancelled.connect(self._background_cancelled_event)
         worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
+        # Let the worker finish its slot before scheduling QObject destruction.
+        # Deleting it from its own finished signal can race native Qt teardown
+        # on Windows; the thread's finished signal is the canonical cleanup hook.
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._background_finished)
         self._background_thread = thread
