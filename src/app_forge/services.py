@@ -44,8 +44,8 @@ from app_forge.persistence import SqliteStore
 from app_forge.projectmeta import components_text, forge_toml_text, read_components, read_forge_toml
 from app_forge.resolver import resolve
 from app_forge.security import safe_join, sha256_bytes, sha256_text
-from app_forge.settings import ForgeSettings
 from app_forge.session import RecentProjectsStore, SessionStateStore
+from app_forge.settings import ForgeSettings
 from app_forge.templates.baseline import BASELINE_PATH, create_baseline
 from app_forge.templates.engine import (TEMPLATES_ROOT, TemplateEngine, add_dependencies,
                                         package_name_problems)
