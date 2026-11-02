@@ -75,6 +75,8 @@ def quality_config_from_manifest(manifest: Mapping[str, Any]) -> QualityConfig:
         name = item.get("name")
         source = item.get("source_modules")
         forbidden = item.get("forbidden_modules")
+        if not isinstance(name, str):
+            raise ValueError(f"quality.contracts[{index}].name must be a string")
         if not isinstance(source, list) or not isinstance(forbidden, list):
             raise ValueError(f"quality.contracts[{index}] requires source_modules and forbidden_modules arrays")
         contracts.append(ForbiddenImportContract(name, tuple(source), tuple(forbidden)))
