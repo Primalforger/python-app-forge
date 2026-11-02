@@ -66,6 +66,36 @@ class RealQtTests(ForgeTestCase):
         palette.query.setText("no matching command")
         self.assertEqual(palette.results.count(), 0)
 
+    def test_desktop_session_restores_theme_and_active_screen(self):
+        self.win.set_theme("dark")
+        print("QTDIAG: before navigation", flush=True)
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Integration Workbench"))
+        print("QTDIAG: after navigation", flush=True)
+        self.win.close()
+        saved = self.s.load_desktop_session()
+        self.assertEqual(saved["theme"], "dark")
+        self.assertEqual(saved["screen"], self.gui.NAV.index("Integration Workbench"))
+        self.assertIn("geometry", saved)
+        restored = self.gui.MainWindow(self.services())
+        self.addCleanup(restored.close)
+        self.assertEqual(restored.theme, "dark")
+        self.assertEqual(restored.nav.currentRow(), self.gui.NAV.index("Integration Workbench"))
+
+    def test_recent_projects_menu_remembers_opens_and_clears(self):
+        project = self.tmp / "recent-project"
+        project.mkdir()
+        expected = str(project.resolve())
+        self.win._remember_project(str(project))
+        self.assertEqual(self.win.s.list_recent_projects(existing_only=True), [expected])
+        actions = self.win._recent_projects_menu.actions()
+        recent_action = next(action for action in actions if action.text() == expected)
+        recent_action.trigger()
+        self.assertEqual(self.win.w_path.text(), expected)
+        self.assertEqual(self.win.q_path.text(), expected)
+        self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Integration Workbench"))
+        self.win._clear_recent_projects()
+        self.assertEqual(self.win.s.list_recent_projects(), [])
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
@@ -149,13 +179,17 @@ class RealQtTests(ForgeTestCase):
         self.assertIn('"overall": "cancelled"', self.win.q_out.toPlainText())
 
     def test_integration_workbench_end_to_end(self):
+        print("QTDIAG: test entered", flush=True)
         proj = self.make_project(self.s, "cli", "Qt Flow")
+        print("QTDIAG: project created", flush=True)
         self.win.nav.setCurrentRow(self.gui.NAV.index("Integration Workbench"))
         self.win.w_path.setText(str(proj))
         self.win.analyze()
+        print("QTDIAG: analyzed", flush=True)
         self.assertIn('"level": 1', self.win.w_out.toPlainText())
         self.win.w_comp.setText("forge.forms-validation")
         self.win.make_plan()
+        print("QTDIAG: plan created", flush=True)
         self.assertTrue(self.win.w_apply.isEnabled())
         # This GUI test exercises the workbench's apply/recovery lifecycle. Keep
         # project test execution out of this UI test: VerificationEngine has its
@@ -166,11 +200,17 @@ class RealQtTests(ForgeTestCase):
             "failed": 0, "not_run": [], "complete": True, "evidence": [],
         }
         with mock.patch.object(self.s.integration._verifier, "run", return_value=verification):
+            print("QTDIAG: before apply", flush=True)
             self.win.apply()
+            print("QTDIAG: apply returned", flush=True)
             self._wait_for_background()
+            print("QTDIAG: worker finished", flush=True)
         self.assertTrue((proj / "src/qt_flow/forms.py").is_file())
+        print("QTDIAG: file exists", flush=True)
         self.assertTrue(self.win.w_recover.isEnabled())
+        print("QTDIAG: before recover", flush=True)
         self.win.recover()
+        print("QTDIAG: recover returned", flush=True)
         self.assertFalse((proj / "src/qt_flow/forms.py").exists())
         self.assertEqual(self.errors, [])
 

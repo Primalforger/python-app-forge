@@ -212,3 +212,8 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 
 Track progress by turning each item into a `[[requirement]]` in `requirements.toml` with `verified_by` tests, so status comes from
 evidence, not from ticking this list.
+
+
+### Desktop integration follow-up
+
+- [x] **C-45 Desktop session continuity** (M, desktop): connect the recent-project and session-state stores to the actual Qt shell. Restore the last screen, theme, window geometry and maximized state; save on close; add a bounded Recent Projects menu that selects a project in the workbench and verification screens. Invalid state fails soft and is recorded locally. Verified by real-Qt tests; see `docs/desktop-session.md`.

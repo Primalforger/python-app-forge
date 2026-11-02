@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app_forge.session import RecentFilesStore, SessionStateStore
+from app_forge.session import RecentFilesStore, RecentProjectsStore, SessionStateStore
 
 
 class RecentFilesTests(unittest.TestCase):
@@ -45,6 +45,38 @@ class RecentFilesTests(unittest.TestCase):
         self.store.path.write_text('{"schema":1,"files":[3]}', encoding="utf-8")
         with self.assertRaises(ValueError):
             self.store.list()
+
+
+class RecentProjectsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.store = RecentProjectsStore(self.root / "projects.json", max_items=2)
+
+    def test_newest_first_deduplicated_and_directory_filtered(self):
+        a, b = (self.root / name for name in ("a", "b"))
+        a.mkdir()
+        b.mkdir()
+        self.store.add(a)
+        self.store.add(b)
+        self.store.add(a)
+        self.assertEqual(self.store.list(), [str(a.resolve()), str(b.resolve())])
+        self.assertEqual(self.store.list(existing_only=True), [str(a.resolve()), str(b.resolve())])
+        a.rmdir()
+        self.assertEqual(self.store.list(), [str(a.resolve()), str(b.resolve())])
+        self.assertEqual(self.store.list(existing_only=True), [str(b.resolve())])
+
+    def test_rejects_non_directory_and_clear(self):
+        file_path = self.root / "project.txt"
+        file_path.write_text("not a project directory", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            self.store.add(file_path)
+        project = self.root / "project"
+        project.mkdir()
+        self.store.add(project)
+        self.store.clear()
+        self.assertEqual(self.store.list(), [])
 
 
 class SessionStateTests(unittest.TestCase):
