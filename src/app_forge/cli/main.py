@@ -642,7 +642,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp = grp("gc", c_gc, "preview or remove expired Forge data")
     sp.add_argument("--apply", action="store_true", help="perform deletion (default is a safe dry run)")
 
-    sp = acts(grp("package", c_package, "generate and build PyInstaller desktop applications"), ["spec", "build"])\n    sp.add_argument("manifest", help="TOML manifest with [packaging.pyinstaller]")\n    sp.add_argument("--project", default=".", help="project root (default: current directory)")\n    sp.add_argument("--out", default="forge.spec", help="spec: output path relative to project root")\n    sp.add_argument("--spec", default="forge.spec", help="build: existing spec path relative to project root")\n    sp.add_argument("--distpath", default="dist")\n    sp.add_argument("--workpath", default="build/pyinstaller")\n    sp.add_argument("--timeout", type=int, default=1800)\n    sp.add_argument("--clean", action="store_true")\n\n    sp = acts(grp("audit", c_audit, "append and verify hash-chained audit events"), ["append", "verify"])
+    sp = acts(grp("package", c_package, "generate and build PyInstaller desktop applications"), ["spec", "build"])
+    sp.add_argument("manifest", help="TOML manifest with [packaging.pyinstaller]")
+    sp.add_argument("--project", default=".", help="project root (default: current directory)")
+    sp.add_argument("--out", default="forge.spec", help="spec: output path relative to project root")
+    sp.add_argument("--spec", default="forge.spec", help="build: existing spec path relative to project root")
+    sp.add_argument("--distpath", default="dist")
+    sp.add_argument("--workpath", default="build/pyinstaller")
+    sp.add_argument("--timeout", type=int, default=1800)
+    sp.add_argument("--clean", action="store_true")
+
+    sp = acts(grp("audit", c_audit, "append and verify hash-chained audit events"), ["append", "verify"])
     sp.add_argument("path", help="JSONL audit log path")
     sp.add_argument("--actor", help="append: actor identity")
     sp.add_argument("--event", help="append: event as a JSON object")
