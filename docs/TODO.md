@@ -198,7 +198,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-39 Crash reporter** (M, desktop): unexpected desktop exceptions are written to bounded local JSON reports with secret redaction, no local-variable capture, owner-private POSIX permissions, retention pruning and no network activity.
 - [x] **C-40 Dockerfile, systemd and Windows-service generators** (M)
 - [x] **C-41 CI/CD pipeline generator** (M)
-- [ ] **C-42 Pre-commit and import-linter config from manifests** (M)
+- [x] **C-42 Pre-commit and import-linter config from manifests** (M): validated optional quality tables render pinned pre-commit hygiene/Ruff hooks and explicit import-linter forbidden contracts as deterministic files; generation is side-effect free and rejects unsafe module names.
 - [ ] **C-43 PyInstaller packaging** (L, desktop): per-OS verification needs G-06/G-19.
 - [ ] **C-44 Small workflow engine** (L, automation)
 
