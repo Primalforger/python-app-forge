@@ -101,6 +101,48 @@ class RecentFilesStore:
         _atomic_json(self.path, {"schema": _SCHEMA, "files": []})
 
 
+class RecentProjectsStore:
+    """Maintain a bounded, newest-first list of recently used project directories."""
+
+    def __init__(self, path: str | Path, max_items: int = 10):
+        if isinstance(max_items, bool) or not isinstance(max_items, int) or not 1 <= max_items <= 100:
+            raise ValueError("max_items must be an integer from 1 to 100")
+        self.path = Path(path)
+        self.max_items = max_items
+
+    def list(self, *, existing_only: bool = False) -> builtins.list[str]:
+        raw = _read_json(self.path, "recent projects")
+        entries = raw.get("projects", [])
+        if not isinstance(entries, list) or any(not isinstance(item, str) or not item for item in entries):
+            raise ValueError("recent projects data is malformed")
+        seen: set[str] = set()
+        result = []
+        for item in entries:
+            normalized = _normalize_path(item)
+            key = os.path.normcase(normalized).casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            if existing_only and not Path(normalized).is_dir():
+                continue
+            result.append(normalized)
+        return result[: self.max_items]
+
+    def add(self, path: str | Path) -> builtins.list[str]:
+        normalized = _normalize_path(path)
+        if not Path(normalized).is_dir():
+            raise ValueError("project path must be an existing directory")
+        key = os.path.normcase(normalized).casefold()
+        entries = [normalized] + [item for item in self.list()
+                                  if os.path.normcase(item).casefold() != key]
+        entries = entries[: self.max_items]
+        _atomic_json(self.path, {"schema": _SCHEMA, "projects": entries})
+        return entries.copy()
+
+    def clear(self) -> None:
+        _atomic_json(self.path, {"schema": _SCHEMA, "projects": []})
+
+
 class SessionStateStore:
     """Persist a bounded JSON object containing desktop window/session metadata."""
 
