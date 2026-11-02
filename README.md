@@ -89,7 +89,7 @@ GitHub Actions runs on pushes to `main`, pull requests targeting `main`, a night
 
 ## What is and is not done
 
-See **docs/spec-coverage.md**. Highlights of the gaps: extension **process isolation** is not an OS sandbox, signature verification is not implemented, only 6 of the spec's component families exist, and performance/portability requirements remain unverified. Real-Qt GUI tests now run as a required CI job.
+See **docs/spec-coverage.md**. Highlights of the remaining gaps: extension workers have scoped Linux bubblewrap isolation (not a complete VM), signature verification is not implemented, component packs cover 5 of the spec's 10 families, and full portability coverage remains incomplete. Performance baselines are checked in and enforced on the matching Ubuntu runner. A mandatory real-Qt GUI job runs in CI.
 Nothing in this project is a compliance or certification claim.
 
 Docs: `docs/component-authoring.md`, `docs/compliance-artifacts.md` (compliance records and SBOM), `docs/TODO.md` (open gaps and planned components), `docs/architecture.md`, `docs/adr/` (ADR-001..012), `docs/standards-applicability.md`.
