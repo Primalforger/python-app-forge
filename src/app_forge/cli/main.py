@@ -18,24 +18,14 @@ from app_forge.domain.errors import EXIT_CONFLICT, EXIT_INTERNAL, EXIT_OK, EXIT_
 from app_forge.domain.errors import ForgeError, ValidationFailure
 from app_forge.services import ForgeServices, build_pyinstaller_package, create_pyinstaller_spec
 from app_forge.settings import ForgeSettings
+from app_forge.cli.formatters import format_output, format_table, format_text
+from app_forge.cli.progress import ProgressReporter
+from app_forge.cli.prompts import confirm
 
 
 # ----------------------------------------------------------------------------- rendering
 def _fmt(value, indent=0) -> str:
-    pad = "  " * indent
-    if isinstance(value, dict):
-        out = []
-        for k, v in value.items():
-            if isinstance(v, (dict, list)) and v:
-                out.append(f"{pad}{k}:\n{_fmt(v, indent + 1)}")
-            else:
-                out.append(f"{pad}{k}: {json.dumps(v) if isinstance(v, (dict, list)) else v}")
-        return "\n".join(out)
-    if isinstance(value, list):
-        if value and all(isinstance(x, dict) for x in value):
-            return "\n".join(f"{pad}- " + _fmt(x, indent + 1).lstrip() for x in value)
-        return "\n".join(f"{pad}- {x}" for x in value) if value else f"{pad}(none)"
-    return f"{pad}{value}"
+    return format_text(value, indent)
 
 
 def _emit_template_update_preview(result: dict) -> None:
@@ -103,31 +93,19 @@ def _emit_conflict_report(result: dict) -> None:
 
 
 def _table(value) -> str:
-    if not isinstance(value, list) or not value or not all(isinstance(row, dict) for row in value):
-        return _fmt(value)
-    columns = list(dict.fromkeys(key for row in value for key in row))
-    cells = [[str(row.get(key, "")) for key in columns] for row in value]
-    widths = [max([len(str(key))] + [len(row[i]) for row in cells]) for i, key in enumerate(columns)]
-    line = "-+-".join("-" * width for width in widths)
-    header = " | ".join(str(key).ljust(widths[i]) for i, key in enumerate(columns))
-    body = [" | ".join(row[i].ljust(widths[i]) for i in range(len(columns))) for row in cells]
-    return "\n".join([header, line, *body])
+    return format_table(value)
 
 
 def _emit(args, result) -> None:
     output = "json" if getattr(args, "json", False) else getattr(args, "output", "text")
-    if output == "json":
-        print(json.dumps({"ok": True, "result": result}, indent=2, sort_keys=True, default=str))
-    elif output == "yaml":
-        print(yaml.safe_dump(result, sort_keys=False, allow_unicode=True, default_flow_style=False), end="")
-    elif output == "table":
-        print(_table(result))
-    elif isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
+    color_mode = getattr(args, "color", "auto")
+    color = color_mode == "always" or (color_mode == "auto" and sys.stdout.isatty())
+    if isinstance(result, dict) and result.get("kind") == "template-update" and "change_summary" in result:
         _emit_template_update_preview(result)
     elif isinstance(result, dict) and result.get("kind") == "conflict-report":
         _emit_conflict_report(result)
     else:
-        print(_fmt(result))
+        print(format_output(result, output, color=color))
 
 
 def _specs(items: list[str]) -> dict[str, str]:
@@ -139,13 +117,8 @@ def _specs(items: list[str]) -> dict[str, str]:
 
 
 def _confirm(args, message: str) -> None:
-    if getattr(args, "yes", False):
-        return
-    if sys.stdin.isatty() and not args.non_interactive:
-        if input(f"{message} [y/N] ").strip().lower() in ("y", "yes"):
-            return
-        raise ValidationFailure("Cancelled by user")
-    raise ValidationFailure(f"Confirmation required: {message}", hint="Re-run with --yes to confirm non-interactively.")
+    confirm(message, yes=getattr(args, "yes", False), non_interactive=args.non_interactive)
+
 
 
 # ----------------------------------------------------------------------------- command handlers
@@ -505,6 +478,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="deprecated alias for --output json")
     p.add_argument("--output", choices=["text", "json", "yaml", "table"], default="text", help="output format (default: text)")
     p.add_argument("--progress", choices=["auto", "always", "never"], default="auto", help="progress messages on stderr (default: auto)")
+    p.add_argument("--color", choices=["auto", "always", "never"], default="auto", help="colorize supported terminal output")
     p.add_argument("--home", help="platform data directory (default: $FORGE_HOME or ~/.app_forge)")
     p.add_argument("-v", "--verbose", action="count", default=0)
     p.add_argument("--non-interactive", action="store_true", help="never prompt; fail if confirmation is needed")
@@ -706,14 +680,11 @@ def main(argv: list[str] | None = None) -> int:
             result, code = c_completion(None, args)
             print(result, end="")
             return code
-        progress = args.progress == "always" or (args.progress == "auto" and sys.stderr.isatty())
-        if progress:
-            print("forge: running " + args.group + " " + getattr(args, "action", ""), file=sys.stderr)
+        progress = ProgressReporter(args.progress)
+        progress.start(args.group, getattr(args, "action", ""))
         services = ForgeServices(ForgeSettings.load(Path(args.home) if args.home else None), verbosity=args.verbose)
         result, code = args.fn(services, args)
-        if progress:
-            state = "completed" if code == 0 else "finished with exit code " + str(code)
-            print("forge: " + state, file=sys.stderr)
+        progress.finish(code)
         if result is not None:
             _emit(args, result)
         return code
