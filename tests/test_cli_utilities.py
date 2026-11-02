@@ -18,7 +18,7 @@ class FormatterTests(unittest.TestCase):
 
     def test_table_columns_are_union_and_deterministic(self):
         rendered = format_table([{"id": "a", "name": "Alpha"}, {"id": "b", "extra": 3}])
-        self.assertEqual(rendered.splitlines()[0], "id | name | extra")
+        self.assertEqual(rendered.splitlines()[0], "id | name  | extra")
         self.assertIn("b  |      | 3", rendered)
 
     def test_text_nested_and_empty_values(self):
