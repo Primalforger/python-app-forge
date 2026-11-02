@@ -13,6 +13,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import QMenu
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
                                QPlainTextEdit, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QListWidgetItem,
@@ -23,6 +24,7 @@ from app_forge.domain.errors import ForgeError, OperationCancelled
 from app_forge.observability import CrashReporter
 from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
+from app_forge.session import RecentFilesStore, SessionStateStore
 from app_forge.settings import ForgeSettings
 
 NAV = ["Dashboard", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
@@ -137,7 +139,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.s = services
         self.crash_reporter = CrashReporter(services.settings.home / "crashes")
-        self.theme = "light"
+        self.session_store = SessionStateStore(services.settings.home / "gui-session.json")
+        self.recent_projects = RecentFilesStore(services.settings.home / "recent-projects.json", max_items=10)
+        try:
+            self._saved_session = self.session_store.load()
+        except ValueError as exc:
+            self._saved_session = {}
+            self._record_crash(exc, "Loading desktop session")
+        saved_theme = self._saved_session.get("theme")
+        self.theme = saved_theme if saved_theme in {"light", "dark"} else "light"
         self.setWindowTitle(f"Python App Forge {__version__}")
         self.resize(1100, 700)
         root = QWidget()
@@ -166,6 +176,8 @@ class MainWindow(QMainWindow):
                       self._quality, self._extensions, self._settings, self._diagnostics):
             self.stack.addWidget(build())
         self.nav.currentRowChanged.connect(self._navigate)
+        self._recent_projects_menu = self.menuBar().addMenu("Recent Projects")
+        self._refresh_recent_projects_menu()
         self.command_palette_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
         self.command_palette_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.command_palette_shortcut.activated.connect(self.open_command_palette)
@@ -178,8 +190,72 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.nav)
         lay.addLayout(right, 1)
         self.setCentralWidget(root)
-        self.nav.setCurrentRow(0)
+        geometry = self._saved_session.get("geometry")
+        if isinstance(geometry, str) and geometry:
+            try:
+                self.restoreGeometry(bytes.fromhex(geometry))
+            except ValueError:
+                self._record_crash(ValueError("saved window geometry is invalid"), "Restoring desktop session")
+        saved_screen = self._saved_session.get("screen", 0)
+        if isinstance(saved_screen, int) and not isinstance(saved_screen, bool) and 0 <= saved_screen < len(NAV):
+            self.nav.setCurrentRow(saved_screen)
+        else:
+            self.nav.setCurrentRow(0)
         self.apply_theme()
+        if self._saved_session.get("maximized") is True:
+            self.showMaximized()
+
+    def _refresh_recent_projects_menu(self) -> None:
+        self._recent_projects_menu.clear()
+        try:
+            projects = self.recent_projects.list(existing_only=True)
+        except ValueError as exc:
+            projects = []
+            self._record_crash(exc, "Loading recent projects")
+        if not projects:
+            action = self._recent_projects_menu.addAction("No recent projects")
+            action.setEnabled(False)
+        for path in projects:
+            action = self._recent_projects_menu.addAction(path)
+            action.triggered.connect(lambda checked=False, selected=path: self._open_recent_project(selected))
+        self._recent_projects_menu.addSeparator()
+        clear = self._recent_projects_menu.addAction("Clear recent projects")
+        clear.triggered.connect(self._clear_recent_projects)
+
+    def _remember_project(self, path: str) -> None:
+        candidate = Path(path).expanduser()
+        if not path.strip() or not candidate.is_dir():
+            return
+        try:
+            self.recent_projects.add(candidate)
+            self._refresh_recent_projects_menu()
+        except (OSError, ValueError) as exc:
+            self._record_crash(exc, "Saving recent project")
+
+    def _open_recent_project(self, path: str) -> None:
+        self.w_path.setText(path)
+        self.q_path.setText(path)
+        self.nav.setCurrentRow(NAV.index("Integration Workbench"))
+        self.status.setText(f"Recent project selected: {path}")
+
+    def _clear_recent_projects(self) -> None:
+        try:
+            self.recent_projects.clear()
+        except OSError as exc:
+            self._record_crash(exc, "Clearing recent projects")
+        self._refresh_recent_projects_menu()
+
+    def _save_session(self) -> None:
+        state = {
+            "theme": self.theme,
+            "screen": self.nav.currentRow(),
+            "geometry": bytes(self.saveGeometry().toHex()).decode("ascii"),
+            "maximized": self.isMaximized(),
+        }
+        try:
+            self.session_store.save(state)
+        except (OSError, ValueError) as exc:
+            self._record_crash(exc, "Saving desktop session")
 
     def _command_palette_commands(self) -> list[tuple[str, str, Any]]:
         commands: list[tuple[str, str, Any]] = [
@@ -326,6 +402,7 @@ class MainWindow(QMainWindow):
                 thread.finished.connect(self.close)
             self.cancel_background_operation()
             return
+        self._save_session()
         event.accept()
 
     # -- UI-001 Dashboard -----------------------------------------------------------------
@@ -486,11 +563,13 @@ class MainWindow(QMainWindow):
         return w
 
     def analyze(self) -> None:
+        self._remember_project(self.w_path.text())
         r = self._run("Analyzing", lambda: self.s.analyze_project(self.w_path.text()))
         if r:
             self.w_out.setPlainText(json.dumps(r, indent=2, default=str))
 
     def make_plan(self) -> None:
+        self._remember_project(self.w_path.text())
         r = self._run("Planning", lambda: self.s.plan_add(self.w_path.text(), {self.w_comp.text().strip(): "*"}))
         if r:
             self.plan_id = r["plan_id"]
@@ -804,6 +883,7 @@ class MainWindow(QMainWindow):
 
     def verify(self) -> None:
         path = self.q_path.text()
+        self._remember_project(path)
         self._start_background(
             "Verifying",
             lambda *, cancel_token, progress: self.s.verify_project(
@@ -816,6 +896,7 @@ class MainWindow(QMainWindow):
         )
 
     def report(self) -> None:
+        self._remember_project(self.q_path.text())
         r = self._run("Building report", lambda: self.s.compliance_report(None, self.q_path.text()))
         if r:
             self.q_out.setPlainText(json.dumps({"summary": r["summary"], "gaps": r["gaps"],
