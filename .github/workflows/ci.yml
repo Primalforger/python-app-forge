@@ -44,7 +44,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes bubblewrap
 
       - name: Install project and development dependencies
-        run: uv pip install --system -e ".[dev,table-export]"
+        run: uv pip install --system -e ".[dev,table-export,packaging]"
 
       - name: Run test suite
         run: python -m pytest -q

@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -15,7 +16,7 @@ import yaml
 from app_forge import __version__
 from app_forge.domain.errors import EXIT_CONFLICT, EXIT_INTERNAL, EXIT_OK, EXIT_UNAVAILABLE, EXIT_VALIDATION, EXIT_VERIFICATION
 from app_forge.domain.errors import ForgeError, ValidationFailure
-from app_forge.services import ForgeServices
+from app_forge.services import ForgeServices, build_pyinstaller_package, create_pyinstaller_spec
 from app_forge.settings import ForgeSettings
 
 
@@ -467,8 +468,27 @@ def c_gc(s, a):
     return s.garbage_collect(apply=a.apply), 0
 
 
+
+def c_package(_services, a):
+    try:
+        manifest_path = Path(a.manifest).resolve()
+        manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+        project = Path(a.project).resolve()
+        if a.action == "spec":
+            return create_pyinstaller_spec(manifest, project, a.out), 0
+        result = build_pyinstaller_package(
+            manifest, a.spec, project, dist_path=a.distpath, work_path=a.workpath,
+            clean=a.clean, timeout=a.timeout,
+        )
+        return result, 0 if result["ok"] else EXIT_VERIFICATION
+    except (OSError, tomllib.TOMLDecodeError, ValueError) as exc:
+        raise ValidationFailure(f"Invalid packaging manifest or project: {exc}") from None
+    except RuntimeError as exc:
+        raise ValidationFailure(str(exc)) from None
+
+
 def c_completion(_services, a):
-    commands = "init template component trust catalog project integrate dependency test quality architecture trace compliance table config plugin doctor gc history audit completion"
+    commands = "init template component trust catalog project integrate dependency test quality architecture trace compliance table config plugin doctor gc history audit package completion"
     if a.shell == "bash":
         script = "_forge_completion() {\n  local cur=\"${COMP_WORDS[COMP_CWORD]}\"\n  if [[ $COMP_CWORD -eq 1 ]]; then\n    COMPREPLY=( $(compgen -W \"" + commands + "\" -- \"$cur\") )\n  elif [[ $COMP_CWORD -eq 2 ]]; then\n    case \"${COMP_WORDS[1]}\" in\n      template) COMPREPLY=( $(compgen -W 'list inspect validate export import' -- \"$cur\") ) ;;\n      component) COMPREPLY=( $(compgen -W 'search inspect add remove upgrade outdated verify enable disable new validate seal pack sign' -- \"$cur\") ) ;;\n      integrate) COMPREPLY=( $(compgen -W 'plan preview conflicts approve apply status recover' -- \"$cur\") ) ;;\n      *) ;;\n    esac\n  fi\n}\ncomplete -F _forge_completion forge\n"
     elif a.shell == "zsh":
@@ -618,6 +638,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = grp("gc", c_gc, "preview or remove expired Forge data")
     sp.add_argument("--apply", action="store_true", help="perform deletion (default is a safe dry run)")
+
+    sp = acts(grp("package", c_package, "generate and build PyInstaller desktop applications"), ["spec", "build"])
+    sp.add_argument("manifest", help="TOML manifest with [packaging.pyinstaller]")
+    sp.add_argument("--project", default=".", help="project root (default: current directory)")
+    sp.add_argument("--out", default="forge.spec", help="spec: output path relative to project root")
+    sp.add_argument("--spec", default="forge.spec", help="build: existing spec path relative to project root")
+    sp.add_argument("--distpath", default="dist")
+    sp.add_argument("--workpath", default="build/pyinstaller")
+    sp.add_argument("--timeout", type=int, default=1800)
+    sp.add_argument("--clean", action="store_true")
 
     sp = acts(grp("audit", c_audit, "append and verify hash-chained audit events"), ["append", "verify"])
     sp.add_argument("path", help="JSONL audit log path")
