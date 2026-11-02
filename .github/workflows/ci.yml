@@ -84,7 +84,14 @@ jobs:
         run: uv pip install --system -e ".[gui,dev]"
 
       - name: Run mandatory real-PySide6 GUI suite
+        if: runner.os != 'Windows'
         run: python scripts/verify_gui.py
+
+      - name: Run mandatory real-PySide6 GUI suite with bounded Windows shutdown
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 3
+        run: ./scripts/verify_gui_windows.ps1
 
   quality:
     name: Lint, types, security, and build
