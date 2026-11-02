@@ -213,8 +213,7 @@ class MainWindow(QMainWindow):
     def _record_crash(self, exc: BaseException, context: str) -> None:
         try:
             self.crash_reporter.capture_exception(exc, context=context)
-        except OSError:
-            # Crash reporting must never prevent the original error from being shown.
+        except Exception:  # noqa: BLE001 - reporting must never mask the original failure
             pass
 
     def _run(self, label: str, fn):
