@@ -22,7 +22,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"include":[{"os":"ubuntu-latest","python-version":"3.11"},{"os":"windows-latest","python-version":"3.11"},{"os":"macos-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.14"}]}' || '{"include":[{"os":"ubuntu-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"},{"os":"ubuntu-latest","python-version":"3.14"},{"os":"windows-latest","python-version":"3.11"},{"os":"windows-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.13"},{"os":"windows-latest","python-version":"3.14"},{"os":"macos-latest","python-version":"3.11"},{"os":"macos-latest","python-version":"3.12"},{"os":"macos-latest","python-version":"3.13"},{"os":"macos-latest","python-version":"3.14"}]}') }}
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"include":[{"os":"ubuntu-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.11"},{"os":"windows-latest","python-version":"3.12"},{"os":"macos-latest","python-version":"3.11"},{"os":"macos-latest","python-version":"3.12"}]}' || '{"include":[{"os":"ubuntu-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"},{"os":"ubuntu-latest","python-version":"3.14"},{"os":"windows-latest","python-version":"3.11"},{"os":"windows-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.13"},{"os":"windows-latest","python-version":"3.14"},{"os":"macos-latest","python-version":"3.11"},{"os":"macos-latest","python-version":"3.12"},{"os":"macos-latest","python-version":"3.13"},{"os":"macos-latest","python-version":"3.14"}]}') }}
 
     steps:
       - name: Check out source
@@ -50,16 +50,21 @@ jobs:
         run: python -m pytest -q
 
   real-qt:
-    name: Real Qt GUI (Python 3.11)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: Real Qt GUI (${{ matrix.os }}, Python 3.11)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Install Qt runtime libraries
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --yes libegl1 bubblewrap
