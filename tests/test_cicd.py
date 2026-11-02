@@ -17,7 +17,7 @@ def config(**kwargs):
 def test_github_actions_has_matrix_and_read_only_permissions():
     output = render_github_actions(config(python_versions=("3.11", "3.12")))
     assert 'python-version: ["3.11", "3.12"]' in output
-    assert "permissions:\\n  contents: read" in output
+    assert "permissions:\n  contents: read" in output
     assert "pull_request:" in output
     assert "actions/checkout@v4" in output
 
