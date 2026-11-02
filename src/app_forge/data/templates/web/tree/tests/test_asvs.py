@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import pytest
+
+# Generated projects can run their dependency-free smoke tests before optional
+# web extras are installed. Skip this security suite cleanly until FastAPI exists.
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from {{package}}.api import create_app
