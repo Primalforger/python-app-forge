@@ -28,7 +28,7 @@ forge package spec project.toml --project . --out packaging/forge.spec
 Build the spec on the current native operating system:
 
 ```sh
-forge package build packaging/forge.spec --project . --distpath dist --workpath build/pyinstaller
+forge package build project.toml --project . --spec packaging/forge.spec --distpath dist --workpath build/pyinstaller
 ```
 
 Install the optional extra with `pip install "python-app-forge[packaging]"`.
