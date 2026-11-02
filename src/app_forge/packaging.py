@@ -172,7 +172,7 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
     icon_value = str(_project_file(root, config.icon, "icon")) if config.icon else None
     common = (
         "# -*- mode: python ; coding: utf-8 -*-\n"
-        "from PyInstaller.utils.hooks import collect_submodules\n\n"
+        "import sys\nfrom PyInstaller.utils.hooks import collect_submodules\n\n"
         f"hiddenimports = {hidden}\n"
         + ("\n".join(collect_lines) + "\n" if collect_lines else "")
         + "a = Analysis(\n"
@@ -191,7 +191,7 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
     )
     icon_arg = f", icon={_py(icon_value)}" if icon_value else ""
     if config.onefile:
-        return common + (
+        rendered = common + (
             "exe = EXE(\n"
             "    pyz, a.scripts, a.binaries, a.datas, [],\n"
             f"    name={_py(config.name)}, debug=False, bootloader_ignore_signals=False,\n"
@@ -199,7 +199,14 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
             f"{icon_arg}\n"
             ")\n"
         )
-    return common + (
+        if config.windowed:
+            bundle_icon = f", icon={_py(icon_value)}" if icon_value else ""
+            rendered += (
+                "if sys.platform == 'darwin':\n"
+                f"    app = BUNDLE(exe, name={_py(config.name + '.app')}{bundle_icon})\n"
+            )
+        return rendered
+    rendered = common + (
         "exe = EXE(\n"
         "    pyz, a.scripts, [], exclude_binaries=True,\n"
         f"    name={_py(config.name)}, debug=False, bootloader_ignore_signals=False,\n"
@@ -209,6 +216,13 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
         "coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=True, name="
         f"{_py(config.name)})\n"
     )
+    if config.windowed:
+        bundle_icon = f", icon={_py(icon_value)}" if icon_value else ""
+        rendered += (
+            "if sys.platform == 'darwin':\n"
+            f"    app = BUNDLE(coll, name={_py(config.name + '.app')}{bundle_icon})\n"
+        )
+    return rendered
 
 
 def write_pyinstaller_spec(
