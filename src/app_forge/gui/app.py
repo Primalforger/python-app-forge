@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComb
 
 from app_forge import __version__
 from app_forge.domain.errors import ForgeError, OperationCancelled
-from app_forge.crash_reporter import CrashReporter
+from app_forge.observability import CrashReporter
 from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
 from app_forge.settings import ForgeSettings
