@@ -124,3 +124,14 @@ configurable in-code bound. Reports remain local: there is no upload, telemetry
 or network activity. Failure to write a report never replaces the original
 error shown to the user. Reports may still contain source paths and application
 details; users should review them before sharing.
+
+
+## Deployment artifact generators (C-40)
+
+The optional deployment authoring API in app_forge.deployment renders a Dockerfile,
+a hardened baseline systemd unit, and a pywin32 Windows service host with explicit
+PowerShell install/removal scripts. Inputs are validated and command arguments
+remain argument vectors rather than shell-interpolated strings. Rendering is
+deterministic and has no host, process, or network side effects. Generated
+artifacts are starting points: operators remain responsible for accounts,
+permissions, secret delivery, writable paths, logging, image pinning and testing.
