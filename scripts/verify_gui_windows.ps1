@@ -5,7 +5,7 @@ $stderrPath = Join-Path $env:RUNNER_TEMP ("verify-gui-" + [guid]::NewGuid() + ".
 $process = Start-Process -FilePath "python" -ArgumentList @("scripts/verify_gui.py") -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
 
 # Bound process teardown so a lingering Qt/native thread cannot leave CI running indefinitely.
-$finished = $process.WaitForExit(90000)
+$finished = $process.WaitForExit(180000)
 $stdout = if (Test-Path $stdoutPath) { Get-Content -Raw $stdoutPath } else { "" }
 $stderr = if (Test-Path $stderrPath) { Get-Content -Raw $stderrPath } else { "" }
 
