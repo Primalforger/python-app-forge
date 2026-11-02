@@ -45,6 +45,7 @@ from app_forge.projectmeta import components_text, forge_toml_text, read_compone
 from app_forge.resolver import resolve
 from app_forge.security import safe_join, sha256_bytes, sha256_text
 from app_forge.settings import ForgeSettings
+from app_forge.session import RecentProjectsStore, SessionStateStore
 from app_forge.templates.baseline import BASELINE_PATH, create_baseline
 from app_forge.templates.engine import (TEMPLATES_ROOT, TemplateEngine, add_dependencies,
                                         package_name_problems)
@@ -95,6 +96,8 @@ class ForgeServices:
                  builtin_root: Path | None = BUILTIN_COMPONENTS):
         self.settings = settings or ForgeSettings.load()
         self.settings.ensure()
+        self.session_state = SessionStateStore(self.settings.home / "gui-session.json")
+        self.recent_projects = RecentProjectsStore(self.settings.home / "recent-projects.json", max_items=10)
         self.store = store or SqliteStore(self.settings.db_path)
         self.log = get_logger(verbosity)
         roots = ([("builtin", builtin_root)] if builtin_root else []) + [("user", self.settings.user_catalog)] + [
@@ -108,6 +111,22 @@ class ForgeServices:
                                              analyzer=self.analyzer, verifier=self.verifier,
                                              templates=self.templates)
         self.extensions = ExtensionHost(self.store)
+
+    # ------------------------------------------------------------------ desktop session
+    def load_desktop_session(self) -> dict[str, Any]:
+        return self.session_state.load()
+
+    def save_desktop_session(self, state: dict[str, Any]) -> None:
+        self.session_state.save(state)
+
+    def list_recent_projects(self, *, existing_only: bool = False) -> list[str]:
+        return self.recent_projects.list(existing_only=existing_only)
+
+    def add_recent_project(self, path: str | Path) -> list[str]:
+        return self.recent_projects.add(path)
+
+    def clear_recent_projects(self) -> None:
+        self.recent_projects.clear()
 
     # ------------------------------------------------------------------ operations
     @contextmanager
