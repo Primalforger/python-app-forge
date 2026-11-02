@@ -70,7 +70,7 @@ class RealQtTests(ForgeTestCase):
         self.win.set_theme("dark")
         self.win.nav.setCurrentRow(self.gui.NAV.index("Integration Workbench"))
         self.win.close()
-        saved = self.gui.SessionStateStore(self.home / "gui-session.json").load()
+        saved = self.s.load_desktop_session()
         self.assertEqual(saved["theme"], "dark")
         self.assertEqual(saved["screen"], self.gui.NAV.index("Integration Workbench"))
         self.assertIn("geometry", saved)
