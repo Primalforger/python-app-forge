@@ -161,7 +161,7 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
             raise ValueError("Windows builds require an .ico icon")
         if sys.platform == "darwin" and icon.suffix.lower() not in {".icns", ".png"}:
             raise ValueError("macOS builds require an .icns or .png icon")
-    datas = "[" + ", ".join(f"({_py(str(_project_file(root, src, 'data source')))}, {_py(dst)})"
+    datas = "[" + ", ".join(f"({_py(_project_file(root, src, 'data source').as_posix())}, {_py(dst)})"
                               for src, dst in config.datas) + "]"
     hidden = repr(list(config.hidden_imports))
     excludes = repr(list(config.excludes))
@@ -169,15 +169,15 @@ def render_pyinstaller_spec(manifest: Mapping[str, Any], project_root: str | Pat
         f"hiddenimports.extend(collect_submodules({_py(module)}))"
         for module in config.collect_submodules
     ]
-    icon_value = str(_project_file(root, config.icon, "icon")) if config.icon else None
+    icon_value = _project_file(root, config.icon, "icon").as_posix() if config.icon else None
     common = (
         "# -*- mode: python ; coding: utf-8 -*-\n"
         "import sys\nfrom PyInstaller.utils.hooks import collect_submodules\n\n"
         f"hiddenimports = {hidden}\n"
         + ("\n".join(collect_lines) + "\n" if collect_lines else "")
         + "a = Analysis(\n"
-        f"    [{_py(str(entry))}],\n"
-        f"    pathex=[{_py(str(root))}],\n"
+        f"    [{_py(entry.as_posix())}],\n"
+        f"    pathex=[{_py(root.as_posix())}],\n"
         "    binaries=[],\n"
         f"    datas={datas},\n"
         "    hiddenimports=hiddenimports,\n"
