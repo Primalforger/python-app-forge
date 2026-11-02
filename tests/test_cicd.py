@@ -76,7 +76,7 @@ def test_rejects_empty_or_invalid_commands(field):
     with pytest.raises(ValueError):
         config(**{field: ()})
     with pytest.raises(ValueError):
-        config(**{field: ("python", "bad\\ncommand")})
+        config(**{field: ("python", "bad\ncommand")})
 
 
 def test_rejects_non_boolean_flags():
