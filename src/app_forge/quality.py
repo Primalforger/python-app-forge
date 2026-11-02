@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -38,7 +39,7 @@ class QualityConfig:
     """Validated quality-tool settings parsed from a template/project manifest."""
 
     pre_commit: bool = True
-    import_linter: bool = True
+    import_linter: bool = False
     contracts: tuple[ForbiddenImportContract, ...] = ()
 
     def __post_init__(self) -> None:
@@ -63,7 +64,7 @@ def quality_config_from_manifest(manifest: Mapping[str, Any]) -> QualityConfig:
     if not isinstance(raw, Mapping):
         raise ValueError("quality manifest section must be a table")
     pre_commit = raw.get("pre_commit", True)
-    import_linter = raw.get("import_linter", True)
+    import_linter = raw.get("import_linter", False)
     raw_contracts = raw.get("contracts", [])
     if not isinstance(raw_contracts, list):
         raise ValueError("quality.contracts must be an array of tables")
@@ -106,30 +107,38 @@ def render_pre_commit(config: QualityConfig) -> str:
     )
 
 
-def _ini(value: str) -> str:
-    """Reject INI control characters; values are emitted as a single line."""
+def _toml_string(value: str) -> str:
+    """Encode a validated TOML string without allowing multiline injection."""
     if not isinstance(value, str) or not value or any(char in value for char in "\\r\\n\\0"):
         raise ValueError("import-linter values must be non-empty single-line strings")
-    return value
+    return json.dumps(value, ensure_ascii=True)
 
 
 def render_import_linter(package: str, config: QualityConfig) -> str:
-    """Render import-linter's native INI configuration from validated contracts."""
+    """Render import-linter's native TOML configuration from validated contracts."""
     if not config.import_linter:
         raise ValueError("import-linter generation is disabled by the manifest")
     if not isinstance(package, str) or not _PACKAGE.fullmatch(package):
         raise ValueError("package must be a valid dotted Python package name")
-    lines = ["[importlinter]", f"root_package = {_ini(package)}", "include_external_packages = False", ""]
+    lines = [
+        "[importlinter]",
+        f"root_package = {_toml_string(package)}",
+        "include_external_packages = false",
+        "",
+    ]
     for contract in config.contracts:
+        for module in (*contract.source_modules, *contract.forbidden_modules):
+            if module != package and not module.startswith(package + "."):
+                raise ValueError("contract modules must belong to the configured root package")
         lines.extend([
-            "[[contracts]]",
-            f"name = {_ini(contract.name)}",
-            "type = forbidden",
-            "source_modules = " + ", ".join(_ini(module) for module in contract.source_modules),
-            "forbidden_modules = " + ", ".join(_ini(module) for module in contract.forbidden_modules),
+            "[[importlinter.contracts]]",
+            f"name = {_toml_string(contract.name)}",
+            'type = "forbidden"',
+            "source_modules = " + json.dumps(list(contract.source_modules)),
+            "forbidden_modules = " + json.dumps(list(contract.forbidden_modules)),
             "",
         ])
-    return "\n".join(lines)
+    return "\\n".join(lines)
 
 
 def render_quality_files(manifest: Mapping[str, Any], package: str) -> dict[str, str]:
