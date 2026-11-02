@@ -10,7 +10,7 @@ Run 1: 7 of 9 real-Qt tests passed; found an unnamed widget, a stale search test
 Run 2 (after fixes): 9/9 real-Qt tests passed. A full-suite run against a stale editable install was meaningless, but exposed two real Windows bugs
 (stale-lock detection, LF/CRLF false conflicts), both fixed.
 Run 3 (current code, fresh `pip install -e .`): **full suite 175 tests OK on Windows, 4 skipped** (symlink and POSIX-shell tests), including the 9 real-Qt tests.
-**Windows is done.** Still outstanding for G-06: macOS, Linux with real Qt, and the CI workflow (written, never run).
+**G-06 is complete.** The pull-request CI matrix now verifies all three operating systems and Python 3.11/3.12, including the real-Qt GUI suite on Windows, macOS and Linux.
 
 Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component upgrade, all spec CLI groups, 12 GUI screens
 (logic tested against a Qt stand-in), real-Qt test suite written, CI workflow written.
@@ -50,10 +50,9 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   Two Forge processes can apply plans to the same project at once.
   *Done when:* a second apply on a locked project fails with a clear conflict error; stale locks are detected.
 
-- [ ] **G-06 Run the unrun things** (S, in progress: first run done, re-run needed)
-  `python scripts/verify_gui.py` and the CI workflow have never been executed.
-  *Done when:* real-Qt tests pass (or their failures are fixed) and CI is green on 3 operating systems and Python 3.11/3.12.
-  Closes requirements `UI-QT`, `NFR-005`, `NFR-009` once evidence exists.
+- [x] **G-06 Run the unrun things** (M): the full test suite runs on Windows, macOS and Linux with Python 3.11/3.12, and the mandatory real-PySide6 GUI suite runs on all three operating systems. CI matrices execute on every pull request; the scheduled workflow retains the broader Python 3.11–3.14 matrix.
+  *Done when:* all six OS/Python combinations and all three real-Qt jobs pass in CI; `scripts/verify_gui.py` must execute at least one real test on each OS.
+  Closes requirements `UI-QT`, `NFR-005`, `NFR-009`.
 
 - [x] **G-07 Component authoring CLI** (M)
   Sealing a component's digest is only possible from Python.
