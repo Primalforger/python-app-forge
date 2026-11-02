@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComb
 
 from app_forge import __version__
 from app_forge.domain.errors import ForgeError, OperationCancelled
+from app_forge.crash_reporter import CrashReporter
 from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
 from app_forge.settings import ForgeSettings
@@ -135,6 +136,7 @@ class MainWindow(QMainWindow):
     def __init__(self, services: ForgeServices):
         super().__init__()
         self.s = services
+        self.crash_reporter = CrashReporter(services.settings.home / "crashes")
         self.theme = "light"
         self.setWindowTitle(f"Python App Forge {__version__}")
         self.resize(1100, 700)
@@ -208,6 +210,13 @@ class MainWindow(QMainWindow):
          "Design System": self.show_contrast, "Architecture Explorer": self.load_architecture,
          "Extension Manager": self.load_extensions, "Diagnostics": self.run_doctor}.get(NAV[row], lambda: None)()
 
+    def _record_crash(self, exc: BaseException, context: str) -> None:
+        try:
+            self.crash_reporter.capture_exception(exc, context=context)
+        except OSError:
+            # Crash reporting must never prevent the original error from being shown.
+            pass
+
     def _run(self, label: str, fn):
         self.status.setText(f"{label}...")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
@@ -220,6 +229,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Operation failed",
                                 "\n".join([exc.message, *exc.details, exc.hint or ""]).strip())
         except Exception as exc:  # noqa: BLE001 - last-resort UI boundary
+            self._record_crash(exc, label)
             self.status.setText(f"{label}: internal error")
             QMessageBox.critical(self, "Internal error", f"{type(exc).__name__}: {exc}")
         finally:
@@ -277,6 +287,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Operation failed",
                                 "\n".join([exc.message, *exc.details, exc.hint or ""]).strip())
         else:
+            self._record_crash(exc, label)
             self.status.setText(f"{label}: internal error")
             QMessageBox.critical(self, "Internal error", f"{type(exc).__name__}: {exc}")
 
