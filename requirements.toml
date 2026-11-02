@@ -1161,6 +1161,6 @@ priority = "P1"
 source = "docs/TODO.md G-20"
 method = "test"
 acceptance = "The generated project includes an OWASP ASVS 5.0.0 mapping for authentication, session management, access control, validation, data protection, API security and configuration; generated tests exercise implemented authentication/authorization, input validation, security headers, docs defaults, host/CORS allowlists, rate limiting and weak-secret rejection; the mapping explicitly identifies deployment-owned controls and does not claim full ASVS conformance."
-modules = ["app_forge.data.templates.web"]
+modules = ["app_forge.templates.engine"]
 verified_by = ["tests/test_web_asvs.py"]
 implemented = true
