@@ -50,6 +50,9 @@ class ExtensionSandboxTests(unittest.TestCase):
                 "--", sys.executable, "-c",
                 "from pathlib import Path; import sys; "
                 "assert not Path(sys.argv[1]).exists(); "
+                "try: Path(sys.argv[1]).write_text('escape'); "
+                "except OSError: pass; "
+                "else: raise AssertionError('sandbox wrote outside allowlist'); "
                 "Path(sys.argv[2]).write_text('sandbox-write')",
                 str(secret), str(workspace / "result.txt"),
             ]
@@ -58,6 +61,53 @@ class ExtensionSandboxTests(unittest.TestCase):
                 self.skipTest("runner kernel does not permit bubblewrap network namespace setup")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((workspace / "result.txt").read_text(encoding="utf-8"), "sandbox-write")
+
+    def test_bubblewrap_denies_network_access(self):
+        if sys.platform != "linux":
+            self.skipTest("bubblewrap is Linux-specific")
+        import shutil
+        if not shutil.which("bwrap"):
+            self.skipTest("bubblewrap is not installed")
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            command = _sandbox_command(
+                sys.executable, python_prefix=Path(sys.prefix),
+                package_root=Path(__file__).resolve().parents[1] / "src",
+                allowed_paths=(workspace,),
+            )
+            command = command[:-4] + [
+                "--", sys.executable, "-c",
+                "import socket; s=socket.socket(); s.settimeout(1); "
+                "try_connect=False; "
+                "try: s.connect(('1.1.1.1', 53)); try_connect=True; "
+                "except OSError: pass; "
+                "assert not try_connect, 'sandbox unexpectedly reached the network'",
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
+            if result.returncode and ("Operation not permitted" in result.stderr
+                                      or "Permission denied" in result.stderr):
+                self.skipTest("runner kernel does not permit bubblewrap namespace setup")
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_allowlist_rejects_non_directory_and_home(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "not-a-directory"
+            file_path.write_text("x", encoding="utf-8")
+            with patch("app_forge.extensions.sys.platform", "linux"), patch(
+                "app_forge.extensions.shutil.which", return_value="/usr/bin/bwrap"
+            ):
+                with self.assertRaisesRegex(Exception, "existing directories"):
+                    _sandbox_command(
+                        sys.executable, python_prefix=Path(sys.prefix),
+                        package_root=Path(__file__).resolve().parents[1] / "src",
+                        allowed_paths=(file_path,),
+                    )
+                with self.assertRaises(SecurityBlock):
+                    _sandbox_command(
+                        sys.executable, python_prefix=Path(sys.prefix),
+                        package_root=Path(__file__).resolve().parents[1] / "src",
+                        allowed_paths=(Path.home(),),
+                    )
 
     def test_missing_bubblewrap_fails_closed(self):
         with patch("app_forge.extensions.sys.platform", "linux"), patch(
