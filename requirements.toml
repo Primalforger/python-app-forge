@@ -1191,3 +1191,16 @@ acceptance = "Linux invocation uses isolated network and process namespaces, omi
 modules = ["app_forge.extensions", "app_forge.extension_worker"]
 verified_by = ["tests/test_extension_isolation.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-45"
+title = "Desktop session continuity"
+description = "The Qt desktop shell restores safe local session metadata and offers a bounded recent-project workflow using the shared session stores."
+priority = "P1"
+source = "docs/TODO.md C-45"
+method = "test"
+acceptance = "The GUI restores a validated last screen, theme and window geometry/maximized state; persists state atomically on close after active work completes; malformed session state does not prevent startup; recent-project history is bounded, deduplicated and existing-directory filtered in the menu; selecting a recent project populates workbench and verification fields; users can clear history; no project content or secrets are persisted."
+modules = ["app_forge.gui.app", "app_forge.session"]
+verified_by = ["tests/test_session.py", "tests/test_gui_qt.py"]
+implemented = true
