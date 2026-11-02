@@ -84,7 +84,7 @@ def render_systemd_unit(config: DeploymentConfig) -> str:
             + env + "\n[Install]\nWantedBy=multi-user.target\n")
 
 def render_windows_service(config: DeploymentConfig) -> dict[str, str]:
-    command = json.dumps(list(_argv(config)))
+    command = repr(list(_argv(config)))
     name = config.service_name
     desc = config.description.replace("'", "''")
     host = f'''"""pywin32 service host for {name}."""
@@ -95,7 +95,7 @@ import win32event
 import win32service
 import win32serviceutil
 
-COMMAND = {command!r}
+COMMAND = {command}
 
 class GeneratedService(win32serviceutil.ServiceFramework):
     _svc_name_ = {name!r}
