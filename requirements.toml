@@ -1089,3 +1089,15 @@ acceptance = "Crash report tests prove redaction, private permissions, bounded r
 modules = ["app_forge.crash_reporter", "app_forge.gui"]
 verified_by = ["tests/test_crash_reporter.py", "tests/test_gui_qt.py"]
 implemented = true
+
+[[requirement]]
+id = "C-40"
+title = "Docker, systemd and Windows service generators"
+description = "Render deterministic, validated deployment artifacts for Docker, systemd and Windows services without host side effects."
+priority = "P2"
+source = "docs/TODO.md C-40"
+method = "test"
+acceptance = "Configuration validation rejects unsafe identifiers, paths, environment values and bounds; Docker output runs non-root with JSON argv; systemd output safely quotes values and enables baseline hardening; Windows output includes a pywin32 service host and explicit install/remove scripts; rendering is deterministic and performs no host or network operations."
+modules = ["app_forge.deployment"]
+verified_by = ["tests/test_deployment.py"]
+implemented = true
