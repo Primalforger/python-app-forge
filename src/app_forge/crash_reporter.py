@@ -19,9 +19,9 @@ from app_forge.security import redact
 
 
 _SENSITIVE = re.compile(
-    r"(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+=*|"
-    r"((?:https?://)[^:/\\s]+:)[^@/\\s]+@|"
-    r"([?&](?:token|key|secret|password)=)[^&\\s]+"
+    r"(?i)(bearer\s+)[A-Za-z0-9._~+/-]+=*|"
+    r"((?:https?://)[^:/\s]+:)[^@/\s]+@|"
+    r"([?&](?:token|key|secret|password)=)[^&\s]+"
 )
 
 
@@ -67,7 +67,7 @@ class CrashReporter:
                 os.fchmod(fd, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
                 json.dump(payload, stream, ensure_ascii=False, sort_keys=True, indent=2)
-                stream.write("\\n")
+                stream.write("\n")
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temp, target)
