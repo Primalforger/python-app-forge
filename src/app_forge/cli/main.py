@@ -16,8 +16,7 @@ import yaml
 from app_forge import __version__
 from app_forge.domain.errors import EXIT_CONFLICT, EXIT_INTERNAL, EXIT_OK, EXIT_UNAVAILABLE, EXIT_VALIDATION, EXIT_VERIFICATION
 from app_forge.domain.errors import ForgeError, ValidationFailure
-from app_forge.packaging import build_pyinstaller, pyinstaller_config_from_manifest, write_pyinstaller_spec
-from app_forge.services import ForgeServices
+from app_forge.services import ForgeServices, build_pyinstaller_package, create_pyinstaller_spec
 from app_forge.settings import ForgeSettings
 
 
@@ -474,14 +473,12 @@ def c_package(_services, a):
     try:
         manifest_path = Path(a.manifest).resolve()
         manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
-        config = pyinstaller_config_from_manifest(manifest)
         project = Path(a.project).resolve()
         if a.action == "spec":
-            output = write_pyinstaller_spec(manifest, project, a.out)
-            return {"spec": str(output), "name": config.name, "platforms": list(config.platforms)}, 0
-        result = build_pyinstaller(
-            a.spec, project, dist_path=a.distpath, work_path=a.workpath,
-            clean=a.clean, timeout=a.timeout, platforms=config.platforms,
+            return create_pyinstaller_spec(manifest, project, a.out), 0
+        result = build_pyinstaller_package(
+            manifest, a.spec, project, dist_path=a.distpath, work_path=a.workpath,
+            clean=a.clean, timeout=a.timeout,
         )
         return result, 0 if result["ok"] else EXIT_VERIFICATION
     except (OSError, tomllib.TOMLDecodeError, ValueError) as exc:
