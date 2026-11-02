@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import subprocess
 import sys
+from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import patch
 
@@ -132,3 +134,19 @@ def test_build_rejects_undeclared_native_platform(tmp_path):
     other = "windows" if sys.platform != "win32" else "linux"
     with pytest.raises(ValueError, match="current platform"):
         build_pyinstaller("forge.spec", root, platforms=[other])
+
+@pytest.mark.skipif(find_spec("PyInstaller") is None, reason="optional PyInstaller extra is not installed")
+def test_native_pyinstaller_build_and_launch(tmp_path):
+    root = project(tmp_path)
+    spec = write_pyinstaller_spec(manifest(name="SmokeApp"), root)
+    platform = "windows" if sys.platform == "win32" else "macos" if sys.platform == "darwin" else "linux"
+    result = build_pyinstaller(
+        spec.relative_to(root), root, dist_path="dist", work_path="build/pyinstaller",
+        timeout=600, platforms=[platform],
+    )
+    assert result["ok"], result["stderr"]
+    executable = root / "dist" / ("SmokeApp.exe" if sys.platform == "win32" else "SmokeApp")
+    assert executable.is_file()
+    launched = subprocess.run([str(executable)], capture_output=True, text=True, timeout=30, check=False)
+    assert launched.returncode == 0, launched.stderr
+    assert "hello" in launched.stdout
