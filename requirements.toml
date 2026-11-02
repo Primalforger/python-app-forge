@@ -1178,3 +1178,16 @@ acceptance = "Progress is written only to stderr and obeys auto/always/never mod
 modules = ["app_forge.cli.progress", "app_forge.cli.prompts", "app_forge.cli.main"]
 verified_by = ["tests/test_cli_utilities.py", "tests/test_cli_architecture.py"]
 implemented = true
+
+
+[[requirement]]
+id = "G-016"
+title = "OS-enforced extension isolation"
+description = "Run extension workers inside a fail-closed Linux bubblewrap boundary."
+priority = "P1"
+source = "docs/TODO.md G-16"
+method = "test"
+acceptance = "Linux invocation uses isolated network and process namespaces, omits the host home mount, exposes only explicit existing writable directories, and rejects missing bubblewrap, unsupported platforms, broad paths and invalid allowlist entries without fallback. Tests verify profile construction and sibling-file isolation where user namespaces are available."
+modules = ["app_forge.extensions", "app_forge.extension_worker"]
+verified_by = ["tests/test_extension_isolation.py"]
+implemented = true
