@@ -316,13 +316,14 @@ implemented = true
 [[requirement]]
 id = "NFR-005"
 title = "Portability"
-description = "Windows/Linux/macOS matrix.  Gap: only the development Linux environment has been exercised."
+description = "Windows/Linux/macOS portability is exercised by the pull-request test matrix and mandatory real-PySide6 GUI matrix."
 priority = "P1"
 source = "spec 2.2"
 method = "test"
-acceptance = "To be defined in the verification plan."
-verified_by = ["tests/NOT_WRITTEN_YET.py"]
-implemented = false
+acceptance = "The complete pytest suite passes on Windows, macOS and Linux with Python 3.11 and 3.12; the real-Qt GUI suite also executes and passes on all three operating systems."
+modules = ["app_forge"]
+verified_by = ["tests/test_cross_platform_paths.py", "tests/test_windows_robustness.py", "scripts/verify_gui.py"]
+implemented = true
 
 [[requirement]]
 id = "NFR-007"
@@ -339,13 +340,14 @@ implemented = true
 [[requirement]]
 id = "NFR-009"
 title = "Compatibility"
-description = "Python version matrix in CI.  Gap: CI matrix not executed here."
+description = "Python 3.11 and 3.12 compatibility is exercised on Windows, Linux and macOS in pull-request CI."
 priority = "P1"
 source = "spec 2.2"
 method = "test"
-acceptance = "To be defined in the verification plan."
-verified_by = ["tests/NOT_WRITTEN_YET.py"]
-implemented = false
+acceptance = "The complete pytest suite passes for every combination of Windows, macOS and Linux with Python 3.11 and 3.12."
+modules = ["app_forge"]
+verified_by = ["tests/test_cross_platform_paths.py", "tests/test_windows_robustness.py"]
+implemented = true
 
 [[requirement]]
 id = "UI-LOGIC"
