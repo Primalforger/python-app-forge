@@ -165,20 +165,7 @@ class RealQtTests(ForgeTestCase):
             "run_id": "run-gui-integration", "overall": "passed", "passed": 1,
             "failed": 0, "not_run": [], "complete": True, "evidence": [],
         }
-        from app_forge.services import CancellationToken
-
-        def apply_inline(_label, operation, on_success=None, on_cancel=None):
-            # This test targets the workbench's apply/recovery lifecycle. The
-            # dedicated background-operation test below covers QThread behavior.
-            # Running the service operation inline avoids coupling these checks
-            # to platform-specific Qt worker-thread teardown.
-            result = operation(cancel_token=CancellationToken(), progress=lambda _event: None)
-            if on_success:
-                on_success(result)
-            return True
-
-        with (mock.patch.object(self.s.integration._verifier, "run", return_value=verification),
-              mock.patch.object(self.win, "_start_background", side_effect=apply_inline)):
+        with mock.patch.object(self.s.integration._verifier, "run", return_value=verification):
             self.win.apply()
             self._wait_for_background()
         self.assertTrue((proj / "src/qt_flow/forms.py").is_file())
