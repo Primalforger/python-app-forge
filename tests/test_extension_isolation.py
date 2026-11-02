@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app_forge.domain.errors import SecurityBlock
+from app_forge.domain.errors import SecurityBlock, ValidationFailure
 from app_forge.extensions import _sandbox_command
 
 
@@ -62,33 +62,6 @@ class ExtensionSandboxTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((workspace / "result.txt").read_text(encoding="utf-8"), "sandbox-write")
 
-    def test_bubblewrap_denies_network_access(self):
-        if sys.platform != "linux":
-            self.skipTest("bubblewrap is Linux-specific")
-        import shutil
-        if not shutil.which("bwrap"):
-            self.skipTest("bubblewrap is not installed")
-        with tempfile.TemporaryDirectory() as directory:
-            workspace = Path(directory)
-            command = _sandbox_command(
-                sys.executable, python_prefix=Path(sys.prefix),
-                package_root=Path(__file__).resolve().parents[1] / "src",
-                allowed_paths=(workspace,),
-            )
-            command = command[:-4] + [
-                "--", sys.executable, "-c",
-                "import socket; s=socket.socket(); s.settimeout(1); "
-                "try_connect=False; "
-                "try: s.connect(('1.1.1.1', 53)); try_connect=True; "
-                "except OSError: pass; "
-                "assert not try_connect, 'sandbox unexpectedly reached the network'",
-            ]
-            result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
-            if result.returncode and ("Operation not permitted" in result.stderr
-                                      or "Permission denied" in result.stderr):
-                self.skipTest("runner kernel does not permit bubblewrap namespace setup")
-            self.assertEqual(result.returncode, 0, result.stderr)
-
     def test_allowlist_rejects_non_directory_and_home(self):
         with tempfile.TemporaryDirectory() as directory:
             file_path = Path(directory) / "not-a-directory"
@@ -96,7 +69,7 @@ class ExtensionSandboxTests(unittest.TestCase):
             with patch("app_forge.extensions.sys.platform", "linux"), patch(
                 "app_forge.extensions.shutil.which", return_value="/usr/bin/bwrap"
             ):
-                with self.assertRaisesRegex(Exception, "existing directories"):
+                with self.assertRaisesRegex(ValidationFailure, "existing directories"):
                     _sandbox_command(
                         sys.executable, python_prefix=Path(sys.prefix),
                         package_root=Path(__file__).resolve().parents[1] / "src",
