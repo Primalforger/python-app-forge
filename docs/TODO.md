@@ -200,7 +200,7 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 - [x] **C-41 CI/CD pipeline generator** (M)
 - [x] **C-42 Pre-commit and import-linter config from manifests** (M): validated optional quality tables render pinned pre-commit hygiene/Ruff hooks and explicit import-linter forbidden contracts as deterministic files; generation is side-effect free and rejects unsafe module names.
 - [x] **C-43 PyInstaller packaging** (L, desktop): validated `[packaging.pyinstaller]` manifests generate deterministic, reviewable spec files; project-relative entry points, icons and data assets are checked for traversal and symlink escapes; explicit native builds use the current interpreter without a shell, enforce declared target OS support, and are available through an optional PyInstaller extra. Verified by `tests/test_packaging.py` and CLI coverage. Native release artifacts still require build-and-launch evidence on each supported OS (G-06/G-19).
-- [ ] **C-44 Small workflow engine** (L, automation)
+- [x] **C-44 Small workflow engine** (L, automation): validated DAG definitions, stable topological execution, registered handlers, dependency outputs, bounded per-step retries, cooperative cancellation, structured lifecycle events and explicit fail-fast/skip semantics. In-process and sequential; durable worker scheduling remains in `job_queue`. Verified by `tests/test_workflow_engine.py`.
 
 ---
 

@@ -1139,3 +1139,15 @@ acceptance = "The optional packaging extra installs PyInstaller; manifest valida
 modules = ["app_forge.packaging", "app_forge.cli.main"]
 verified_by = ["tests/test_packaging.py", "tests/test_cli_architecture.py"]
 implemented = true
+
+[[requirement]]
+id = "C-044"
+title = "Small workflow engine"
+description = "Execute validated in-process workflow DAGs through explicitly registered handlers with dependency outputs, bounded retries, cooperative cancellation, lifecycle events and deterministic failure semantics."
+priority = "P1"
+source = "docs/TODO.md C-44"
+method = "test"
+acceptance = "Workflow definitions reject duplicate IDs, missing dependencies and cycles; stable topological execution exposes completed dependency outputs; unknown handlers are rejected; per-step attempts are bounded; failures stop and skip remaining steps; cancellation is cooperative; structured events and per-step results accurately report outcomes."
+modules = ["app_forge.workflow", "app_forge.cancellation"]
+verified_by = ["tests/test_workflow_engine.py"]
+implemented = true
