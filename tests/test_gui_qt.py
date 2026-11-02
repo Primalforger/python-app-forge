@@ -84,7 +84,7 @@ class RealQtTests(ForgeTestCase):
         project.mkdir()
         expected = str(project.resolve())
         self.win._remember_project(str(project))
-        self.assertEqual(self.win.recent_projects.list(existing_only=True), [expected])
+        self.assertEqual(self.win.s.list_recent_projects(existing_only=True), [expected])
         actions = self.win._recent_projects_menu.actions()
         recent_action = next(action for action in actions if action.text() == expected)
         recent_action.trigger()
@@ -92,7 +92,7 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.q_path.text(), expected)
         self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Integration Workbench"))
         self.win._clear_recent_projects()
-        self.assertEqual(self.win.recent_projects.list(), [])
+        self.assertEqual(self.win.s.list_recent_projects(), [])
 
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
