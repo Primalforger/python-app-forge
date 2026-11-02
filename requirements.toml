@@ -1101,3 +1101,16 @@ acceptance = "Configuration validation rejects unsafe identifiers, paths, enviro
 modules = ["app_forge.deployment"]
 verified_by = ["tests/test_deployment.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-41"
+title = "CI/CD pipeline generator"
+description = "Render deterministic GitHub Actions and GitLab CI verification pipelines from one validated project configuration."
+priority = "P1"
+source = "docs/TODO.md C-41"
+method = "test"
+acceptance = "Configuration rejects unsafe project names, unsupported or duplicate Python versions, malformed commands and invalid flags; both providers receive aligned Python matrices, install and test commands, optional lint/audit/build stages; GitHub permissions are read-only; rendering is deterministic, credential-free and has no filesystem or network side effects."
+modules = ["app_forge.cicd"]
+verified_by = ["tests/test_cicd.py"]
+implemented = true
