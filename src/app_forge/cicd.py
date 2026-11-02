@@ -8,13 +8,13 @@ import shlex
 from dataclasses import dataclass
 
 _PROJECT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
-_VERSION = re.compile(r"^3\\.(?:11|12|13|14)$")
+_VERSION = re.compile(r"^3\.(?:11|12|13|14)$")
 
 
 def _command(value: tuple[str, ...], field: str) -> tuple[str, ...]:
     if not isinstance(value, tuple) or not value:
         raise ValueError(f"{field} must be a non-empty tuple of arguments")
-    if any(not isinstance(part, str) or not part or any(c in part for c in "\\r\\n\\0") for part in value):
+    if any(not isinstance(part, str) or not part or any(c in part for c in "\r\n\0") for part in value):
         raise ValueError(f"{field} arguments must be non-empty single-line strings")
     return value
 
@@ -40,10 +40,10 @@ class CICDConfig:
             raise ValueError("project_name must be a safe 1-100 character identifier")
         if not isinstance(self.python_versions, tuple) or not self.python_versions:
             raise ValueError("python_versions must be a non-empty tuple")
-        if len(set(self.python_versions)) != len(self.python_versions):
-            raise ValueError("python_versions must be unique")
         if any(not isinstance(version, str) or not _VERSION.fullmatch(version) for version in self.python_versions):
             raise ValueError("python_versions must contain supported versions: 3.11 through 3.14")
+        if len(set(self.python_versions)) != len(self.python_versions):
+            raise ValueError("python_versions must be unique")
         _command(self.install_command, "install_command")
         _command(self.test_command, "test_command")
         if self.lint_command is not None:
@@ -69,7 +69,12 @@ def render_github_actions(config: CICDConfig) -> str:
         steps.extend(["      - name: Lint", f"        run: {shlex.join(config.lint_command)}"])
     steps.extend(["      - name: Test", f"        run: {shlex.join(config.test_command)}"])
     if config.security_audit:
-        steps.extend(["      - name: Audit dependencies", "        run: python -m pip_audit"])
+        steps.extend([
+            "      - name: Install dependency auditor",
+            "        run: python -m pip install pip-audit",
+            "      - name: Audit dependencies",
+            "        run: python -m pip_audit",
+        ])
     if config.build:
         steps.extend([
             "      - name: Build distributions",
@@ -110,7 +115,7 @@ def render_gitlab_ci(config: CICDConfig) -> str:
         commands.append(shlex.join(config.lint_command))
     commands.append(shlex.join(config.test_command))
     if config.security_audit:
-        commands.append("python -m pip_audit")
+        commands.extend(["python -m pip install pip-audit", "python -m pip_audit"])
     if config.build:
         commands.append("python -m pip install build && python -m build")
     script = "\n".join(f"    - { _yaml_string(command) }" for command in commands)
