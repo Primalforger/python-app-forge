@@ -47,6 +47,13 @@ def main() -> int:
     print("\nRESULT:", msg)
     sys.stdout.flush()
     sys.stderr.flush()
+    if os.name == "nt":
+        # The Windows CRT's _exit path can report a non-zero status after a
+        # successful Qt run. Exit through the Win32 process API so CI receives
+        # the exact verification verdict without running Qt teardown handlers.
+        import ctypes
+
+        ctypes.windll.kernel32.ExitProcess(code)
     os._exit(code)
 
 
