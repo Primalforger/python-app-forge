@@ -14,4 +14,4 @@ The sandbox is an OS-enforced namespace and mount boundary, not a virtual machin
 
 ## Platform support
 
-Linux with a functioning bubblewrap installation and user-namespace support is the only supported execution platform. Windows and macOS invocations fail closed until equivalent OS-enforced backends and adversarial tests are implemented. Tests verify profile flags, fail-closed behavior, and (when the runner permits user namespaces) that a sibling host file is not readable or writable from the sandbox.
+Linux with a functioning bubblewrap installation and user-namespace support is the only supported execution platform. Windows and macOS invocations fail closed until equivalent OS-enforced backends and adversarial tests are implemented. Tests verify profile flags, fail-closed behavior, and (when the runner permits user namespaces) that a sibling host file is not visible from the sandbox.
