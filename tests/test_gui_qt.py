@@ -196,6 +196,16 @@ class RealQtTests(ForgeTestCase):
         self.assertIn("order_id", self.win.td_out.toPlainText())
         self.assertTrue(self.win.td_out.toPlainText())
 
+    def test_unexpected_ui_error_is_saved_as_local_crash_report(self):
+        with mock.patch.object(self.s, "doctor", side_effect=RuntimeError("token=private-value")):
+            self.win.run_doctor()
+        reports = list((self.s.settings.home / "crashes").glob("crash-*.json"))
+        self.assertEqual(len(reports), 1)
+        report = reports[0].read_text(encoding="utf-8")
+        self.assertIn('"exception_type": "RuntimeError"', report)
+        self.assertNotIn("private-value", report)
+        self.assertIn("[REDACTED]", report)
+
     def test_validation_errors_are_shown_not_raised(self):
         self.win.t_name.setText("1 bad name")
         self.win.generate(True)
