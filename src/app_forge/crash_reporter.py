@@ -18,7 +18,7 @@ from pathlib import Path
 from app_forge.security import redact
 
 
-_SECRET_ASSIGNMENT = re.compile(r"(?i)\\b(?:password|passwd|secret|token|api[_-]?key|authorization)\\b\\s*[:=]\\s*\\S*")
+_SECRET_ASSIGNMENT = re.compile(r"(?i)\b(?:password|passwd|secret|token|api[_-]?key|authorization)\b\s*[:=]\s*\S*")
 
 _SENSITIVE = re.compile(
     r"(?i)(bearer\s+)[A-Za-z0-9._~+/-]+=*|"
