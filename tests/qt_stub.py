@@ -107,7 +107,9 @@ def install():
         m.__getattr__ = _getattr
         mods[name] = m
         sys.modules[name] = m
-    sys.modules["PySide6"].QtCore, sys.modules["PySide6"].QtGui, sys.modules["PySide6"].QtWidgets = (\n        mods["PySide6.QtCore"], mods["PySide6.QtGui"], mods["PySide6.QtWidgets"]\n    )
+    sys.modules["PySide6"].QtCore, sys.modules["PySide6"].QtGui, sys.modules["PySide6"].QtWidgets = (
+        mods["PySide6.QtCore"], mods["PySide6.QtGui"], mods["PySide6.QtWidgets"]
+    )
     sys.modules.pop("app_forge.gui.app", None)
 
 
