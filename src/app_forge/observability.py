@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from app_forge.security import redact
+from app_forge.crash_reporter import CrashReporter
 
 
 def new_operation_id() -> str:

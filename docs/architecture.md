@@ -111,3 +111,16 @@ the dashboard, running diagnostics and toggling the theme. Search matches all
 query terms against command names and keywords; Enter or activating a result
 runs the selected action. The palette is local UI only and does not add network
 activity or bypass ForgeServices.
+
+
+## Local desktop crash reports (C-39)
+
+Unexpected exceptions at the desktop shell boundary are written to
+`$FORGE_HOME/crashes` as bounded JSON reports. Reports contain the exception
+type, redacted message, traceback without captured local variables, timestamp
+and UI context. Likely credentials are redacted, the user's home path is
+shortened, files are owner-private on POSIX, and old reports are pruned to a
+configurable in-code bound. Reports remain local: there is no upload, telemetry
+or network activity. Failure to write a report never replaces the original
+error shown to the user. Reports may still contain source paths and application
+details; users should review them before sharing.
