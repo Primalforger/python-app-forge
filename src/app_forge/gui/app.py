@@ -11,9 +11,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot
+from PySide6.QtCore import QByteArray, QObject, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QMenu
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
                                QPlainTextEdit, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QListWidgetItem,
@@ -193,7 +192,7 @@ class MainWindow(QMainWindow):
         geometry = self._saved_session.get("geometry")
         if isinstance(geometry, str) and geometry:
             try:
-                self.restoreGeometry(bytes.fromhex(geometry))
+                self.restoreGeometry(QByteArray.fromHex(geometry.encode("ascii")))
             except ValueError:
                 self._record_crash(ValueError("saved window geometry is invalid"), "Restoring desktop session")
         saved_screen = self._saved_session.get("screen", 0)
@@ -909,6 +908,7 @@ class MainWindow(QMainWindow):
         v.addWidget(_title("Configuration Center"))
         dark = QCheckBox("Dark theme")
         dark.setAccessibleName("Dark theme")
+        dark.setChecked(self.theme == "dark")
         dark.toggled.connect(self.toggle_theme)
         v.addWidget(dark)
         box = QPlainTextEdit(json.dumps(self.s.show_config(), indent=2))
