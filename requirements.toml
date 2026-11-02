@@ -1153,3 +1153,28 @@ acceptance = "Workflow definitions reject duplicate IDs, missing dependencies an
 modules = ["app_forge.workflow", "app_forge.cancellation"]
 verified_by = ["tests/test_workflow_engine.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-10"
+title = "Reusable CLI output formatters"
+description = "CLI output formatting is provided by reusable, deterministic text, JSON, YAML and table formatters with explicit terminal color control."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Text, JSON, YAML and table renderers are independently callable; mappings produce stable table columns; structured output remains parseable and free of ANSI escapes; color is opt-in or TTY-aware."
+modules = ["app_forge.cli.formatters", "app_forge.cli.main"]
+verified_by = ["tests/test_cli_utilities.py", "tests/test_cli_architecture.py"]
+implemented = true
+
+[[requirement]]
+id = "C-11"
+title = "Reusable CLI progress and confirmation prompts"
+description = "CLI progress reporting and confirmation prompts are reusable, testable utilities with safe TTY and non-interactive behavior."
+priority = "P2"
+source = "docs/TODO.md"
+method = "test"
+acceptance = "Progress is written only to stderr and obeys auto/always/never modes; confirmation accepts explicit yes, prompts only on a TTY, and fails closed in non-interactive environments."
+modules = ["app_forge.cli.progress", "app_forge.cli.prompts", "app_forge.cli.main"]
+verified_by = ["tests/test_cli_utilities.py", "tests/test_cli_architecture.py"]
+implemented = true

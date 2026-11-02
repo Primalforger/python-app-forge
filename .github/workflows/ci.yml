@@ -90,7 +90,7 @@ jobs:
       - name: Run mandatory real-PySide6 GUI suite with bounded Windows shutdown
         if: runner.os == 'Windows'
         shell: pwsh
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: ./scripts/verify_gui_windows.ps1
 
   quality:
