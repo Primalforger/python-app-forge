@@ -406,10 +406,11 @@ class MainWindow(QMainWindow):
         w = QWidget()
         v = QVBoxLayout(w)
         v.addWidget(_title("Recent Forge Activity"))
-        v.addWidget(QLabel(
+        self.activity_description = QLabel(
             "This is a history of actions performed by Python App Forge—not a list of installed apps or projects. "
             "Recent activity is retained according to your operation-history setting."
-        ))
+        )
+        v.addWidget(self.activity_description)
         self.ops_summary = QLabel("Loading activity…")
         self.ops_summary.setAccessibleName("Activity summary")
         v.addWidget(self.ops_summary)
@@ -437,7 +438,7 @@ class MainWindow(QMainWindow):
             f"Showing the latest {len(rows)} operations · "
             f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
             f"{counts['cancelled']} cancelled · {counts['running']} running · "
-            f"automatic retention: {self.s.settings.operation_retention_days} days"
+            f"automatic retention: {getattr(self.s, "settings").operation_retention_days} days"
         )
 
     def clear_dashboard_history(self) -> None:
