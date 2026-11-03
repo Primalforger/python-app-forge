@@ -434,11 +434,12 @@ class MainWindow(QMainWindow):
         _fill(self.ops, [[o["operation_id"], o["kind"], o["target"], o["status"], o["started"]] for o in rows])
         counts = {status: sum(o.get("status") == status for o in rows)
                   for status in ("succeeded", "failed", "cancelled", "running")}
+        retention_days = getattr(self.s, "settings").operation_retention_days
         self.ops_summary.setText(
             f"Showing the latest {len(rows)} operations · "
             f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
             f"{counts['cancelled']} cancelled · {counts['running']} running · "
-            f"automatic retention: {getattr(self.s, "settings").operation_retention_days} days"
+            f"automatic retention: {retention_days} days"
         )
 
     def clear_dashboard_history(self) -> None:
