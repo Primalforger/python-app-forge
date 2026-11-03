@@ -739,6 +739,13 @@ class ForgeServices:
     def history(self, limit: int = 50) -> list[dict]:
         return self.store.list_operations(limit)
 
+    def history_count(self) -> int:
+        return self.store.count_operations()
+
+    def clear_history(self) -> int:
+        """Delete only operation-history rows; evidence and project artifacts are untouched."""
+        return self.store.clear_operations()
+
     def history_item(self, operation_id: str) -> dict:
         op = self.store.get_operation(operation_id)
         if not op:

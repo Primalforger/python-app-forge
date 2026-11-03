@@ -19,6 +19,8 @@ class MetadataStore(Protocol):
     def record_operation(self, op: dict) -> None: ...
     def list_operations(self, limit: int = 50) -> list[dict]: ...
     def get_operation(self, operation_id: str) -> dict | None: ...
+    def count_operations(self) -> int: ...
+    def clear_operations(self) -> int: ...
     def add_evidence(self, rows: list[dict]) -> None: ...
     def list_evidence(self, subject: str, run_id: str | None = None) -> list[dict]: ...
     def list_runs(self, subject: str, limit: int = 20) -> list[dict]: ...
@@ -95,6 +97,17 @@ class SqliteStore:
         with self._conn() as c:
             r = c.execute("SELECT * FROM operations WHERE operation_id=?", (operation_id,)).fetchone()
             return None if r is None else {**dict(r), "summary": json.loads(r["summary"] or "{}")}
+
+    def count_operations(self):
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM operations").fetchone()[0]
+
+    def clear_operations(self):
+        """Delete dashboard operation history only, preserving evidence and all other metadata."""
+        with self._conn() as c:
+            count = c.execute("SELECT COUNT(*) FROM operations").fetchone()[0]
+            c.execute("DELETE FROM operations")
+            return count
 
     def add_evidence(self, rows):
         with self._conn() as c:

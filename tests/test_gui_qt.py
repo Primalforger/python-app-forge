@@ -96,6 +96,25 @@ class RealQtTests(ForgeTestCase):
         self.win._clear_recent_projects()
         self.assertEqual(self.win.s.list_recent_projects(), [])
 
+    def test_dashboard_explains_activity_and_clears_only_operation_history(self):
+        project = self.tmp / "dashboard-preservation"
+        project.mkdir()
+        self.s.add_recent_project(project)
+        self.s.store.add_evidence([{
+            "run_id": "keep-run", "subject": str(project), "check_id": "unit",
+            "status": "passed", "detail": "preserve me", "duration_s": 0.1,
+            "recorded_at": "2026-11-03T12:00:00+00:00",
+        }])
+        with self.s.operation("dashboard_test", project):
+            pass
+        self.win.refresh_dashboard()
+        self.assertIn("not a list of installed apps", self.win.activity_description.text())
+        self.assertEqual(self.s.history_count(), 1)
+        self.assertEqual(self.s.clear_history(), 1)
+        self.assertEqual(self.s.history_count(), 0)
+        self.assertEqual(self.s.store.list_evidence(str(project))[0]["detail"], "preserve me")
+        self.assertEqual(self.s.list_recent_projects(), [str(project.resolve())])
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
