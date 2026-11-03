@@ -405,16 +405,62 @@ class MainWindow(QMainWindow):
     def _dashboard(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(_title("Dashboard"))
-        v.addWidget(QLabel("Recent operations (failures are shown with status 'failed')."))
+        v.addWidget(_title("Recent Forge Activity"))
+        v.addWidget(QLabel(
+            "This is a history of actions performed by Python App Forge—not a list of installed apps or projects. "
+            "Recent activity is retained according to your operation-history setting."
+        ))
+        self.ops_summary = QLabel("Loading activity…")
+        self.ops_summary.setAccessibleName("Activity summary")
+        v.addWidget(self.ops_summary)
         self.ops = _table(["Operation", "Kind", "Target", "Status", "Started"])
         self.ops.setAccessibleName("Recent operations table")
         v.addWidget(self.ops, 1)
+        actions = QHBoxLayout()
+        refresh = QPushButton("Refresh activity")
+        refresh.clicked.connect(self.refresh_dashboard)
+        self.clear_history_button = QPushButton("Clear activity history…")
+        self.clear_history_button.setAccessibleName("Clear activity history")
+        self.clear_history_button.clicked.connect(self.clear_dashboard_history)
+        actions.addWidget(refresh)
+        actions.addStretch(1)
+        actions.addWidget(self.clear_history_button)
+        v.addLayout(actions)
         return w
 
     def refresh_dashboard(self) -> None:
-        rows = self._run("Loading history", lambda: self.s.history(50)) or []
+        rows = self._run("Loading activity", lambda: self.s.history(50)) or []
         _fill(self.ops, [[o["operation_id"], o["kind"], o["target"], o["status"], o["started"]] for o in rows])
+        counts = {status: sum(o.get("status") == status for o in rows)
+                  for status in ("succeeded", "failed", "cancelled", "running")}
+        self.ops_summary.setText(
+            f"Showing the latest {len(rows)} operations · "
+            f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
+            f"{counts['cancelled']} cancelled · {counts['running']} running · "
+            f"automatic retention: {self.s.settings.operation_retention_days} days"
+        )
+
+    def clear_dashboard_history(self) -> None:
+        count = self._run("Counting activity history", self.s.history_count)
+        if count is None:
+            return
+        if count == 0:
+            QMessageBox.information(self, "Activity history is empty", "There are no activity records to clear.")
+            return
+        answer = QMessageBox.question(
+            self, "Clear activity history",
+            f"Permanently delete {count} Forge activity record(s)?\n\n"
+            "This only removes the dashboard operation history. Projects, plans, checkpoints, "
+            "verification evidence, and recent-project shortcuts will not be deleted.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        removed = self._run("Clearing activity history", self.s.clear_history)
+        if removed is not None:
+            self.refresh_dashboard()
+            self.status.setText(f"Activity history cleared ({removed} records)")
 
     # -- UI-002..005 Template Studio ------------------------------------------------------
     def _templates(self) -> QWidget:
