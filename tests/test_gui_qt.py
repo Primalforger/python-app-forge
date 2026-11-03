@@ -108,7 +108,7 @@ class RealQtTests(ForgeTestCase):
         with self.s.operation("dashboard_test", project):
             pass
         self.win.refresh_dashboard()
-        self.assertIn("not a list of installed apps", self.win.findChild(type(self.win.ops_summary)).text())
+        self.assertIn("not a list of installed apps", self.win.activity_description.text())
         self.assertEqual(self.s.history_count(), 1)
         self.assertEqual(self.s.clear_history(), 1)
         self.assertEqual(self.s.history_count(), 0)
