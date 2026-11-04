@@ -414,9 +414,35 @@ class MainWindow(QMainWindow):
         self.ops_summary = QLabel("Loading activity…")
         self.ops_summary.setAccessibleName("Activity summary")
         v.addWidget(self.ops_summary)
+
+        filters = QHBoxLayout()
+        self.activity_search = QLineEdit()
+        self.activity_search.setAccessibleName("Search activity")
+        self.activity_search.setPlaceholderText("Search operation, kind, target, or summary…")
+        self.activity_search.textChanged.connect(self._filter_dashboard_activity)
+        self.activity_status_filter = QComboBox()
+        self.activity_status_filter.setAccessibleName("Filter activity by status")
+        self.activity_status_filter.addItems(["All statuses", "running", "succeeded", "failed", "cancelled"])
+        self.activity_status_filter.currentTextChanged.connect(self._filter_dashboard_activity)
+        self.activity_kind_filter = QComboBox()
+        self.activity_kind_filter.setAccessibleName("Filter activity by kind")
+        self.activity_kind_filter.addItem("All kinds")
+        self.activity_kind_filter.currentTextChanged.connect(self._filter_dashboard_activity)
+        filters.addWidget(self.activity_search, 2)
+        filters.addWidget(self.activity_status_filter)
+        filters.addWidget(self.activity_kind_filter)
+        v.addLayout(filters)
+
         self.ops = _table(["Operation", "Kind", "Target", "Status", "Started"])
         self.ops.setAccessibleName("Recent operations table")
-        v.addWidget(self.ops, 1)
+        self.ops.currentCellChanged.connect(self._show_dashboard_activity_detail)
+        v.addWidget(self.ops, 2)
+        self.activity_detail = QPlainTextEdit()
+        self.activity_detail.setAccessibleName("Selected activity details")
+        self.activity_detail.setReadOnly(True)
+        self.activity_detail.setPlaceholderText("Select an activity record to inspect its details.")
+        self.activity_detail.setMaximumHeight(170)
+        v.addWidget(self.activity_detail)
         actions = QHBoxLayout()
         refresh = QPushButton("Refresh activity")
         refresh.clicked.connect(self.refresh_dashboard)
@@ -427,20 +453,65 @@ class MainWindow(QMainWindow):
         actions.addStretch(1)
         actions.addWidget(self.clear_history_button)
         v.addLayout(actions)
+        self._activity_rows: list[dict] = []
+        self._visible_activity_rows: list[dict] = []
         return w
 
     def refresh_dashboard(self) -> None:
-        rows = self._run("Loading activity", lambda: self.s.history(50)) or []
-        _fill(self.ops, [[o["operation_id"], o["kind"], o["target"], o["status"], o["started"]] for o in rows])
+        rows = self._run("Loading activity", lambda: self.s.history(200)) or []
+        self._activity_rows = list(rows)
+        kinds = sorted({str(o.get("kind", "")) for o in rows if o.get("kind")})
+        current_kind = self.activity_kind_filter.currentText()
+        self.activity_kind_filter.blockSignals(True)
+        self.activity_kind_filter.clear()
+        self.activity_kind_filter.addItem("All kinds")
+        self.activity_kind_filter.addItems(kinds)
+        self.activity_kind_filter.setCurrentText(current_kind if current_kind in kinds else "All kinds")
+        self.activity_kind_filter.blockSignals(False)
         counts = {status: sum(o.get("status") == status for o in rows)
                   for status in ("succeeded", "failed", "cancelled", "running")}
         retention_days = getattr(self.s, "settings").operation_retention_days
         self.ops_summary.setText(
-            f"Showing the latest {len(rows)} operations · "
+            f"Showing {len(rows)} recent operations · "
             f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
             f"{counts['cancelled']} cancelled · {counts['running']} running · "
             f"automatic retention: {retention_days} days"
         )
+        self._filter_dashboard_activity()
+
+    def _filter_dashboard_activity(self, *_args) -> None:
+        query = self.activity_search.text().strip().casefold()
+        status = self.activity_status_filter.currentText()
+        kind = self.activity_kind_filter.currentText()
+        visible = []
+        for operation in self._activity_rows:
+            if status != "All statuses" and operation.get("status") != status:
+                continue
+            if kind != "All kinds" and operation.get("kind") != kind:
+                continue
+            searchable = " ".join(str(operation.get(key, "")) for key in
+                                  ("operation_id", "kind", "target", "status", "started", "finished", "summary"))
+            if query and query not in searchable.casefold():
+                continue
+            visible.append(operation)
+        self._visible_activity_rows = visible
+        _fill(self.ops, [[o.get("operation_id", ""), o.get("kind", ""), o.get("target", ""),
+                          o.get("status", ""), o.get("started", "")] for o in visible])
+        self.activity_detail.clear()
+        if visible:
+            self.ops.selectRow(0)
+            self._show_dashboard_activity_detail(0, 0, -1, -1)
+        else:
+            self.activity_detail.setPlainText("No activity records match the current search and filters.")
+
+    def _show_dashboard_activity_detail(self, row: int, _column: int, _previous_row: int, _previous_column: int) -> None:
+        if row < 0 or row >= len(self._visible_activity_rows):
+            self.activity_detail.clear()
+            return
+        operation_id = str(self._visible_activity_rows[row].get("operation_id", ""))
+        operation = self._run("Loading activity details", lambda: self.s.history_item(operation_id))
+        if operation is not None:
+            self.activity_detail.setPlainText(json.dumps(operation, indent=2, sort_keys=True, default=str))
 
     def clear_dashboard_history(self) -> None:
         count = self._run("Counting activity history", self.s.history_count)
