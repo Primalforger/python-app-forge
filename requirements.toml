@@ -1204,3 +1204,16 @@ acceptance = "The GUI restores a validated last screen, theme and window geometr
 modules = ["app_forge.gui.app", "app_forge.session"]
 verified_by = ["tests/test_session.py", "tests/test_gui_qt.py"]
 implemented = true
+
+
+[[requirement]]
+id = "C-046"
+title = "Durable queue-backed workflow dispatch"
+description = "Dispatch trusted, registered workflow definitions through the persistent SQLite job queue with invocation inputs, leased claims, retries and dead-letter handling."
+priority = "P1"
+source = "docs/TODO.md C-46"
+method = "test"
+acceptance = "Workers accept only registered WorkflowDefinition identifiers and finite JSON inputs; handlers remain explicitly registered in trusted code; workflow-level inputs are exposed as immutable StepContext values; queue leases and worker ownership govern execution; successful workflows complete jobs, failed or cancelled workflows use bounded queue retry/dead-letter behavior; unexpected handler/observer exception messages are not persisted; retries restart the workflow from its first step and delivery is documented as at-least-once."
+modules = ["app_forge.workflow_worker", "app_forge.workflow", "app_forge.job_queue"]
+verified_by = ["tests/test_workflow_worker.py", "tests/test_workflow_engine.py", "tests/test_job_queue.py"]
+implemented = true
