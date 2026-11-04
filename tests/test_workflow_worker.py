@@ -94,7 +94,7 @@ class WorkflowQueueWorkerTests(unittest.TestCase):
         result = worker.run_once()
         self.assertEqual(result.job.status, "dead")
         self.assertEqual(self.queue.dead_letters()[0].id, job.id)
-        self.assertIn("ValueError", result.job.last_error)
+        self.assertEqual(result.job.last_error, "workflow failed at step build")
 
     def test_unknown_workflow_and_non_json_inputs_are_rejected_before_enqueue(self):
         worker = self.worker({"prepare": lambda _context: None, "build": lambda _context: None})
