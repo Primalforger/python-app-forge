@@ -46,7 +46,9 @@ StepContext.inputs.
 ## Delivery and recovery guarantees
 
 - Queue claims use the job queue's atomic lease and worker-ownership rules.
-  Expired leases can be reclaimed by another worker.
+  Expired leases can be reclaimed by another worker. Set lease_seconds longer
+  than the expected maximum workflow duration; this worker does not renew a
+  lease while a handler is running.
 - Successful workflows complete the queue job. Failed or cancelled workflows
   use the queue's retry policy and eventually become dead letters.
 - Delivery is **at least once**, not exactly once. If a process exits after a
