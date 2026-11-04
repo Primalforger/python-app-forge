@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -122,6 +124,31 @@ class WorkflowQueueWorkerTests(unittest.TestCase):
         self.assertEqual(result.job.status, "dead")
         self.assertNotIn("hunter2", result.job.last_error)
         self.assertEqual(self.queue.get(job.id).last_error, result.job.last_error)
+
+    def test_long_workflow_renews_lease_so_second_worker_cannot_reclaim(self):
+        started = threading.Event()
+
+        def slow_prepare(_context):
+            started.set()
+            time.sleep(0.45)
+            return "ready"
+
+        worker = WorkflowQueueWorker(
+            self.queue, {"compile": self.workflow},
+            {"prepare": slow_prepare, "build": lambda _context: "done"},
+            worker_id="worker-a", lease_seconds=0.15,
+        )
+        job = worker.enqueue("compile", max_attempts=2)
+        outcome = []
+        thread = threading.Thread(target=lambda: outcome.append(worker.run_once()))
+        thread.start()
+        self.assertTrue(started.wait(timeout=2))
+        time.sleep(0.25)
+        self.assertIsNone(self.queue.claim("worker-b", lease_seconds=1))
+        thread.join(timeout=3)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(outcome[0].job.status, "succeeded")
+        self.assertEqual(self.queue.get(job.id).attempts, 1)
 
     def test_constructor_validates_registered_workflows_and_worker_settings(self):
         with self.assertRaisesRegex(ValueError, "unregistered handlers"):

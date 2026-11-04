@@ -55,6 +55,17 @@ class JobQueueTests(unittest.TestCase):
         self.assertIsNone(self.queue.claim("worker-c", now=11))
         self.assertEqual(self.queue.get(job.id).status, "dead")
 
+    def test_lease_extension_requires_current_unexpired_ownership(self):
+        job = self.queue.enqueue({"task": "extend"}, now=10)
+        claimed = self.queue.claim("owner", lease_seconds=5, now=11)
+        extended = self.queue.extend_lease(job.id, "owner", lease_seconds=8, now=14)
+        self.assertEqual(extended.lease_until, 22)
+        with self.assertRaises(ValueError):
+            self.queue.extend_lease(job.id, "intruder", lease_seconds=5, now=15)
+        with self.assertRaises(ValueError):
+            self.queue.extend_lease(job.id, "owner", lease_seconds=5, now=22)
+        self.assertEqual(self.queue.get(job.id).worker_id, "owner")
+
     def test_only_owning_worker_can_finish_or_fail(self):
         job = self.queue.enqueue({"task": "owned"})
         self.queue.claim("owner")

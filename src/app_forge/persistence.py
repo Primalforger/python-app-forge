@@ -305,6 +305,23 @@ class JobQueue:
             claimed = connection.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone()
         return self._job(claimed)
 
+    def extend_lease(self, job_id: str, worker_id: str, *, lease_seconds: float = 60.0,
+                     now: float | None = None) -> Job:
+        """Extend an unexpired lease owned by worker_id; stale workers cannot revive it."""
+        lease = self._duration(lease_seconds, "lease_seconds")
+        timestamp = self._timestamp(now)
+        with self._transaction() as connection:
+            current = self._owned_running(connection, job_id, worker_id)
+            if current["lease_until"] <= timestamp:
+                raise ValueError("job lease has expired and cannot be extended")
+            connection.execute(
+                """UPDATE jobs SET lease_until=?, updated_at=?
+                WHERE id=? AND status='running' AND worker_id=? AND lease_until>?""",
+                (timestamp + lease, timestamp, job_id, worker_id, timestamp),
+            )
+            row = connection.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        return self._job(row)
+
     def complete(self, job_id: str, worker_id: str, *, now: float | None = None) -> Job:
         """Mark a currently leased job successful; stale workers cannot complete it."""
         timestamp = self._timestamp(now)

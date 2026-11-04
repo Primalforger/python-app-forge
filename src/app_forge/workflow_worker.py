@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+import threading
 from typing import Any
 
 from app_forge.cancellation import CancellationToken
@@ -130,6 +131,30 @@ class WorkflowQueueWorker:
             updated = self._queue.fail(job.id, self._worker_id, message, retry_delay=self._retry_delay)
             return WorkflowJobRun(updated, None, message)
 
+        heartbeat_stop = threading.Event()
+        lease_lost = threading.Event()
+        heartbeat_interval = max(0.05, self._lease_seconds / 3.0)
+
+        def renew_lease() -> None:
+            while not heartbeat_stop.wait(heartbeat_interval):
+                try:
+                    self._queue.extend_lease(
+                        job.id, self._worker_id, lease_seconds=self._lease_seconds
+                    )
+                except (KeyError, ValueError):
+                    # Never acknowledge a job after another worker has acquired it.
+                    lease_lost.set()
+                    return
+                except Exception:
+                    # A transient storage error is treated conservatively: ownership
+                    # is uncertain, so this worker must not complete or fail the job.
+                    lease_lost.set()
+                    return
+
+        heartbeat = threading.Thread(
+            target=renew_lease, name=f"forge-lease-{job.id[:12]}", daemon=True
+        )
+        heartbeat.start()
         try:
             result = self._engine.run(
                 self._workflows[workflow_id],
@@ -139,9 +164,19 @@ class WorkflowQueueWorker:
             )
         except Exception as exc:
             # Do not persist exception text from arbitrary handlers or observers.
+            heartbeat_stop.set()
+            heartbeat.join()
+            if lease_lost.is_set():
+                return WorkflowJobRun(self._queue.get(job.id), None, "workflow lease ownership lost")
             message = f"workflow execution raised {type(exc).__name__}"
             updated = self._queue.fail(job.id, self._worker_id, message, retry_delay=self._retry_delay)
             return WorkflowJobRun(updated, None, message)
+        finally:
+            heartbeat_stop.set()
+            heartbeat.join()
+
+        if lease_lost.is_set():
+            return WorkflowJobRun(self._queue.get(job.id), result, "workflow lease ownership lost")
 
         if result.succeeded:
             updated = self._queue.complete(job.id, self._worker_id)
