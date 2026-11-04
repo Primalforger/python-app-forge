@@ -101,6 +101,7 @@ class StepContext:
     workflow_id: str
     step_id: str
     inputs: Mapping[str, Any]
+    workflow_inputs: Mapping[str, Any]
     outputs: Mapping[str, Any]
     cancellation: CancellationToken
 
@@ -142,6 +143,7 @@ class WorkflowEngine:
         self._sleep = sleep
 
     def run(self, workflow: WorkflowDefinition, *,
+            workflow_inputs: Mapping[str, Any] | None = None,
             cancellation: CancellationToken | None = None,
             on_event: EventCallback | None = None) -> WorkflowResult:
         """Run steps in stable dependency order; first failure stops the workflow."""
@@ -150,9 +152,12 @@ class WorkflowEngine:
         missing = sorted({step.handler for step in workflow.steps} - self._handlers.keys())
         if missing:
             raise ValueError(f"workflow references unregistered handlers: {', '.join(missing)}")
+        if workflow_inputs is not None and not isinstance(workflow_inputs, Mapping):
+            raise TypeError("workflow_inputs must be a mapping")
         if on_event is not None and not callable(on_event):
             raise TypeError("on_event must be callable")
         token = cancellation or CancellationToken()
+        shared_inputs = MappingProxyType(dict(workflow_inputs or {}))
         outputs: dict[str, Any] = {}
         results: list[StepResult] = []
         failed = False
@@ -188,6 +193,7 @@ class WorkflowEngine:
                     workflow_id=workflow.id,
                     step_id=step.id,
                     inputs=MappingProxyType(dict(step.inputs)),
+                    workflow_inputs=shared_inputs,
                     outputs=MappingProxyType(dict(outputs)),
                     cancellation=token,
                 )

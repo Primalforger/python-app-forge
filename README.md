@@ -278,6 +278,7 @@ See the repository's [Actions](https://github.com/Primalforger/python-app-forge/
 | [Component authoring](docs/component-authoring.md) | Creating, validating, and sealing reusable components |
 | [Compliance artifacts](docs/compliance-artifacts.md) | Structured compliance records and evidence packaging |
 | [Desktop session](docs/desktop-session.md) | Desktop session restoration and recent-project behavior |
+| [Durable workflows](docs/durable-workflows.md) | Queue-backed workflow dispatch, retries, leases and delivery guarantees |
 | [Standards applicability](docs/standards-applicability.md) | Standards mapping and applicability notes |
 | [Architecture decisions](docs/adr/) | Architecture Decision Records |
 | [TODO / roadmap](docs/TODO.md) | Open work and planned improvements |
