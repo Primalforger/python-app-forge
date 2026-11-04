@@ -58,7 +58,7 @@ class WorkflowQueueWorker:
             for name, definition in workflows.items()
         ):
             raise ValueError("workflows must map non-empty names to WorkflowDefinition objects")
-        if isinstance(worker_id, str) is False or not worker_id.strip():
+        if not isinstance(worker_id, str) or not worker_id.strip():
             raise ValueError("worker_id must be a non-empty string")
         self._queue = queue
         self._workflows = dict(workflows)
@@ -81,7 +81,8 @@ class WorkflowQueueWorker:
 
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
             raise ValueError(f"{label} must be a finite {'non-negative' if allow_zero else 'positive'} number")
-        if value < 0 if allow_zero else value <= 0:
+        invalid = value < 0 if allow_zero else value <= 0
+        if invalid:
             raise ValueError(f"{label} must be {'non-negative' if allow_zero else 'positive'}")
         return float(value)
 
@@ -146,6 +147,10 @@ class WorkflowQueueWorker:
             updated = self._queue.complete(job.id, self._worker_id)
             return WorkflowJobRun(updated, result)
 
-        message = result.error or f"workflow ended with status {result.status}"
+        failed_step = next((step.id for step in result.steps if step.status == "failed"), None)
+        message = (
+            f"workflow failed at step {failed_step}" if failed_step
+            else f"workflow ended with status {result.status}"
+        )
         updated = self._queue.fail(job.id, self._worker_id, message, retry_delay=self._retry_delay)
         return WorkflowJobRun(updated, result, message)
