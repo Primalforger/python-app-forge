@@ -115,6 +115,31 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.s.store.list_evidence(str(project))[0]["detail"], "preserve me")
         self.assertEqual(self.s.list_recent_projects(), [str(project.resolve())])
 
+    def test_dashboard_activity_search_filters_and_details(self):
+        first_target = self.tmp / "activity-alpha"
+        second_target = self.tmp / "activity-beta"
+        with self.s.operation("dashboard_alpha", first_target):
+            pass
+        with self.s.operation("dashboard_beta", second_target):
+            pass
+
+        self.win.refresh_dashboard()
+        self.assertEqual(self.win.ops.rowCount(), 2)
+        self.win.activity_kind_filter.setCurrentText("dashboard_alpha")
+        self.assertEqual(self.win.ops.rowCount(), 1)
+        self.assertEqual(self.win.ops.item(0, 1).text(), "dashboard_alpha")
+        self.assertIn("dashboard_alpha", self.win.activity_detail.toPlainText())
+
+        self.win.activity_kind_filter.setCurrentText("All kinds")
+        self.win.activity_search.setText("activity-beta")
+        self.assertEqual(self.win.ops.rowCount(), 1)
+        self.assertEqual(self.win.ops.item(0, 2).text(), str(second_target))
+        self.assertIn("activity-beta", self.win.activity_detail.toPlainText())
+
+        self.win.activity_search.setText("no-such-operation")
+        self.assertEqual(self.win.ops.rowCount(), 0)
+        self.assertIn("No activity records match", self.win.activity_detail.toPlainText())
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
