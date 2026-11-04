@@ -1,11 +1,11 @@
 # Durable workflow dispatch
 
-\`app_forge.workflow_worker.WorkflowQueueWorker\` connects the trusted in-process
+The app_forge.workflow_worker.WorkflowQueueWorker connects the trusted in-process
 workflow engine to the persistent SQLite job queue.
 
 ## Register and enqueue
 
-\`\`\`python
+~~~python
 from pathlib import Path
 
 from app_forge.job_queue import JobQueue
@@ -30,18 +30,18 @@ worker = WorkflowQueueWorker(
     worker_id="thumbnail-worker-1",
 )
 job = worker.enqueue("thumbnail", {"source": "images/input.png"})
-\`\`\`
+~~~
 
 Workflow definitions and Python handlers are registered by trusted application
 code when a worker starts. Persisted payloads contain only a registered workflow
 identifier and finite JSON input values. A queue message cannot import a module,
 select a callable, or execute code.
 
-A worker loop can call \`run_once()\` repeatedly. It returns \`None\` when no job
-is ready, otherwise a \`WorkflowJobRun\` containing the updated queue job and
-the in-memory \`WorkflowResult\`. Step handlers read invocation-level values
-from \`StepContext.workflow_inputs\`; each step's own static values remain in
-\`StepContext.inputs\`.
+A worker loop can call run_once() repeatedly. It returns None when no job
+is ready, otherwise a WorkflowJobRun containing the updated queue job and
+the in-memory WorkflowResult. Step handlers read invocation-level values
+from StepContext.workflow_inputs; each step's own static values remain in
+StepContext.inputs.
 
 ## Delivery and recovery guarantees
 
