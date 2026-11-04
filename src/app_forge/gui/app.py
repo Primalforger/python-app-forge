@@ -453,8 +453,8 @@ class MainWindow(QMainWindow):
         actions.addStretch(1)
         actions.addWidget(self.clear_history_button)
         v.addLayout(actions)
-        self._activity_rows = []
-        self._visible_activity_rows = []
+        self._activity_rows: list[dict] = []
+        self._visible_activity_rows: list[dict] = []
         return w
 
     def refresh_dashboard(self) -> None:
