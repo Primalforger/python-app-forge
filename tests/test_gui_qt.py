@@ -114,7 +114,7 @@ class RealQtTests(ForgeTestCase):
         for metric in (self.win.metric_total, self.win.metric_succeeded, self.win.metric_failed,
                        self.win.metric_running, self.win.metric_retention):
             self.assertIn("<br>", metric.text())
-            self.assertNotIn(r"\\n", metric.text())
+            self.assertNotIn(r"\n", metric.text())
         self.assertIn("Retention", self.win.metric_retention.text())
         self.assertEqual(self.win.ops.objectName(), "activityTable")
         self.assertEqual(self.s.history_count(), 1)
