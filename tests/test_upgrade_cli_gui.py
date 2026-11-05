@@ -316,7 +316,16 @@ class GuiStubTests(ForgeTestCase):
         self.win.t_out.setText(str(self.tmp / "review-app"))
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
         self.win.nav.setCurrentRow(self.gui.NAV.index("Generation Review"))
-        self.win.review_generation()
+
+        def run_inline(label, operation, on_success=None, on_cancel=None):
+            from app_forge.cancellation import CancellationToken
+            result = operation(cancel_token=CancellationToken(), progress=lambda event: None)
+            if on_success:
+                on_success(result)
+            return True
+
+        with mock.patch.object(self.win, "_start_background", side_effect=run_inline):
+            self.win.review_generation()
         self.assertIn("Review App", self.win.gr_out.toPlainText())
         self.assertFalse((self.tmp / "review-app").exists())
         self.assertEqual(self.gui.NAV[-2:], ["Configuration Center", "Diagnostics"])
