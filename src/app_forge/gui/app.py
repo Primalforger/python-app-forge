@@ -29,6 +29,22 @@ NAV = ["Dashboard", "Project Wizard", "Generation Review", "Component Catalog", 
        "Integration Workbench", "Design System", "Table Designer", "Architecture Explorer",
        "Quality and Compliance", "Extension Manager", "Configuration Center", "Diagnostics"]
 
+NAV_DESCRIPTIONS = [
+    "Workspace activity, recent operations, and history",
+    "Create a project from a guided setup",
+    "Review generated project files before writing them",
+    "Find reusable components and templates",
+    "Inspect and manage installed components",
+    "Analyze projects, apply integrations, and recover changes",
+    "Review theme tokens and accessibility contrast",
+    "Design database tables and column definitions",
+    "Explore project structure and architecture",
+    "Run verification and review quality evidence",
+    "Manage extensions and available capabilities",
+    "Configure application preferences and behavior",
+    "Inspect environment health and diagnostic reports",
+]
+
 
 def _title(text: str) -> QLabel:
     lab = QLabel(text)
@@ -148,11 +164,35 @@ class MainWindow(QMainWindow):
         self.resize(1100, 700)
         root = QWidget()
         lay = QHBoxLayout(root)
+        self.sidebar = QWidget()
+        self.sidebar.setObjectName("sidebar")
+        self.sidebar.setFixedWidth(238)
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(14, 18, 14, 14)
+        sidebar_layout.setSpacing(10)
+
+        brand = QLabel("PYTHON APP FORGE")
+        brand.setObjectName("sidebarBrand")
+        brand.setAccessibleName("Python App Forge")
+        tagline = QLabel("Cultivate. Create. Forge.")
+        tagline.setObjectName("sidebarTagline")
+        sidebar_layout.addWidget(brand)
+        sidebar_layout.addWidget(tagline)
+
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         self.nav.setAccessibleName("Primary navigation")
-        self.nav.addItems(NAV)
-        self.nav.setFixedWidth(210)
+        for label, description in zip(NAV, NAV_DESCRIPTIONS):
+            item = QListWidgetItem(label)
+            item.setToolTip(description)
+            item.setStatusTip(description)
+            self.nav.addItem(item)
+        sidebar_layout.addWidget(self.nav, 1)
+
+        nav_hint = QLabel("CTRL + K   COMMAND PALETTE")
+        nav_hint.setObjectName("sidebarHint")
+        nav_hint.setAccessibleName("Press Control K to open the command palette")
+        sidebar_layout.addWidget(nav_hint)
         self.stack = QStackedWidget()
         self.status = QLabel("Ready")
         self.status.setAccessibleName("Operation status")
@@ -183,7 +223,7 @@ class MainWindow(QMainWindow):
         status_row.addWidget(self.status, 1)
         status_row.addWidget(self.cancel_button)
         right.addLayout(status_row)
-        lay.addWidget(self.nav)
+        lay.addWidget(self.sidebar)
         lay.addLayout(right, 1)
         self.setCentralWidget(root)
         geometry = self._saved_session.get("geometry")
@@ -314,7 +354,10 @@ class MainWindow(QMainWindow):
         thread = QThread(self)
         worker = OperationWorker(operation, token)
         worker.moveToThread(thread)
-        thread.started.connect(worker.run)
+        # Queue the Python slot onto the worker's event loop instead of invoking it
+        # directly from Qt's native thread-start signal. This is more reliable on
+        # Windows, where direct startup-slot execution can destabilize PySide teardown.
+        thread.started.connect(worker.run, Qt.ConnectionType.QueuedConnection)
         worker.progress.connect(self._background_progress_event)
         worker.succeeded.connect(self._background_succeeded_event)
         worker.failed.connect(self._background_failed_event)
