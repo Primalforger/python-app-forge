@@ -31,7 +31,7 @@ TOKENS = {
         "text": "#F1F5FB",
         "muted": "#B4C0D2",
         "primary": "#3989E8",
-        "on_primary": "#FFFFFF",
+        "on_primary": "#0B1B30",
         "border": "#35445C",
         "focus": "#B69AF5",
         "danger": "#FF8794",
