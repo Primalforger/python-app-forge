@@ -220,21 +220,55 @@ class RealQtTests(ForgeTestCase):
         captured = {}
         self.win._selected_component_ids = ["forge.forms-validation"]
         self.win.t_name.setText("Component Picker App")
-        def create_project(archetype, config, output, *, components, dry_run):
-            captured.update(components=components, dry_run=dry_run)
+        def create_project(archetype, config, output, *, components, dry_run, cancel_token, progress):
+            captured.update(components=components, dry_run=dry_run, cancel_token=cancel_token)
+            progress({"stage": "compose", "message": "Assembling project files"})
             return {"plan": "ready"}
         with mock.patch.object(self.s, "create_project", side_effect=create_project):
             self.win.review_generation()
+            self._wait_for_background()
         self.assertEqual(captured["components"], ["forge.forms-validation"])
         self.assertTrue(captured["dry_run"])
+        self.assertIsNotNone(captured["cancel_token"])
+        self.assertIn("ready", self.win.gr_out.toPlainText())
 
     def test_project_wizard_opens_dedicated_generation_review(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
         self.win.t_name.setText("Reviewed Qt App")
         self.win.nav.setCurrentRow(self.gui.NAV.index("Generation Review"))
         self.win.review_generation()
+        self._wait_for_background()
         self.assertIn("Reviewed Qt App", self.win.gr_out.toPlainText())
         self.assertFalse((self.tmp / "reviewed-qt-app").exists())
+
+    def test_project_generation_runs_in_background_with_progress_and_remembers_project(self):
+        output = self.tmp / "background-generated"
+        started = threading.Event()
+        release = threading.Event()
+
+        def create_project(_template, _options, _output, *, components, dry_run, cancel_token, progress):
+            progress({"stage": "write", "message": "Writing sample.py", "current": 1, "total": 2})
+            started.set()
+            release.wait(3)
+            output.mkdir()
+            return {"path": str(output), "dry_run": False, "files": [{"path": "sample.py"}]}
+
+        self.win.t_name.setText("Background Generated")
+        self.win.t_out.setText(str(output))
+        with mock.patch.object(self.s, "create_project", side_effect=create_project):
+            self.win.generate(False)
+            self.assertTrue(started.wait(2))
+            self.app.processEvents()
+            self.assertTrue(self.win.progress_bar.isVisible())
+            self.assertTrue(self.win.cancel_button.isEnabled())
+            self.assertEqual(self.win.progress_bar.maximum(), 2)
+            release.set()
+            self._wait_for_background()
+
+        self.assertFalse(self.win.progress_bar.isVisible())
+        self.assertFalse(self.win.cancel_button.isEnabled())
+        self.assertIn("sample.py", self.win.t_out_box.toPlainText())
+        self.assertEqual(self.s.list_recent_projects(existing_only=True), [str(output.resolve())])
 
     def test_catalog_search_filters(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Component Catalog"))
