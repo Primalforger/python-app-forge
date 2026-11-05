@@ -636,13 +636,22 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(self.t_out, 1)
         row.addWidget(browse)
+        self._selected_component_ids: list[str] = []
         self.t_comps = QLineEdit()
-        self.t_comps.setAccessibleName("Components to include")
-        self.t_comps.setPlaceholderText("component ids, comma separated (optional)")
+        self.t_comps.setObjectName("selectedComponents")
+        self.t_comps.setAccessibleName("Selected components")
+        self.t_comps.setPlaceholderText("No components selected (optional)")
+        self.t_comps.setReadOnly(True)
+        choose_components = QPushButton("Choose components...")
+        choose_components.setAccessibleName("Choose project components")
+        choose_components.clicked.connect(self.choose_project_components)
+        component_row = QHBoxLayout()
+        component_row.addWidget(self.t_comps, 1)
+        component_row.addWidget(choose_components)
         form.addRow("Archetype", self.t_arch)
         form.addRow("Project name", self.t_name)
         form.addRow("Output directory", row)
-        form.addRow("Components", self.t_comps)
+        form.addRow("Components", component_row)
         v.addLayout(form)
         btns = QHBoxLayout()
         review = QPushButton("Open Generation Review")
@@ -673,8 +682,72 @@ class MainWindow(QMainWindow):
         v.addWidget(self.gr_out, 1)
         return w
 
+    def _component_picker_dialog(self) -> QDialog:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Choose project components")
+        dialog.setAccessibleName("Project component picker")
+        dialog.resize(620, 520)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel("Search the catalog and select any components to include in your project.")
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+        search = QLineEdit()
+        search.setPlaceholderText("Search by component ID, category, or description...")
+        search.setAccessibleName("Search project components")
+        layout.addWidget(search)
+        items = QListWidget()
+        items.setAccessibleName("Available project components")
+        dialog.component_items = items
+        rows = self._run("Loading component choices", lambda: self.s.search_components("")) or []
+        for component in rows:
+            component_id = str(component["id"])
+            description = str(component.get("summary") or component.get("category") or "Reusable project component")
+            item = QListWidgetItem(f"{component_id} — {description}")
+            item.setData(Qt.ItemDataRole.UserRole, component_id)
+            item.setToolTip(description)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if component_id in self._selected_component_ids else Qt.CheckState.Unchecked)
+            items.addItem(item)
+        layout.addWidget(items, 1)
+
+        def filter_items(query: str) -> None:
+            terms = query.casefold().split()
+            for index in range(items.count()):
+                item = items.item(index)
+                haystack = item.text().casefold()
+                item.setHidden(not all(term in haystack for term in terms))
+
+        search.textChanged.connect(filter_items)
+        footer = QHBoxLayout()
+        select_visible = QPushButton("Select visible")
+        clear = QPushButton("Clear selection")
+        done = QPushButton("Apply selection")
+        done.setDefault(True)
+        select_visible.clicked.connect(lambda: [items.item(i).setCheckState(Qt.CheckState.Checked)
+                                                 for i in range(items.count()) if not items.item(i).isHidden()])
+        clear.clicked.connect(lambda: [items.item(i).setCheckState(Qt.CheckState.Unchecked)
+                                       for i in range(items.count())])
+        done.clicked.connect(dialog.accept)
+        footer.addWidget(select_visible)
+        footer.addWidget(clear)
+        footer.addStretch(1)
+        footer.addWidget(done)
+        layout.addLayout(footer)
+        return dialog
+
+    def choose_project_components(self) -> None:
+        dialog = self._component_picker_dialog()
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._selected_component_ids = [
+            str(dialog.component_items.item(i).data(Qt.ItemDataRole.UserRole))
+            for i in range(dialog.component_items.count())
+            if dialog.component_items.item(i).checkState() == Qt.CheckState.Checked
+        ]
+        self.t_comps.setText(", ".join(self._selected_component_ids))
+
     def review_generation(self) -> None:
-        comps = [c.strip() for c in self.t_comps.text().split(",") if c.strip()]
+        comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
         res = self._run("Generation review", lambda: self.s.create_project(
             self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=True))
@@ -682,7 +755,7 @@ class MainWindow(QMainWindow):
             self.gr_out.setPlainText(json.dumps(res, indent=2))
 
     def generate(self, dry: bool) -> None:
-        comps = [c.strip() for c in self.t_comps.text().split(",") if c.strip()]
+        comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
         res = self._run("Generation review" if dry else "Creating project", lambda: self.s.create_project(
             self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=dry))
