@@ -415,8 +415,8 @@ class MainWindow(QMainWindow):
         title_column.addWidget(eyebrow)
         title_column.addWidget(_title("Recent Forge Activity"))
         self.activity_description = QLabel(
-            "A clear view of work performed by Python App Forge. Review recent operations, "
-            "inspect results, and keep your workspace history tidy."
+            "A clear view of actions performed by Python App Forge—not a list of installed apps or projects. "
+            "Review recent operations, inspect results, and keep your workspace history tidy."
         )
         self.activity_description.setObjectName("muted")
         self.activity_description.setWordWrap(True)
