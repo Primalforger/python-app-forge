@@ -395,6 +395,7 @@ class RealQtTests(ForgeTestCase):
     def test_validation_errors_are_shown_not_raised(self):
         self.win.t_name.setText("1 bad name")
         self.win.generate(True)
+        self._wait_for_background()
         self.assertTrue(self.errors and self.errors[0][0] == "warning")
 
 
