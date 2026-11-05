@@ -94,6 +94,29 @@ class CancellationServiceTests(ForgeTestCase):
         operation = next(item for item in history if item["kind"] == "verify_project")
         assert operation["status"] == "cancelled"
 
+    def test_project_generation_cancellation_cleans_staging_tree_and_records_cancelled(self) -> None:
+        services = self.services()
+        output = self.tmp / "cancelled-generation"
+        token = CancellationToken()
+        events = []
+
+        def cancel_after_first_file(event):
+            events.append(event)
+            if event.get("stage") == "write" and event.get("current") == 1:
+                token.cancel()
+
+        with pytest.raises(OperationCancelled):
+            services.create_project(
+                "cli", {"name": "Cancelled Generation"}, output,
+                cancel_token=token, progress=cancel_after_first_file,
+            )
+
+        assert not output.exists()
+        assert list(self.tmp.glob(".cancelled-generation.forge-create-*")) == []
+        assert any(event.get("stage") == "write" for event in events)
+        operation = next(item for item in services.history() if item["kind"] == "create_project")
+        assert operation["status"] == "cancelled"
+
     def test_apply_cancellation_recovers_files_after_first_mutation(self) -> None:
         services = self.services()
         project = self.make_project(services, name="Cancelled Apply")
