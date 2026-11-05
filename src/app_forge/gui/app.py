@@ -747,13 +747,17 @@ class MainWindow(QMainWindow):
                 self.w_out.setPlainText(json.dumps(r, indent=2, default=str))
 
     # -- shared: review a stored plan, ask for approval, apply ------------------------------
+    def _confirm_plan(self, lines: list[str]) -> bool:
+        message = ("This will modify the project:\n\n" + "\n".join(lines) +
+                   "\n\nA checkpoint is recorded so the change can be recovered. Approve and apply?")
+        return QMessageBox.question(
+            self, "Approve change plan", message
+        ) == QMessageBox.StandardButton.Yes
+
     def _approve_and_apply(self, plan_id: str, on_success=None, on_cancel=None):
         plan = self.s.preview_plan(plan_id)
         lines = [f"{c['action']:7} {c['path']}" for c in plan["changes"]]
-        ok = QMessageBox.question(self, "Approve change plan",
-                                  "This will modify the project:\n\n" + "\n".join(lines) +
-                                  "\n\nA checkpoint is recorded so the change can be recovered. Approve and apply?")
-        if ok != QMessageBox.StandardButton.Yes:
+        if not self._confirm_plan(lines):
             return False
         approved = self._run("Approving", lambda: self.s.approve_plan(plan_id, "gui-user"))
         if not approved:
