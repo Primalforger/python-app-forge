@@ -182,10 +182,11 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         self.nav.setAccessibleName("Primary navigation")
-        self.nav.addItems(NAV)
-        for index, description in enumerate(NAV_DESCRIPTIONS):
-            self.nav.item(index).setToolTip(description)
-            self.nav.item(index).setStatusTip(description)
+        for label, description in zip(NAV, NAV_DESCRIPTIONS):
+            item = QListWidgetItem(label)
+            item.setToolTip(description)
+            item.setStatusTip(description)
+            self.nav.addItem(item)
         sidebar_layout.addWidget(self.nav, 1)
 
         nav_hint = QLabel("CTRL + K   COMMAND PALETTE")
