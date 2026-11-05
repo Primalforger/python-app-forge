@@ -155,6 +155,16 @@ class RealQtTests(ForgeTestCase):
             self.assertFalse(self.win.grab().isNull(), f"{self.gui.NAV[row]} failed to render")
         self.assertEqual(self.errors, [])
 
+    def test_sidebar_branding_descriptions_and_navigation_layout(self):
+        self.assertEqual(self.win.sidebar.objectName(), "sidebar")
+        self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
+        self.assertEqual(len(self.gui.NAV_DESCRIPTIONS), len(self.gui.NAV))
+        self.assertEqual(self.win.nav.item(0).toolTip(), self.gui.NAV_DESCRIPTIONS[0])
+        self.assertEqual(self.win.nav.item(5).statusTip(), self.gui.NAV_DESCRIPTIONS[5])
+        self.assertTrue(self.win.findChild(type(self.win.status), "sidebarBrand"))
+        self.assertTrue(self.win.findChild(type(self.win.status), "sidebarTagline"))
+        self.assertTrue(self.win.findChild(type(self.win.status), "sidebarHint"))
+
     def test_keyboard_navigation_changes_screen(self):
         self.win.nav.setFocus()
         self.win.nav.setCurrentRow(0)
