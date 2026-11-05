@@ -25,12 +25,13 @@ from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
 from app_forge.settings import ForgeSettings
 
-NAV = ["Dashboard", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
+NAV = ["Dashboard", "Project Workspace", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
        "Integration Workbench", "Design System", "Table Designer", "Architecture Explorer",
        "Quality and Compliance", "Extension Manager", "Configuration Center", "Diagnostics"]
 
 NAV_DESCRIPTIONS = [
     "Workspace activity, recent operations, and history",
+    "Open a recent project or continue working in an existing workspace",
     "Create a project from a guided setup",
     "Review generated project files before writing them",
     "Find reusable components and templates",
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
         self._background_on_success = None
         self._background_on_cancel = None
         self._closing_after_worker = False
-        for build in (self._dashboard, self._templates, self._generation_review, self._catalog, self._components,
+        for build in (self._dashboard, self._project_workspace, self._templates, self._generation_review, self._catalog, self._components,
                       self._workbench, self._design_system, self._table_designer, self._architecture,
                       self._quality, self._extensions, self._settings, self._diagnostics):
             self.stack.addWidget(build())
@@ -318,7 +319,8 @@ class MainWindow(QMainWindow):
         if row < 0:
             return
         self.stack.setCurrentIndex(row)
-        {"Dashboard": self.refresh_dashboard, "Component Catalog": self.search_catalog,
+        {"Dashboard": self.refresh_dashboard, "Project Workspace": self.refresh_project_workspace,
+         "Component Catalog": self.search_catalog,
          "Design System": self.show_contrast, "Architecture Explorer": self.load_architecture,
          "Extension Manager": self.load_extensions, "Diagnostics": self.run_doctor}.get(NAV[row], lambda: None)()
 
@@ -686,6 +688,83 @@ class MainWindow(QMainWindow):
             self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=dry))
         if res:
             self.t_out_box.setPlainText(json.dumps(res, indent=2))
+
+    # -- Project Workspace ----------------------------------------------------------------
+    def _project_workspace(self) -> QWidget:
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(_title("Project Workspace"))
+        intro = QLabel("Pick up where you left off. Your recent projects are stored locally; this view only lists folders that still exist.")
+        intro.setObjectName("muted")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+
+        actions = QHBoxLayout()
+        refresh = QPushButton("Refresh projects")
+        refresh.setAccessibleName("Refresh recent projects")
+        refresh.clicked.connect(self.refresh_project_workspace)
+        new_project = QPushButton("Create a project")
+        new_project.setAccessibleName("Create a new project")
+        new_project.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
+        open_project = QPushButton("Open in Workbench")
+        open_project.setAccessibleName("Open selected project in Integration Workbench")
+        open_project.clicked.connect(self.open_project_workspace_selection)
+        actions.addWidget(refresh)
+        actions.addStretch(1)
+        actions.addWidget(new_project)
+        actions.addWidget(open_project)
+        v.addLayout(actions)
+
+        self.workspace_projects = QListWidget()
+        self.workspace_projects.setObjectName("workspaceProjects")
+        self.workspace_projects.setAccessibleName("Recent projects")
+        self.workspace_projects.setToolTip("Select a project to see its location and open it in the Integration Workbench.")
+        self.workspace_projects.currentItemChanged.connect(self.show_project_workspace_selection)
+        v.addWidget(self.workspace_projects, 2)
+
+        self.workspace_detail = QPlainTextEdit()
+        self.workspace_detail.setObjectName("workspaceDetail")
+        self.workspace_detail.setAccessibleName("Selected project details")
+        self.workspace_detail.setReadOnly(True)
+        self.workspace_detail.setMaximumHeight(130)
+        v.addWidget(self.workspace_detail)
+        self.refresh_project_workspace()
+        return w
+
+    def refresh_project_workspace(self) -> None:
+        selected = self.workspace_projects.currentItem().data(Qt.ItemDataRole.UserRole) if self.workspace_projects.currentItem() else None
+        projects = self._run("Loading recent projects", lambda: self.s.list_recent_projects(existing_only=True)) or []
+        self.workspace_projects.clear()
+        for project in projects:
+            path = Path(project)
+            item = QListWidgetItem(path.name or str(path))
+            item.setData(Qt.ItemDataRole.UserRole, str(path))
+            item.setToolTip(str(path))
+            self.workspace_projects.addItem(item)
+            if str(path) == selected:
+                self.workspace_projects.setCurrentItem(item)
+        if self.workspace_projects.count() and self.workspace_projects.currentRow() < 0:
+            self.workspace_projects.setCurrentRow(0)
+        if not projects:
+            self.workspace_detail.setPlainText("No recent projects yet. Create a project or open one in the Integration Workbench to get started.")
+
+    def show_project_workspace_selection(self, current, _previous=None) -> None:
+        if current is None:
+            return
+        path = Path(str(current.data(Qt.ItemDataRole.UserRole)))
+        self.workspace_detail.setPlainText(
+            f"Project: {path.name or path}\nLocation: {path}\nStatus: Folder available")
+
+    def open_project_workspace_selection(self) -> None:
+        item = self.workspace_projects.currentItem()
+        if item is None:
+            self.status.setText("Select a project first")
+            return
+        path = str(item.data(Qt.ItemDataRole.UserRole))
+        self.w_path.setText(path)
+        self.q_path.setText(path)
+        self.nav.setCurrentRow(NAV.index("Integration Workbench"))
+        self.status.setText(f"Project opened in Integration Workbench: {path}")
 
     # -- UI-006..008 Component Catalog ----------------------------------------------------
     def _catalog(self) -> QWidget:
