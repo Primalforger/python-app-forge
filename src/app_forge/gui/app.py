@@ -15,8 +15,8 @@ from PySide6.QtCore import QByteArray, QObject, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QListWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QPlainTextEdit, QProgressBar, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem,
+                               QListWidgetItem, QVBoxLayout, QWidget)
 
 from app_forge import __version__
 from app_forge.domain.errors import ForgeError, OperationCancelled
@@ -197,6 +197,12 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.status = QLabel("Ready")
         self.status.setAccessibleName("Operation status")
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setAccessibleName("Background operation progress")
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.hide()
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setAccessibleName("Cancel background operation")
         self.cancel_button.setEnabled(False)
@@ -222,6 +228,7 @@ class MainWindow(QMainWindow):
         right.addWidget(self.stack, 1)
         status_row = QHBoxLayout()
         status_row.addWidget(self.status, 1)
+        status_row.addWidget(self.progress_bar, 1)
         status_row.addWidget(self.cancel_button)
         right.addLayout(status_row)
         lay.addWidget(self.sidebar)
@@ -377,6 +384,8 @@ class MainWindow(QMainWindow):
         self.nav.setEnabled(False)
         self.stack.setEnabled(False)
         self.cancel_button.setEnabled(True)
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.show()
         self.status.setText(f"{label}: starting")
         thread.start()
         return True
@@ -386,6 +395,11 @@ class MainWindow(QMainWindow):
         message = str(event.get("message") or event.get("stage") or label)
         current, total = event.get("current"), event.get("total")
         suffix = f" ({current}/{total})" if current is not None and total is not None else ""
+        if current is not None and total is not None and total > 0:
+            self.progress_bar.setRange(0, int(total))
+            self.progress_bar.setValue(max(0, min(int(current), int(total))))
+        else:
+            self.progress_bar.setRange(0, 0)
         self.status.setText(f"{label}: {message}{suffix}")
 
     def _background_succeeded_event(self, result: object) -> None:
@@ -427,6 +441,9 @@ class MainWindow(QMainWindow):
         self.nav.setEnabled(True)
         self.stack.setEnabled(True)
         self.cancel_button.setEnabled(False)
+        self.progress_bar.hide()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
 
     def cancel_background_operation(self) -> None:
         if self._active_cancel_token is not None:
@@ -749,18 +766,45 @@ class MainWindow(QMainWindow):
     def review_generation(self) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        res = self._run("Generation review", lambda: self.s.create_project(
-            self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=True))
-        if res:
-            self.gr_out.setPlainText(json.dumps(res, indent=2))
+        template = self.t_arch.currentText()
+        options = {"name": self.t_name.text()}
+        self.gr_out.setPlainText("Preparing generation preview…")
+        self._start_background(
+            "Generation review",
+            lambda *, cancel_token, progress: self.s.create_project(
+                template, options, out, components=comps, dry_run=True,
+                cancel_token=cancel_token, progress=progress),
+            on_success=lambda result: self.gr_out.setPlainText(json.dumps(result, indent=2, default=str)),
+            on_cancel=lambda result: self.gr_out.setPlainText(
+                "Generation preview cancelled. No project files were written.\n" +
+                (str(result.get("message", "")) if isinstance(result, dict) else "")
+            ),
+        )
 
     def generate(self, dry: bool) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        res = self._run("Generation review" if dry else "Creating project", lambda: self.s.create_project(
-            self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=dry))
-        if res:
-            self.t_out_box.setPlainText(json.dumps(res, indent=2))
+        template = self.t_arch.currentText()
+        options = {"name": self.t_name.text()}
+        if dry:
+            self.review_generation()
+            return
+        self.t_out_box.setPlainText("Preparing project generation…")
+        self._start_background(
+            "Creating project",
+            lambda *, cancel_token, progress: self.s.create_project(
+                template, options, out, components=comps, dry_run=False,
+                cancel_token=cancel_token, progress=progress),
+            on_success=lambda result: (
+                self.t_out_box.setPlainText(json.dumps(result, indent=2, default=str)),
+                self._remember_project(out),
+            ),
+            on_cancel=lambda result: self.t_out_box.setPlainText(
+                "Project generation cancelled. The incomplete staging directory was cleaned up; "
+                "no partial project was promoted.\n" +
+                (str(result.get("message", "")) if isinstance(result, dict) else "")
+            ),
+        )
 
     # -- Project Workspace ----------------------------------------------------------------
     def _project_workspace(self) -> QWidget:
