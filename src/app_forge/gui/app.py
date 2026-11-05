@@ -25,12 +25,13 @@ from app_forge.gui.theme import TOKENS, check_theme, stylesheet
 from app_forge.services import CancellationToken, ForgeServices
 from app_forge.settings import ForgeSettings
 
-NAV = ["Dashboard", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
+NAV = ["Dashboard", "Project Workspace", "Project Wizard", "Generation Review", "Component Catalog", "Component Manager",
        "Integration Workbench", "Design System", "Table Designer", "Architecture Explorer",
        "Quality and Compliance", "Extension Manager", "Configuration Center", "Diagnostics"]
 
 NAV_DESCRIPTIONS = [
     "Workspace activity, recent operations, and history",
+    "Open a recent project or continue working in an existing workspace",
     "Create a project from a guided setup",
     "Review generated project files before writing them",
     "Find reusable components and templates",
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
         self._background_on_success = None
         self._background_on_cancel = None
         self._closing_after_worker = False
-        for build in (self._dashboard, self._templates, self._generation_review, self._catalog, self._components,
+        for build in (self._dashboard, self._project_workspace, self._templates, self._generation_review, self._catalog, self._components,
                       self._workbench, self._design_system, self._table_designer, self._architecture,
                       self._quality, self._extensions, self._settings, self._diagnostics):
             self.stack.addWidget(build())
@@ -318,7 +319,8 @@ class MainWindow(QMainWindow):
         if row < 0:
             return
         self.stack.setCurrentIndex(row)
-        {"Dashboard": self.refresh_dashboard, "Component Catalog": self.search_catalog,
+        {"Dashboard": self.refresh_dashboard, "Project Workspace": self.refresh_project_workspace,
+         "Component Catalog": self.search_catalog,
          "Design System": self.show_contrast, "Architecture Explorer": self.load_architecture,
          "Extension Manager": self.load_extensions, "Diagnostics": self.run_doctor}.get(NAV[row], lambda: None)()
 
@@ -634,13 +636,22 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(self.t_out, 1)
         row.addWidget(browse)
+        self._selected_component_ids: list[str] = []
         self.t_comps = QLineEdit()
-        self.t_comps.setAccessibleName("Components to include")
-        self.t_comps.setPlaceholderText("component ids, comma separated (optional)")
+        self.t_comps.setObjectName("selectedComponents")
+        self.t_comps.setAccessibleName("Selected components")
+        self.t_comps.setPlaceholderText("No components selected (optional)")
+        self.t_comps.setReadOnly(True)
+        choose_components = QPushButton("Choose components...")
+        choose_components.setAccessibleName("Choose project components")
+        choose_components.clicked.connect(self.choose_project_components)
+        component_row = QHBoxLayout()
+        component_row.addWidget(self.t_comps, 1)
+        component_row.addWidget(choose_components)
         form.addRow("Archetype", self.t_arch)
         form.addRow("Project name", self.t_name)
         form.addRow("Output directory", row)
-        form.addRow("Components", self.t_comps)
+        form.addRow("Components", component_row)
         v.addLayout(form)
         btns = QHBoxLayout()
         review = QPushButton("Open Generation Review")
@@ -671,8 +682,72 @@ class MainWindow(QMainWindow):
         v.addWidget(self.gr_out, 1)
         return w
 
+    def _component_picker_dialog(self) -> QDialog:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Choose project components")
+        dialog.setAccessibleName("Project component picker")
+        dialog.resize(620, 520)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel("Search the catalog and select any components to include in your project.")
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+        search = QLineEdit()
+        search.setPlaceholderText("Search by component ID, category, or description...")
+        search.setAccessibleName("Search project components")
+        layout.addWidget(search)
+        items = QListWidget()
+        items.setAccessibleName("Available project components")
+        dialog.component_items = items
+        rows = self._run("Loading component choices", lambda: self.s.search_components("")) or []
+        for component in rows:
+            component_id = str(component["id"])
+            description = str(component.get("summary") or component.get("category") or "Reusable project component")
+            item = QListWidgetItem(f"{component_id} — {description}")
+            item.setData(Qt.ItemDataRole.UserRole, component_id)
+            item.setToolTip(description)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if component_id in self._selected_component_ids else Qt.CheckState.Unchecked)
+            items.addItem(item)
+        layout.addWidget(items, 1)
+
+        def filter_items(query: str) -> None:
+            terms = query.casefold().split()
+            for index in range(items.count()):
+                item = items.item(index)
+                haystack = item.text().casefold()
+                item.setHidden(not all(term in haystack for term in terms))
+
+        search.textChanged.connect(filter_items)
+        footer = QHBoxLayout()
+        select_visible = QPushButton("Select visible")
+        clear = QPushButton("Clear selection")
+        done = QPushButton("Apply selection")
+        done.setDefault(True)
+        select_visible.clicked.connect(lambda: [items.item(i).setCheckState(Qt.CheckState.Checked)
+                                                 for i in range(items.count()) if not items.item(i).isHidden()])
+        clear.clicked.connect(lambda: [items.item(i).setCheckState(Qt.CheckState.Unchecked)
+                                       for i in range(items.count())])
+        done.clicked.connect(dialog.accept)
+        footer.addWidget(select_visible)
+        footer.addWidget(clear)
+        footer.addStretch(1)
+        footer.addWidget(done)
+        layout.addLayout(footer)
+        return dialog
+
+    def choose_project_components(self) -> None:
+        dialog = self._component_picker_dialog()
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._selected_component_ids = [
+            str(dialog.component_items.item(i).data(Qt.ItemDataRole.UserRole))
+            for i in range(dialog.component_items.count())
+            if dialog.component_items.item(i).checkState() == Qt.CheckState.Checked
+        ]
+        self.t_comps.setText(", ".join(self._selected_component_ids))
+
     def review_generation(self) -> None:
-        comps = [c.strip() for c in self.t_comps.text().split(",") if c.strip()]
+        comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
         res = self._run("Generation review", lambda: self.s.create_project(
             self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=True))
@@ -680,12 +755,89 @@ class MainWindow(QMainWindow):
             self.gr_out.setPlainText(json.dumps(res, indent=2))
 
     def generate(self, dry: bool) -> None:
-        comps = [c.strip() for c in self.t_comps.text().split(",") if c.strip()]
+        comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
         res = self._run("Generation review" if dry else "Creating project", lambda: self.s.create_project(
             self.t_arch.currentText(), {"name": self.t_name.text()}, out, components=comps, dry_run=dry))
         if res:
             self.t_out_box.setPlainText(json.dumps(res, indent=2))
+
+    # -- Project Workspace ----------------------------------------------------------------
+    def _project_workspace(self) -> QWidget:
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(_title("Project Workspace"))
+        intro = QLabel("Pick up where you left off. Your recent projects are stored locally; this view only lists folders that still exist.")
+        intro.setObjectName("muted")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+
+        actions = QHBoxLayout()
+        refresh = QPushButton("Refresh projects")
+        refresh.setAccessibleName("Refresh recent projects")
+        refresh.clicked.connect(self.refresh_project_workspace)
+        new_project = QPushButton("Create a project")
+        new_project.setAccessibleName("Create a new project")
+        new_project.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
+        open_project = QPushButton("Open in Workbench")
+        open_project.setAccessibleName("Open selected project in Integration Workbench")
+        open_project.clicked.connect(self.open_project_workspace_selection)
+        actions.addWidget(refresh)
+        actions.addStretch(1)
+        actions.addWidget(new_project)
+        actions.addWidget(open_project)
+        v.addLayout(actions)
+
+        self.workspace_projects = QListWidget()
+        self.workspace_projects.setObjectName("workspaceProjects")
+        self.workspace_projects.setAccessibleName("Recent projects")
+        self.workspace_projects.setToolTip("Select a project to see its location and open it in the Integration Workbench.")
+        self.workspace_projects.currentItemChanged.connect(self.show_project_workspace_selection)
+        v.addWidget(self.workspace_projects, 2)
+
+        self.workspace_detail = QPlainTextEdit()
+        self.workspace_detail.setObjectName("workspaceDetail")
+        self.workspace_detail.setAccessibleName("Selected project details")
+        self.workspace_detail.setReadOnly(True)
+        self.workspace_detail.setMaximumHeight(130)
+        v.addWidget(self.workspace_detail)
+        self.refresh_project_workspace()
+        return w
+
+    def refresh_project_workspace(self) -> None:
+        selected = self.workspace_projects.currentItem().data(Qt.ItemDataRole.UserRole) if self.workspace_projects.currentItem() else None
+        projects = self._run("Loading recent projects", lambda: self.s.list_recent_projects(existing_only=True)) or []
+        self.workspace_projects.clear()
+        for project in projects:
+            path = Path(project)
+            item = QListWidgetItem(path.name or str(path))
+            item.setData(Qt.ItemDataRole.UserRole, str(path))
+            item.setToolTip(str(path))
+            self.workspace_projects.addItem(item)
+            if str(path) == selected:
+                self.workspace_projects.setCurrentItem(item)
+        if self.workspace_projects.count() and self.workspace_projects.currentRow() < 0:
+            self.workspace_projects.setCurrentRow(0)
+        if not projects:
+            self.workspace_detail.setPlainText("No recent projects yet. Create a project or open one in the Integration Workbench to get started.")
+
+    def show_project_workspace_selection(self, current, _previous=None) -> None:
+        if current is None:
+            return
+        path = Path(str(current.data(Qt.ItemDataRole.UserRole)))
+        self.workspace_detail.setPlainText(
+            f"Project: {path.name or path}\nLocation: {path}\nStatus: Folder available")
+
+    def open_project_workspace_selection(self) -> None:
+        item = self.workspace_projects.currentItem()
+        if item is None:
+            self.status.setText("Select a project first")
+            return
+        path = str(item.data(Qt.ItemDataRole.UserRole))
+        self.w_path.setText(path)
+        self.q_path.setText(path)
+        self.nav.setCurrentRow(NAV.index("Integration Workbench"))
+        self.status.setText(f"Project opened in Integration Workbench: {path}")
 
     # -- UI-006..008 Component Catalog ----------------------------------------------------
     def _catalog(self) -> QWidget:

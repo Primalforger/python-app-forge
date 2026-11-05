@@ -292,7 +292,7 @@ class GuiStubTests(ForgeTestCase):
         self.assertGreater(checked, 15)
 
     def test_all_screens_build_and_load_without_errors(self):
-        self.assertEqual(len(self.gui.NAV), 13)
+        self.assertEqual(len(self.gui.NAV), 14)
         for row in range(len(self.gui.NAV)):
             self.win._navigate(row)
         self.assertEqual(qt_stub.ERRORS, [])
@@ -311,7 +311,7 @@ class GuiStubTests(ForgeTestCase):
         self.assertEqual(missing, [], "widgets without an accessible name (screen readers cannot announce them)")
 
     def test_project_wizard_and_generation_review_are_separate(self):
-        self.assertEqual(self.gui.NAV[1:3], ["Project Wizard", "Generation Review"])
+        self.assertEqual(self.gui.NAV[1:4], ["Project Workspace", "Project Wizard", "Generation Review"])
         self.win.t_name.setText("Review App")
         self.win.t_out.setText(str(self.tmp / "review-app"))
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
