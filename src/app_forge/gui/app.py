@@ -475,11 +475,11 @@ class MainWindow(QMainWindow):
 
         metrics = QHBoxLayout()
         metrics.setSpacing(10)
-        self.metric_total = QLabel("—\\nTotal operations")
-        self.metric_succeeded = QLabel("—\\nSucceeded")
-        self.metric_failed = QLabel("—\\nFailed")
-        self.metric_running = QLabel("—\\nRunning")
-        self.metric_retention = QLabel("—\\nRetention")
+        self.metric_total = QLabel("<b>—</b><br>Total operations")
+        self.metric_succeeded = QLabel("<b>—</b><br>Succeeded")
+        self.metric_failed = QLabel("<b>—</b><br>Failed")
+        self.metric_running = QLabel("<b>—</b><br>Running")
+        self.metric_retention = QLabel("<b>—</b><br>Retention")
         for name, label in (
             ("total", self.metric_total), ("succeeded", self.metric_succeeded),
             ("failed", self.metric_failed), ("running", self.metric_running),
@@ -550,11 +550,11 @@ class MainWindow(QMainWindow):
         counts = {status: sum(o.get("status") == status for o in rows)
                   for status in ("succeeded", "failed", "cancelled", "running")}
         retention_days = getattr(self.s, "settings").operation_retention_days
-        self.metric_total.setText(f"<b>{len(rows)}</b>\\nTotal operations")
-        self.metric_succeeded.setText(f"<b>{counts['succeeded']}</b>\\nSucceeded")
-        self.metric_failed.setText(f"<b>{counts['failed']}</b>\\nFailed")
-        self.metric_running.setText(f"<b>{counts['running']}</b>\\nRunning")
-        self.metric_retention.setText(f"<b>{retention_days} days</b>\\nRetention")
+        self.metric_total.setText(f"<b>{len(rows)}</b><br>Total operations")
+        self.metric_succeeded.setText(f"<b>{counts['succeeded']}</b><br>Succeeded")
+        self.metric_failed.setText(f"<b>{counts['failed']}</b><br>Failed")
+        self.metric_running.setText(f"<b>{counts['running']}</b><br>Running")
+        self.metric_retention.setText(f"<b>{retention_days} days</b><br>Retention")
         self.ops_summary.setText(
             f"Showing {len(rows)} recent operations · "
             f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
