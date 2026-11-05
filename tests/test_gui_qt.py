@@ -109,6 +109,10 @@ class RealQtTests(ForgeTestCase):
             pass
         self.win.refresh_dashboard()
         self.assertIn("not a list of installed apps", self.win.activity_description.text())
+        self.assertIn("<b>1</b>", self.win.metric_total.text())
+        self.assertIn("<b>1</b>", self.win.metric_succeeded.text())
+        self.assertIn("Retention", self.win.metric_retention.text())
+        self.assertEqual(self.win.ops.objectName(), "activityTable")
         self.assertEqual(self.s.history_count(), 1)
         self.assertEqual(self.s.clear_history(), 1)
         self.assertEqual(self.s.history_count(), 0)
