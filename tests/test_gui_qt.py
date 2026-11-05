@@ -200,7 +200,7 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(len(ids), len(set(ids)))
         first = dialog.component_items.item(0)
         first.setCheckState(Qt.CheckState.Checked)
-        dialog.findChild(QLineEdit, "").setText(ids[0].split(".")[0])
+        dialog.findChild(QLineEdit).setText(ids[0])
         self.assertTrue(first.isHidden() is False)
         self.assertTrue(any(dialog.component_items.item(i).isHidden()
                             for i in range(dialog.component_items.count())))
