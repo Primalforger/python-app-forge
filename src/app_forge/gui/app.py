@@ -790,15 +790,17 @@ class MainWindow(QMainWindow):
             self.review_generation()
             return
         self.t_out_box.setPlainText("Preparing project generation…")
+
+        def generation_succeeded(result: object) -> None:
+            self.t_out_box.setPlainText(json.dumps(result, indent=2, default=str))
+            self._remember_project(out)
+
         self._start_background(
             "Creating project",
             lambda *, cancel_token, progress: self.s.create_project(
                 template, options, out, components=comps, dry_run=False,
                 cancel_token=cancel_token, progress=progress),
-            on_success=lambda result: (
-                self.t_out_box.setPlainText(json.dumps(result, indent=2, default=str)),
-                self._remember_project(out),
-            ),
+            on_success=generation_succeeded,
             on_cancel=lambda result: self.t_out_box.setPlainText(
                 "Project generation cancelled. The incomplete staging directory was cleaned up; "
                 "no partial project was promoted.\n" +
