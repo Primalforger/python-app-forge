@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
             label.setObjectName("metricCard")
             label.setAccessibleName(f"{name.title()} dashboard metric")
             label.setMinimumHeight(58)
-                metrics.addWidget(label, 1)
+            metrics.addWidget(label, 1)
         v.addLayout(metrics)
 
         self.ops_summary = QLabel("Loading activity…")
