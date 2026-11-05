@@ -192,6 +192,38 @@ class RealQtTests(ForgeTestCase):
         QTest.keyClick(self.win.nav, Qt.Key.Key_Up)
         self.assertEqual(self.win.stack.currentIndex(), 0)
 
+    def test_project_component_picker_searches_and_preserves_multi_selection(self):
+        dialog = self.win._component_picker_dialog()
+        self.assertGreater(dialog.component_items.count(), 0)
+        ids = [str(dialog.component_items.item(i).data(Qt.ItemDataRole.UserRole))
+               for i in range(dialog.component_items.count())]
+        self.assertEqual(len(ids), len(set(ids)))
+        first = dialog.component_items.item(0)
+        first.setCheckState(Qt.CheckState.Checked)
+        dialog.findChild(QLineEdit, "").setText(ids[0].split(".")[0])
+        self.assertTrue(first.isHidden() is False)
+        self.assertTrue(any(dialog.component_items.item(i).isHidden()
+                            for i in range(dialog.component_items.count())))
+        dialog.accept()
+        self.win._selected_component_ids = [ids[0], ids[-1]]
+        reopened = self.win._component_picker_dialog()
+        checked = [str(reopened.component_items.item(i).data(Qt.ItemDataRole.UserRole))
+                   for i in range(reopened.component_items.count())
+                   if reopened.component_items.item(i).checkState() == Qt.CheckState.Checked]
+        self.assertEqual(checked, [ids[0], ids[-1]])
+
+    def test_project_component_picker_selection_flows_into_generation_review(self):
+        captured = {}
+        self.win._selected_component_ids = ["forge.forms-validation"]
+        self.win.t_name.setText("Component Picker App")
+        def create_project(archetype, config, output, *, components, dry_run):
+            captured.update(components=components, dry_run=dry_run)
+            return {"plan": "ready"}
+        with mock.patch.object(self.s, "create_project", side_effect=create_project):
+            self.win.review_generation()
+        self.assertEqual(captured["components"], ["forge.forms-validation"])
+        self.assertTrue(captured["dry_run"])
+
     def test_project_wizard_opens_dedicated_generation_review(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
         self.win.t_name.setText("Reviewed Qt App")
