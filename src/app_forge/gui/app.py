@@ -354,7 +354,10 @@ class MainWindow(QMainWindow):
         thread = QThread(self)
         worker = OperationWorker(operation, token)
         worker.moveToThread(thread)
-        thread.started.connect(worker.run)
+        # Queue the Python slot onto the worker's event loop instead of invoking it
+        # directly from Qt's native thread-start signal. This is more reliable on
+        # Windows, where direct startup-slot execution can destabilize PySide teardown.
+        thread.started.connect(worker.run, Qt.ConnectionType.QueuedConnection)
         worker.progress.connect(self._background_progress_event)
         worker.succeeded.connect(self._background_succeeded_event)
         worker.failed.connect(self._background_failed_event)
