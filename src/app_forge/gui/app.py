@@ -373,7 +373,6 @@ class MainWindow(QMainWindow):
         worker.cancelled.connect(self._background_cancelled_event)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._background_finished)
         self._background_thread = thread
         self._background_worker = worker
@@ -435,6 +434,13 @@ class MainWindow(QMainWindow):
                                     str(result["recovery"].get("status", "unknown")))
 
     def _background_finished(self) -> None:
+        # QThread.finished is emitted as the native thread is exiting. Wait for
+        # its final cleanup before scheduling QObject destruction; this avoids
+        # a Windows Qt teardown race when the window/test fixture is closed.
+        thread = self._background_thread
+        if thread is not None:
+            thread.wait()
+            thread.deleteLater()
         self._background_thread = None
         self._background_worker = None
         self._active_cancel_token = None
