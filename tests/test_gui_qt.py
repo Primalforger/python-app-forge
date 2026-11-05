@@ -247,10 +247,9 @@ class RealQtTests(ForgeTestCase):
             "run_id": "run-gui-integration", "overall": "passed", "passed": 1,
             "failed": 0, "not_run": [], "complete": True, "evidence": [],
         }
-        with mock.patch.object(self.s.integration._verifier, "run", return_value=verification):
-            print("QTDIAG: before apply", flush=True)
+        with (mock.patch.object(self.s.integration._verifier, "run", return_value=verification),
+              mock.patch.object(self.win, "_confirm_plan", return_value=True)):
             self.win.apply()
-            print("QTDIAG: apply returned", flush=True)
             self._wait_for_background()
             print("QTDIAG: worker finished", flush=True)
         self.assertTrue((proj / "src/qt_flow/forms.py").is_file())
