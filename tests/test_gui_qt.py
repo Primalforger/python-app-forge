@@ -155,6 +155,25 @@ class RealQtTests(ForgeTestCase):
             self.assertFalse(self.win.grab().isNull(), f"{self.gui.NAV[row]} failed to render")
         self.assertEqual(self.errors, [])
 
+    def test_project_workspace_lists_recent_projects_and_opens_selection(self):
+        project = self.tmp / "workspace-project"
+        project.mkdir()
+        self.s.add_recent_project(project)
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
+        self.assertEqual(self.win.workspace_projects.count(), 1)
+        item = self.win.workspace_projects.item(0)
+        self.assertEqual(item.text(), "workspace-project")
+        self.assertIn(str(project.resolve()), self.win.workspace_detail.toPlainText())
+        self.win.open_project_workspace_selection()
+        self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Integration Workbench"))
+        self.assertEqual(self.win.w_path.text(), str(project.resolve()))
+        self.assertEqual(self.win.q_path.text(), str(project.resolve()))
+
+    def test_project_workspace_empty_state_is_helpful(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
+        self.assertEqual(self.win.workspace_projects.count(), 0)
+        self.assertIn("No recent projects yet", self.win.workspace_detail.toPlainText())
+
     def test_sidebar_branding_descriptions_and_navigation_layout(self):
         self.assertEqual(self.win.sidebar.objectName(), "sidebar")
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
