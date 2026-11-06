@@ -1226,40 +1226,131 @@ class MainWindow(QMainWindow):
     def _extensions(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(_title("Extension Manager"))
-        v.addWidget(QLabel("Installed extensions are listed from package metadata without importing them. "
-                           "Nothing runs until you trust and enable it."))
-        self.ex_table = _table(["Name", "Target", "Trust", "Enabled"])
+        v.addWidget(_title("Extension & Tool Discovery"))
+        v.addWidget(QLabel(
+            "Discover installed capabilities, review their package entry points, and manage trust. "
+            "Discovery reads metadata only: extension code is not imported or executed."
+        ))
+        self.ex_security_note = QLabel(
+            "SECURITY BOUNDARY  •  Trust and enablement are separate decisions. "
+            "Invocation is sandboxed on supported Linux hosts; unsupported platforms fail closed."
+        )
+        self.ex_security_note.setWordWrap(True)
+        self.ex_security_note.setObjectName("muted")
+        v.addWidget(self.ex_security_note)
+        self.ex_table = _table(["Extension", "Entry point", "Trust", "Enabled"])
         self.ex_table.setAccessibleName("Extensions table")
-        v.addWidget(self.ex_table, 1)
+        self.ex_table.setToolTip("Installed extensions discovered from package metadata; selecting a row shows details.")
+        v.addWidget(self.ex_table, 2)
+        self.ex_detail = QPlainTextEdit()
+        self.ex_detail.setReadOnly(True)
+        self.ex_detail.setAccessibleName("Selected extension details")
+        self.ex_detail.setPlaceholderText("Select an extension to inspect its metadata and security status.")
+        self.ex_detail.setMaximumHeight(150)
+        v.addWidget(self.ex_detail, 1)
         row = QHBoxLayout()
-        for label, fn in (("Trust...", self.trust_ext), ("Untrust", lambda: self.ext_action("untrust")),
-                          ("Enable", lambda: self.ext_action("enable")), ("Disable", lambda: self.ext_action("disable"))):
-            b = QPushButton(label)
-            b.clicked.connect(fn)
-            row.addWidget(b)
+        self.ex_refresh_button = QPushButton("Refresh discovery")
+        self.ex_refresh_button.clicked.connect(self.load_extensions)
+        row.addWidget(self.ex_refresh_button)
+        self.ex_inspect_button = QPushButton("Inspect")
+        self.ex_inspect_button.clicked.connect(self.inspect_ext)
+        row.addWidget(self.ex_inspect_button)
+        self.ex_trust_button = QPushButton("Trust...")
+        self.ex_trust_button.clicked.connect(self.trust_ext)
+        row.addWidget(self.ex_trust_button)
+        self.ex_untrust_button = QPushButton("Untrust")
+        self.ex_untrust_button.clicked.connect(lambda: self.ext_action("untrust"))
+        row.addWidget(self.ex_untrust_button)
+        self.ex_enable_button = QPushButton("Enable")
+        self.ex_enable_button.clicked.connect(lambda: self.ext_action("enable"))
+        row.addWidget(self.ex_enable_button)
+        self.ex_disable_button = QPushButton("Disable")
+        self.ex_disable_button.clicked.connect(lambda: self.ext_action("disable"))
+        row.addWidget(self.ex_disable_button)
         v.addLayout(row)
+        self.ex_table.itemSelectionChanged.connect(self._show_selected_extension)
+        self._set_extension_actions(False)
         return w
 
+    def _set_extension_actions(self, selected: bool) -> None:
+        for button in (self.ex_inspect_button, self.ex_trust_button, self.ex_untrust_button,
+                       self.ex_enable_button, self.ex_disable_button):
+            button.setEnabled(selected)
+
     def load_extensions(self) -> None:
-        rows = self._run("Listing extensions", self.s.plugin_list) or []
-        _fill(self.ex_table, [[r["name"], r["target"], r["trust"], "yes" if r["enabled"] else "no"] for r in rows])
+        rows = self._run("Discovering extensions", self.s.plugin_list) or []
+        self.ex_table.setSortingEnabled(False)
+        _fill(self.ex_table, [[r["name"], r["target"], r["trust"], "yes" if r["enabled"] else "no"]
+                              for r in rows])
+        self.ex_table.setSortingEnabled(True)
+        self.ex_table.clearSelection()
+        self._set_extension_actions(False)
+        if not rows:
+            self.ex_detail.setPlainText(
+                "No extensions are currently installed.\n\n"
+                "Extensions are discovered from Python package entry points in the "
+                "'app_forge.plugins' group. Install an extension package, then refresh discovery. "
+                "No network request or code execution is performed by this screen."
+            )
+        else:
+            self.ex_detail.setPlainText(
+                f"{len(rows)} installed extension{'s' if len(rows) != 1 else ''} discovered. "
+                "Select one to review its trust, enablement, and execution boundary."
+            )
 
     def _selected_ext(self):
         items = self.ex_table.selectedItems()
         return self.ex_table.item(items[0].row(), 0).text() if items else None
 
+    def _show_selected_extension(self) -> None:
+        name = self._selected_ext()
+        self._set_extension_actions(bool(name))
+        if name:
+            row = self.ex_table.currentRow()
+            target = self.ex_table.item(row, 1).text()
+            trust = self.ex_table.item(row, 2).text()
+            enabled = self.ex_table.item(row, 3).text()
+            self.ex_detail.setPlainText(
+                f"{name}\n"
+                f"Entry point: {target}\n"
+                f"Trust: {trust}\n"
+                f"Enabled: {enabled}\n\n"
+                "Select Inspect for the full extension metadata and isolation details. "
+                "Selecting an extension never imports or executes its code."
+            )
+
+    def inspect_ext(self) -> None:
+        name = self._selected_ext()
+        if not name:
+            return
+        details = self._run("Inspecting extension", lambda: self.s.plugin_inspect(name))
+        if details:
+            self.ex_detail.setPlainText(
+                f"{details.get('name', name)}\n"
+                f"Entry point: {details.get('target', 'unknown')}\n"
+                f"Entry-point group: {details.get('group', 'app_forge.plugins')}\n"
+                f"Trust: {details.get('trust', 'unknown')}\n"
+                f"Enabled: {'yes' if details.get('enabled') else 'no'}\n"
+                f"Execution boundary: {details.get('isolation', 'not reported')}\n\n"
+                "Security note: trust approval is explicit. Enablement is separate, and "
+                "extension invocation is refused when the required OS sandbox is unavailable."
+            )
+
     def trust_ext(self) -> None:
         name = self._selected_ext()
-        if name and QMessageBox.question(self, "Trust extension",
-                                         f"Trust {name!r}? It will be able to run code inside App Forge.") == QMessageBox.StandardButton.Yes:
+        if name and QMessageBox.question(
+            self, "Trust extension",
+            f"Trust {name!r}? Trusting permits it to be enabled and invoked subject to the OS sandbox. "
+            "Only trust extensions from sources you have reviewed."
+        ) == QMessageBox.StandardButton.Yes:
             self._run("Trusting", lambda: self.s.plugin_trust(name, "trusted"))
             self.load_extensions()
 
     def ext_action(self, action: str) -> None:
         name = self._selected_ext()
         if name:
-            fn = {"untrust": lambda: self.s.plugin_trust(name, "untrusted"), "enable": lambda: self.s.plugin_enable(name),
+            fn = {"untrust": lambda: self.s.plugin_trust(name, "untrusted"),
+                  "enable": lambda: self.s.plugin_enable(name),
                   "disable": lambda: self.s.plugin_disable(name)}[action]
             self._run(action.title(), fn)
             self.load_extensions()

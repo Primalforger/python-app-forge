@@ -399,5 +399,51 @@ class RealQtTests(ForgeTestCase):
         self.assertTrue(self.errors and self.errors[0][0] == "warning")
 
 
+    def test_extension_manager_explains_empty_discovery_state(self):
+        with mock.patch.object(self.s, "plugin_list", return_value=[]):
+            self.win.nav.setCurrentRow(self.gui.NAV.index("Extension Manager"))
+        self.assertEqual(self.win.ex_table.rowCount(), 0)
+        self.assertIn("No extensions are currently installed", self.win.ex_detail.toPlainText())
+        self.assertIn("app_forge.plugins", self.win.ex_detail.toPlainText())
+        self.assertFalse(self.win.ex_inspect_button.isEnabled())
+
+    def test_extension_manager_inspects_metadata_without_execution(self):
+        extension = {
+            "name": "sample-extension", "target": "sample_package:Extension",
+            "trust": "untrusted", "enabled": False,
+        }
+        details = {
+            **extension, "group": "app_forge.plugins",
+            "isolation": "bubblewrap Linux namespaces; network disabled; only explicit directories writable",
+        }
+        with (mock.patch.object(self.s, "plugin_list", return_value=[extension]),
+              mock.patch.object(self.s, "plugin_inspect", return_value=details) as inspect):
+            self.win.nav.setCurrentRow(self.gui.NAV.index("Extension Manager"))
+            self.assertEqual(self.win.ex_table.rowCount(), 1)
+            self.win.ex_table.selectRow(0)
+            self.assertIn("sample-extension", self.win.ex_detail.toPlainText())
+            self.assertTrue(self.win.ex_inspect_button.isEnabled())
+            self.win.inspect_ext()
+        inspect.assert_called_once_with("sample-extension")
+        self.assertIn("Entry-point group: app_forge.plugins", self.win.ex_detail.toPlainText())
+        self.assertIn("Trust: untrusted", self.win.ex_detail.toPlainText())
+        self.assertIn("bubblewrap Linux namespaces", self.win.ex_detail.toPlainText())
+        self.assertIn("refused when the required OS sandbox is unavailable", self.win.ex_detail.toPlainText())
+
+    def test_extension_trust_requires_confirmation_and_is_separate_from_enablement(self):
+        extension = {
+            "name": "review-me", "target": "review_package:Extension",
+            "trust": "untrusted", "enabled": False,
+        }
+        with (mock.patch.object(self.s, "plugin_list", return_value=[extension]),
+              mock.patch.object(self.s, "plugin_trust") as trust,
+              mock.patch.object(self.s, "plugin_enable") as enable,
+              mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.No)):
+            self.win.nav.setCurrentRow(self.gui.NAV.index("Extension Manager"))
+            self.win.ex_table.selectRow(0)
+            self.win.trust_ext()
+            trust.assert_not_called()
+            enable.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
