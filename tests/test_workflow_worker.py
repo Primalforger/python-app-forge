@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from app_forge.job_queue import JobQueue
@@ -127,6 +128,7 @@ class WorkflowQueueWorkerTests(unittest.TestCase):
 
     def test_long_workflow_renews_lease_so_second_worker_cannot_reclaim(self):
         started = threading.Event()
+        renewed = threading.Event()
 
         def slow_prepare(_context):
             started.set()
@@ -140,12 +142,22 @@ class WorkflowQueueWorkerTests(unittest.TestCase):
         )
         job = worker.enqueue("compile", max_attempts=2)
         outcome = []
+        original_extend = self.queue.extend_lease
+
+        def extend_and_signal(*args, **kwargs):
+            result = original_extend(*args, **kwargs)
+            renewed.set()
+            return result
+
         thread = threading.Thread(target=lambda: outcome.append(worker.run_once()))
-        thread.start()
-        self.assertTrue(started.wait(timeout=2))
-        time.sleep(0.25)
-        self.assertIsNone(self.queue.claim("worker-b", lease_seconds=1))
-        thread.join(timeout=3)
+        with mock.patch.object(self.queue, "extend_lease", side_effect=extend_and_signal):
+            thread.start()
+            self.assertTrue(started.wait(timeout=2))
+            # Wait for an actual successful heartbeat instead of assuming the
+            # scheduler ran the heartbeat thread within a fixed sleep interval.
+            self.assertTrue(renewed.wait(timeout=2))
+            self.assertIsNone(self.queue.claim("worker-b", lease_seconds=1))
+            thread.join(timeout=3)
         self.assertFalse(thread.is_alive())
         self.assertEqual(outcome[0].job.status, "succeeded")
         self.assertEqual(self.queue.get(job.id).attempts, 1)

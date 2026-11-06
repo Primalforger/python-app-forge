@@ -166,11 +166,25 @@ class ForgeServices:
 
     # ------------------------------------------------------------------ project creation (FR-001/002)
     def create_project(self, template: str, options: dict, out_dir: str | Path, *,
-                       components: Sequence[str] = (), dry_run: bool = False) -> dict:
+                       components: Sequence[str] = (), dry_run: bool = False,
+                       cancel_token: CancellationToken | None = None,
+                       progress: ProgressCallback | None = None) -> dict:
+        def report(stage: str, message: str, current: int | None = None, total: int | None = None) -> None:
+            if progress:
+                progress({"stage": stage, "message": message, "current": current, "total": total})
+
+        def check_cancelled() -> None:
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
+
         with self.operation("create_project", out_dir) as op:
+            check_cancelled()
+            report("prepare", "Validating project settings")
             info = self.templates.get(template)
             variables = self.templates.validate_inputs(info, options)
             template_files = self.templates.render(info, variables)
+            check_cancelled()
+            report("resolve", "Resolving selected components")
             # Preserve the exact rendered template as the three-way merge base.
             # Component contributions and Forge metadata have independent ownership.
             template_baseline = create_baseline(info.id, info.version, info.archetype, template_files, info.archetypes)
@@ -178,6 +192,8 @@ class ForgeServices:
             package = variables["package"]
             res = resolve(self.registry, {c: "*" for c in components}, archetype=info.archetypes)
             res.raise_if_failed()
+            check_cancelled()
+            report("compose", "Assembling project files")
             comps, managed, pkgs = [], [], []
             file_modes: dict[str, int] = {}
             for entry in res.order:
@@ -237,6 +253,8 @@ class ForgeServices:
             # rather than silently redirecting generation to its target.
             out = Path(os.path.abspath(os.fspath(out_dir)))
             if dry_run:
+                check_cancelled()
+                report("complete", "Generation preview is ready", len(files), len(files))
                 op["summary"] = {"dry_run": True, "files": len(files)}
                 return {"operation_id": op["operation_id"], "dry_run": True, "path": str(out), **plan}
             # Render and validate the complete tree in a private sibling directory. Only
@@ -246,12 +264,18 @@ class ForgeServices:
                 raise ConflictFailure(f"Target directory {out} already exists")
             stage = Path(tempfile.mkdtemp(prefix=f".{out.name}.forge-create-", dir=out.parent))
             try:
-                for rel, file_content in files.items():
+                total_files = len(files)
+                report("write", "Writing generated project files", 0, total_files)
+                for index, (rel, file_content) in enumerate(files.items(), start=1):
+                    check_cancelled()
                     target = safe_join(stage, rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(file_content if isinstance(file_content, bytes) else file_content.encode("utf-8"))
                     if rel in file_modes:
                         os.chmod(target, file_modes[rel])
+                    report("write", f"Writing {rel}", index, total_files)
+                check_cancelled()
+                report("validate", "Validating staged project", total_files, total_files)
                 if set(p.relative_to(stage).as_posix() for p in stage.rglob("*") if p.is_file()) != set(files):
                     raise ValidationFailure("Staged project does not match the rendered file manifest")
                 tomllib.loads((stage / "forge.toml").read_text(encoding="utf-8"))
@@ -260,12 +284,15 @@ class ForgeServices:
                 # Keep the staging tree private until validation is complete, then apply
                 # the normal umask-filtered root mode immediately before promotion.
                 _set_default_directory_mode(stage)
+                check_cancelled()
+                report("finalize", "Finalizing project directory", total_files, total_files)
                 # No-clobber rename closes the check/promote race: a destination created
                 # after preflight is never replaced, even if it is an empty directory.
                 _rename_directory_noreplace(stage, out)
             except Exception:
                 shutil.rmtree(stage, ignore_errors=True)
                 raise
+            report("complete", "Project created successfully", len(files), len(files))
             op["summary"] = {"files": len(files), "template": info.id}
             return {"operation_id": op["operation_id"], "dry_run": False, "path": str(out), **plan}
 
