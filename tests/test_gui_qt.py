@@ -522,7 +522,9 @@ class RealQtTests(ForgeTestCase):
     def test_global_search_shortcut_and_sidebar_action(self):
         self.assertEqual(self.win.global_search_shortcut.key().toString(), "Ctrl+Shift+F")
         self.assertEqual(self.win.global_search_button.accessibleName(), "Search everything")
-        self.assertIn("Ctrl+Shift+F", self.win.global_search_button.text())
+        self.assertEqual(self.win.global_search_button.text(), "Search")
+        self.assertEqual(self.win.global_search_button.toolTip(), "Search everything (Ctrl+Shift+F)")
+        self.assertLessEqual(self.win.global_search_button.sizeHint().width(), self.win.global_search_button.width())
 
 
 
