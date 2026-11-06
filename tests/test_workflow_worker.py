@@ -132,13 +132,13 @@ class WorkflowQueueWorkerTests(unittest.TestCase):
 
         def slow_prepare(_context):
             started.set()
-            time.sleep(0.45)
+            time.sleep(1.2)
             return "ready"
 
         worker = WorkflowQueueWorker(
             self.queue, {"compile": self.workflow},
             {"prepare": slow_prepare, "build": lambda _context: "done"},
-            worker_id="worker-a", lease_seconds=0.15,
+            worker_id="worker-a", lease_seconds=0.6,
         )
         job = worker.enqueue("compile", max_attempts=2)
         outcome = []
