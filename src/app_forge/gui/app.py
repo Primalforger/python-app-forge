@@ -917,13 +917,23 @@ class MainWindow(QMainWindow):
         self.ops.setAccessibleName("Recent operations table")
         self.ops.currentCellChanged.connect(self._show_dashboard_activity_detail)
         v.addWidget(self.ops, 2)
+        self.activity_detail_summary = QLabel("Select an activity record to inspect its outcome.")
+        self.activity_detail_summary.setObjectName("muted")
+        self.activity_detail_summary.setAccessibleName("Selected activity summary")
+        v.addWidget(self.activity_detail_summary)
         self.activity_detail = QPlainTextEdit()
         self.activity_detail.setAccessibleName("Selected activity details")
         self.activity_detail.setReadOnly(True)
         self.activity_detail.setPlaceholderText("Select an activity record to inspect its details.")
-        self.activity_detail.setMaximumHeight(170)
+        self.activity_detail.setMaximumHeight(150)
         v.addWidget(self.activity_detail)
         actions = QHBoxLayout()
+        self.copy_activity_id_button = QPushButton("Copy operation ID")
+        self.copy_activity_id_button.setObjectName("secondaryAction")
+        self.copy_activity_id_button.setAccessibleName("Copy selected operation ID")
+        self.copy_activity_id_button.setEnabled(False)
+        self.copy_activity_id_button.clicked.connect(self.copy_selected_activity_id)
+        actions.addWidget(self.copy_activity_id_button)
         actions.addStretch(1)
         self.clear_history_button = QPushButton("Clear activity history…")
         self.clear_history_button.setAccessibleName("Clear activity history")
@@ -996,16 +1006,38 @@ class MainWindow(QMainWindow):
             self.ops.selectRow(0)
             self._show_dashboard_activity_detail(0, 0, -1, -1)
         else:
+            self.activity_detail_summary.setText("No matching operation selected")
             self.activity_detail.setPlainText("No activity records match the current search and filters.")
+            self.copy_activity_id_button.setEnabled(False)
 
     def _show_dashboard_activity_detail(self, row: int, _column: int, _previous_row: int, _previous_column: int) -> None:
         if row < 0 or row >= len(self._visible_activity_rows):
+            self.activity_detail_summary.setText("No matching operation selected")
             self.activity_detail.clear()
+            self.copy_activity_id_button.setEnabled(False)
             return
-        operation_id = str(self._visible_activity_rows[row].get("operation_id", ""))
+        selected = self._visible_activity_rows[row]
+        operation_id = str(selected.get("operation_id", ""))
         operation = self._run("Loading activity details", lambda: self.s.history_item(operation_id))
         if operation is not None:
+            status = str(operation.get("status", selected.get("status", "unknown"))).upper()
+            kind = str(operation.get("kind", selected.get("kind", "operation")))
+            target = str(operation.get("target", selected.get("target", "")))
+            summary = operation.get("summary", {})
+            self.activity_detail_summary.setText(
+                f"{status}  ·  {kind}  ·  {target or 'No target'}  ·  ID: {operation_id}"
+            )
             self.activity_detail.setPlainText(json.dumps(operation, indent=2, sort_keys=True, default=str))
+            self.copy_activity_id_button.setEnabled(bool(operation_id))
+
+    def copy_selected_activity_id(self) -> None:
+        row = self.ops.currentRow()
+        if row < 0 or row >= len(self._visible_activity_rows):
+            return
+        operation_id = str(self._visible_activity_rows[row].get("operation_id", ""))
+        if operation_id:
+            QApplication.clipboard().setText(operation_id)
+            self.status.setText("Operation ID copied to clipboard")
 
     def clear_dashboard_history(self) -> None:
         count = self._run("Counting activity history", self.s.history_count)
@@ -1082,16 +1114,87 @@ class MainWindow(QMainWindow):
         w = QWidget()
         v = QVBoxLayout(w)
         v.addWidget(_title("Generation Review"))
-        v.addWidget(QLabel("Build a dry-run plan from the Project Wizard settings. Review it here before creating files."))
+        intro = QLabel(
+            "Preview the exact project structure before writing anything. Review the template, "
+            "selected components, dependencies, and generated files."
+        )
+        intro.setObjectName("muted")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        actions = QHBoxLayout()
         review = QPushButton("Build generation plan")
         review.setAccessibleName("Build generation plan")
         review.clicked.connect(self.review_generation)
-        v.addWidget(review)
+        self.gr_copy_button = QPushButton("Copy plan details")
+        self.gr_copy_button.setObjectName("secondaryAction")
+        self.gr_copy_button.setAccessibleName("Copy generation plan details")
+        self.gr_copy_button.setEnabled(False)
+        self.gr_copy_button.clicked.connect(self.copy_generation_review)
+        actions.addWidget(review)
+        actions.addWidget(self.gr_copy_button)
+        actions.addStretch(1)
+        v.addLayout(actions)
+        self.gr_summary = QLabel("Build a plan to see the proposed project.")
+        self.gr_summary.setObjectName("muted")
+        self.gr_summary.setAccessibleName("Generation plan summary")
+        self.gr_summary.setWordWrap(True)
+        v.addWidget(self.gr_summary)
+        self.gr_dependencies = QLabel("Dependencies and patches will appear here.")
+        self.gr_dependencies.setObjectName("muted")
+        self.gr_dependencies.setAccessibleName("Generation plan dependencies and patches")
+        self.gr_dependencies.setWordWrap(True)
+        v.addWidget(self.gr_dependencies)
+        self.gr_files = _table(["Generated file", "Size"])
+        self.gr_files.setObjectName("generationFilesTable")
+        self.gr_files.setAccessibleName("Generated project files")
+        v.addWidget(self.gr_files, 2)
         self.gr_out = QPlainTextEdit()
-        self.gr_out.setAccessibleName("Generation plan review")
+        self.gr_out.setAccessibleName("Generation plan details")
         self.gr_out.setReadOnly(True)
-        v.addWidget(self.gr_out, 1)
+        self.gr_out.setPlaceholderText("The complete generation plan will appear here.")
+        self.gr_out.setMaximumHeight(150)
+        v.addWidget(self.gr_out)
         return w
+
+    def _render_generation_review(self, result: object) -> None:
+        if not isinstance(result, dict):
+            self.gr_summary.setText("The generation service returned an unexpected preview.")
+            self.gr_dependencies.setText("")
+            self.gr_files.setRowCount(0)
+            self.gr_out.setPlainText(str(result))
+            self.gr_copy_button.setEnabled(bool(str(result)))
+            return
+        files = result.get("files", [])
+        files = files if isinstance(files, list) else []
+        components = result.get("components", [])
+        components = components if isinstance(components, list) else []
+        configuration = result.get("configuration", {})
+        configuration = configuration if isinstance(configuration, dict) else {}
+        self.gr_summary.setText(
+            f"{configuration.get('name') or configuration.get('package') or 'New project'}"
+            f"  ·  {result.get('template', 'Template unavailable')}"
+            f"  ·  {len(files)} files"
+            f"  ·  Destination: {result.get('path', 'Not specified')}"
+        )
+        dependencies = result.get("added_dependencies", [])
+        patches = result.get("patches", [])
+        self.gr_dependencies.setText(
+            f"Components ({len(components)}): {', '.join(str(item) for item in components) or 'None'}\n"
+            f"Additional dependencies ({len(dependencies)}): {', '.join(str(item) for item in dependencies) or 'None'}\n"
+            f"Applied patches ({len(patches)}): {', '.join(str(item) for item in patches) or 'None'}"
+        )
+        _fill(self.gr_files, [
+            [str(item.get("path", "Unknown file")), f"{int(item.get('bytes', 0)):,} bytes"]
+            for item in files if isinstance(item, dict)
+        ])
+        self.gr_out.setPlainText(json.dumps(result, indent=2, sort_keys=True, default=str))
+        self.gr_copy_button.setEnabled(True)
+
+    def copy_generation_review(self) -> None:
+        content = self.gr_out.toPlainText()
+        if content:
+            QApplication.clipboard().setText(content)
+            self.status.setText("Generation plan details copied to clipboard")
 
     def _component_picker_dialog(self) -> QDialog:
         dialog = QDialog(self)
@@ -1184,7 +1287,7 @@ class MainWindow(QMainWindow):
             lambda *, cancel_token, progress: self.s.create_project(
                 template, options, out, components=comps, dry_run=True,
                 cancel_token=cancel_token, progress=progress),
-            on_success=lambda result: self.gr_out.setPlainText(json.dumps(result, indent=2, default=str)),
+            on_success=self._render_generation_review,
             on_cancel=lambda result: self.gr_out.setPlainText(
                 "Generation preview cancelled. No project files were written.\n" +
                 (str(result.get("message", "")) if isinstance(result, dict) else "")
