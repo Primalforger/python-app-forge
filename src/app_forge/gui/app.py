@@ -343,7 +343,7 @@ class MainWindow(QMainWindow):
         tagline.setObjectName("sidebarTagline")
         sidebar_layout.addWidget(brand)
         sidebar_layout.addWidget(tagline)
-        self.global_search_button = QPushButton("Search everything")
+        self.global_search_button = QPushButton("Search")
         self.global_search_button.setObjectName("secondaryAction")
         self.global_search_button.setAccessibleName("Search everything")
         self.global_search_button.setToolTip("Search everything (Ctrl+Shift+F)")
