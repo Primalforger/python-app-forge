@@ -15,7 +15,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
-    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QLineEdit, QListWidget, QMessageBox,
+    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QLabel, QLineEdit, QListWidget, QMessageBox,
                                    QPlainTextEdit, QPushButton, QTableWidget)
     HAVE_QT = True
     QT_IMPORT_ERROR = ""
