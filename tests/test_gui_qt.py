@@ -486,5 +486,44 @@ class RealQtTests(ForgeTestCase):
         self.assertFalse(hasattr(restored, "welcome_panel"))
 
 
+
+    def test_global_search_collects_results_across_workspace_categories(self):
+        project = self.tmp / "widget-project"
+        project.mkdir()
+        self.s.search_components = mock.Mock(return_value=[{
+            "id": "ui.widget", "name": "Widget Component", "summary": "Reusable widget",
+        }])
+        self.s.plugin_list = mock.Mock(return_value=[{
+            "name": "widget-tools", "target": "widget_tools:main", "trust": "trusted", "enabled": True,
+        }])
+        self.s.list_recent_projects = mock.Mock(return_value=[str(project)])
+        self.s.history = mock.Mock(return_value=[{
+            "operation_id": "op-widget-1", "kind": "build_widget",
+            "target": "widget-project", "status": "succeeded",
+        }])
+        results = self.win._global_search_items("widget")
+        categories = {item["category"] for item in results}
+        self.assertTrue({"Component", "Extension", "Recent project", "Operation"}.issubset(categories))
+        self.assertTrue(all(callable(item["callback"]) for item in results))
+
+    def test_global_search_dialog_filters_and_activates_selected_result(self):
+        activated = []
+        from app_forge.gui.app import GlobalSearchDialog
+        dialog = GlobalSearchDialog(lambda query: [{
+            "title": "Widget Component", "category": "Component",
+            "description": "ui.widget reusable", "callback": lambda: activated.append("ui.widget"),
+        }] if "widget" in query.casefold() else [], self.win)
+        dialog.query.setText("widget")
+        self.assertEqual(dialog.results.count(), 1)
+        QTest.keyClick(dialog.query, Qt.Key.Key_Return)
+        self.assertEqual(activated, ["ui.widget"])
+        self.assertFalse(dialog.isVisible())
+
+    def test_global_search_shortcut_and_sidebar_action(self):
+        self.assertEqual(self.win.global_search_shortcut.key().toString(), "Ctrl+Shift+F")
+        self.assertEqual(self.win.global_search_button.accessibleName(), "Search everything")
+        self.assertIn("Ctrl+Shift+F", self.win.global_search_button.text())
+
+
 if __name__ == "__main__":
     unittest.main()
