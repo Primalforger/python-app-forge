@@ -1121,7 +1121,7 @@ class MainWindow(QMainWindow):
             item.setCheckState(Qt.CheckState.Checked if component_id in self._selected_component_ids else Qt.CheckState.Unchecked)
             items.addItem(item)
         selection_summary = QLabel()
-        selection_summary.setObjectName("muted")
+        selection_summary.setObjectName("selectionSummary")
         selection_summary.setAccessibleName("Component selection summary")
         layout.addWidget(selection_summary)
 
