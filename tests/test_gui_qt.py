@@ -524,7 +524,7 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.global_search_button.accessibleName(), "Search everything")
         self.assertEqual(self.win.global_search_button.text(), "Search everything")
         self.assertEqual(self.win.global_search_button.toolTip(), "Search everything (Ctrl+Shift+F)")
-        self.assertLessEqual(self.win.global_search_button.minimumWidth(), self.win.sidebar.width())
+        self.assertLessEqual(self.win.global_search_button.sizeHint().width(), self.win.global_search_button.width())
 
 
 
