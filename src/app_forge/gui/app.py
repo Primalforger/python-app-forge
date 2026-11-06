@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import sys
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -210,6 +212,99 @@ class GlobalSearchDialog(QDialog):
         callback()
 
 
+
+class NotificationCenterDialog(QDialog):
+    """Persistent, user-managed notification history."""
+
+    def __init__(self, notifications: list[dict], on_action, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Notification Center")
+        self.setAccessibleName("Notification center")
+        self.resize(640, 460)
+        self._notifications = notifications
+        self._on_action = on_action
+        layout = QVBoxLayout(self)
+        layout.addWidget(_title("Notification Center"))
+        self.summary = QLabel()
+        self.summary.setObjectName("muted")
+        layout.addWidget(self.summary)
+        self.items = QListWidget()
+        self.items.setAccessibleName("Notifications")
+        layout.addWidget(self.items, 2)
+        self.detail = QPlainTextEdit()
+        self.detail.setReadOnly(True)
+        self.detail.setAccessibleName("Notification details")
+        self.detail.setMaximumHeight(120)
+        layout.addWidget(self.detail)
+        actions = QHBoxLayout()
+        self.read_button = QPushButton("Mark as read")
+        self.read_button.clicked.connect(lambda: self._act("read"))
+        self.dismiss_button = QPushButton("Dismiss")
+        self.dismiss_button.clicked.connect(lambda: self._act("dismiss"))
+        self.open_button = QPushButton("Open activity")
+        self.open_button.clicked.connect(lambda: self._act("open"))
+        self.clear_button = QPushButton("Clear all")
+        self.clear_button.clicked.connect(lambda: self._act("clear"))
+        close = QPushButton("Close")
+        close.clicked.connect(self.accept)
+        for button in (self.read_button, self.dismiss_button, self.open_button, self.clear_button):
+            actions.addWidget(button)
+        actions.addStretch(1)
+        actions.addWidget(close)
+        layout.addLayout(actions)
+        self.items.currentRowChanged.connect(self._selection_changed)
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.items.clear()
+        unread = sum(not item.get("read", False) for item in self._notifications)
+        self.summary.setText(
+            f"{len(self._notifications)} notifications · {unread} unread"
+            if self._notifications else "You're all caught up. New operation updates will appear here."
+        )
+        for notification in self._notifications:
+            state = "READ" if notification.get("read") else "NEW"
+            self.items.addItem(
+                f'{state}  ·  {notification.get("title", "Forge update")}  ·  '
+                f'{notification.get("created_at", "")}'
+            )
+        if self.items.count():
+            self.items.setCurrentRow(0)
+        else:
+            self.detail.setPlainText("No notifications.")
+
+    def _selection_changed(self, row: int) -> None:
+        if row < 0 or row >= len(self._notifications):
+            self.detail.clear()
+            self.read_button.setEnabled(False)
+            self.dismiss_button.setEnabled(False)
+            self.open_button.setEnabled(False)
+            return
+        item = self._notifications[row]
+        self.detail.setPlainText(
+            f'{item.get("title", "Forge update")}\n'
+            f'{item.get("message", "")}\n\n'
+            f'Severity: {item.get("severity", "info")}\n'
+            f'Time: {item.get("created_at", "")}'
+        )
+        self.read_button.setEnabled(not item.get("read", False))
+        self.dismiss_button.setEnabled(True)
+        self.open_button.setEnabled(bool(item.get("open_activity", True)))
+
+    def _act(self, action: str) -> None:
+        row = self.items.currentRow()
+        notification = self._notifications[row] if 0 <= row < len(self._notifications) else None
+        if action == "clear":
+            notification = None
+        if action in ("read", "dismiss", "open") and notification is None:
+            return
+        self._on_action(action, notification)
+        if action == "open":
+            self.accept()
+        else:
+            self.refresh()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, services: ForgeServices):
         super().__init__()
@@ -227,6 +322,9 @@ class MainWindow(QMainWindow):
             self.accent = "blue"
         self.compact_density = bool(self._saved_session.get("compact_density", False))
         self.mascots_enabled = self._saved_session.get("mascots_enabled", True) is not False
+        saved_notifications = self._saved_session.get("notifications", [])
+        self._notifications = [item for item in saved_notifications if isinstance(item, dict)][-100:] \
+            if isinstance(saved_notifications, list) else []
         self.setWindowTitle(f"Python App Forge {__version__}")
         self.resize(1100, 700)
         root = QWidget()
@@ -250,6 +348,11 @@ class MainWindow(QMainWindow):
         self.global_search_button.setAccessibleName("Search everything")
         self.global_search_button.clicked.connect(self.open_global_search)
         sidebar_layout.addWidget(self.global_search_button)
+        self.notification_button = QPushButton("Notifications")
+        self.notification_button.setObjectName("secondaryAction")
+        self.notification_button.setAccessibleName("Open notification center")
+        self.notification_button.clicked.connect(self.open_notification_center)
+        sidebar_layout.addWidget(self.notification_button)
 
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
@@ -320,6 +423,7 @@ class MainWindow(QMainWindow):
         else:
             self.nav.setCurrentRow(0)
         self.apply_theme()
+        self._refresh_notification_button()
         if self._saved_session.get("maximized") is True:
             self.showMaximized()
 
@@ -379,6 +483,7 @@ class MainWindow(QMainWindow):
             "compact_density": self.compact_density,
             "mascots_enabled": self.mascots_enabled,
             "welcome_seen": self._saved_session.get("welcome_seen", False),
+            "notifications": self._notifications[-100:],
         }
         try:
             self.s.save_desktop_session(state)
@@ -401,6 +506,50 @@ class MainWindow(QMainWindow):
     def open_command_palette(self) -> None:
         palette = CommandPaletteDialog(self._command_palette_commands(), self)
         palette.exec()
+
+    def _add_notification(self, severity: str, title: str, message: str) -> None:
+        notification = {
+            "id": uuid.uuid4().hex,
+            "severity": severity if severity in {"success", "warning", "error", "info"} else "info",
+            "title": str(title)[:180],
+            "message": str(message)[:2000],
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "read": False,
+            "open_activity": True,
+        }
+        self._notifications.append(notification)
+        self._notifications = self._notifications[-100:]
+        self._refresh_notification_button()
+        self._save_session()
+
+    def _refresh_notification_button(self) -> None:
+        unread = sum(not item.get("read", False) for item in self._notifications)
+        self.notification_button.setText(f"Notifications  ·  {unread} new" if unread else "Notifications")
+        self.notification_button.setToolTip(f"{unread} unread notification(s)")
+
+    def _notification_action(self, action: str, notification: dict | None) -> None:
+        if action == "clear":
+            self._notifications.clear()
+        elif notification is not None:
+            identifier = notification.get("id")
+            if action == "read":
+                for item in self._notifications:
+                    if item.get("id") == identifier:
+                        item["read"] = True
+                        break
+            elif action == "dismiss":
+                self._notifications[:] = [item for item in self._notifications if item.get("id") != identifier]
+            elif action == "open":
+                notification["read"] = True
+                self.nav.setCurrentRow(NAV.index("Dashboard"))
+                self.activity_search.clear()
+                self.refresh_dashboard()
+        self._refresh_notification_button()
+        self._save_session()
+
+    def open_notification_center(self) -> None:
+        dialog = NotificationCenterDialog(self._notifications, self._notification_action, self)
+        dialog.exec()
 
     def _global_search_items(self, query: str) -> list[dict[str, Any]]:
         """Collect searchable metadata only; opening a result is an explicit user action."""
@@ -576,6 +725,8 @@ class MainWindow(QMainWindow):
 
     def _background_succeeded_event(self, result: object) -> None:
         self.status.setText(f"{self._background_label}: done")
+        self._add_notification("success", f"{self._background_label} completed",
+                               "The background operation finished successfully.")
         callback = self._background_on_success
         self._background_on_success = None
         self._background_on_cancel = None
@@ -584,6 +735,8 @@ class MainWindow(QMainWindow):
 
     def _background_failed_event(self, exc: Exception) -> None:
         label = self._background_label
+        message = exc.message if isinstance(exc, ForgeError) else f"{type(exc).__name__}: {exc}"
+        self._add_notification("error", f"{label} failed", message)
         if isinstance(exc, ForgeError):
             self.status.setText(f"{label}: failed ({exc.category})")
             QMessageBox.warning(self, "Operation failed",
@@ -595,6 +748,8 @@ class MainWindow(QMainWindow):
 
     def _background_cancelled_event(self, result: object) -> None:
         label = self._background_label
+        message = str(result.get("message", "The operation was cancelled.")) if isinstance(result, dict) else "The operation was cancelled."
+        self._add_notification("warning", f"{label} cancelled", message)
         self.status.setText(f"{label}: cancelled")
         callback = self._background_on_cancel
         self._background_on_success = None
