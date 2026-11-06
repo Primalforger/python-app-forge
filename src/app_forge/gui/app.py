@@ -540,7 +540,8 @@ class MainWindow(QMainWindow):
             elif action == "open":
                 notification["read"] = True
                 self.nav.setCurrentRow(NAV.index("Dashboard"))
-                self.activity_search.setText(str(notification.get("title", "")))
+                self.activity_search.clear()
+                self.refresh_dashboard()
         self._refresh_notification_button()
         self._save_session()
 

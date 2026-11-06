@@ -525,5 +525,55 @@ class RealQtTests(ForgeTestCase):
         self.assertIn("Ctrl+Shift+F", self.win.global_search_button.text())
 
 
+
+    def test_background_operation_notifications_persist_and_update_unread_count(self):
+        self.win._background_label = "Project verification"
+        self.win._background_succeeded_event({"ok": True})
+        self.win._background_failed_event(RuntimeError("Compiler unavailable"))
+        self.win._background_cancelled_event({"message": "Cancelled by user"})
+        self.assertEqual(len(self.win._notifications), 3)
+        self.assertEqual(self.win.notification_button.text(), "Notifications  ·  3 new")
+        saved = self.s.load_desktop_session()
+        self.assertEqual(len(saved["notifications"]), 3)
+        self.assertEqual([item["severity"] for item in self.win._notifications],
+                         ["success", "error", "warning"])
+        first = self.win._notifications[0]
+        self.win._notification_action("read", first)
+        self.assertEqual(self.win.notification_button.text(), "Notifications  ·  2 new")
+        restored = self.gui.MainWindow(self.services())
+        self.addCleanup(restored.close)
+        self.assertEqual(len(restored._notifications), 3)
+        self.assertEqual(sum(not item["read"] for item in restored._notifications), 2)
+
+    def test_notification_center_mark_read_dismiss_and_clear_actions(self):
+        from app_forge.gui.app import NotificationCenterDialog
+        notifications = [{
+            "id": "notice-1", "title": "Build completed", "message": "All checks passed",
+            "severity": "success", "created_at": "2026-11-06T12:00:00+00:00",
+            "read": False, "open_activity": True,
+        }]
+        actions = []
+        dialog = NotificationCenterDialog(
+            notifications,
+            lambda action, item: actions.append((action, item.get("id") if item else None)),
+            self.win,
+        )
+        dialog.items.setCurrentRow(0)
+        self.assertTrue(dialog.read_button.isEnabled())
+        dialog.read_button.click()
+        self.assertEqual(actions[-1], ("read", "notice-1"))
+        dialog.dismiss_button.click()
+        self.assertEqual(actions[-1], ("dismiss", "notice-1"))
+        dialog.clear_button.click()
+        self.assertEqual(actions[-1], ("clear", None))
+
+    def test_notification_center_button_is_accessible(self):
+        self.assertEqual(self.win.notification_button.accessibleName(), "Open notification center")
+        self.assertEqual(self.win.notification_button.text(), "Notifications")
+        self.win._add_notification("info", "Workspace ready", "Forge is ready to use.")
+        self.assertIn("1 new", self.win.notification_button.text())
+        self.assertIn("unread notification", self.win.notification_button.toolTip().lower())
+
+
 if __name__ == "__main__":
     unittest.main()
