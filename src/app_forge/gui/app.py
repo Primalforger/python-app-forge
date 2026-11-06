@@ -296,7 +296,9 @@ class NotificationCenterDialog(QDialog):
         notification = self._notifications[row] if 0 <= row < len(self._notifications) else None
         if action in ("read", "dismiss", "open") and notification is None:
             return
-        self._on_action(action, notification)
+        updated = self._on_action(action, notification)
+        if isinstance(updated, list):
+            self._notifications = updated
         if action == "open":
             self.accept()
         else:
@@ -544,6 +546,7 @@ class MainWindow(QMainWindow):
                 self.refresh_dashboard()
         self._refresh_notification_button()
         self._save_session()
+        return self._notifications
 
     def open_notification_center(self) -> None:
         dialog = NotificationCenterDialog(self._notifications, self._notification_action, self)
