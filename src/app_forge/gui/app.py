@@ -294,6 +294,8 @@ class NotificationCenterDialog(QDialog):
     def _act(self, action: str) -> None:
         row = self.items.currentRow()
         notification = self._notifications[row] if 0 <= row < len(self._notifications) else None
+        if action == "clear":
+            notification = None
         if action in ("read", "dismiss", "open") and notification is None:
             return
         updated = self._on_action(action, notification)
