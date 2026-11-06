@@ -826,6 +826,24 @@ class MainWindow(QMainWindow):
         heading.addWidget(refresh, 0, Qt.AlignmentFlag.AlignTop)
         v.addLayout(heading)
 
+        quick_actions = QHBoxLayout()
+        create_project = QPushButton("Create project")
+        create_project.setAccessibleName("Create a project from the dashboard")
+        create_project.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
+        open_workspace = QPushButton("Open workspace")
+        open_workspace.setObjectName("secondaryAction")
+        open_workspace.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Workspace")))
+        self.review_failed_button = QPushButton("Review failed operations")
+        self.review_failed_button.setObjectName("secondaryAction")
+        self.review_failed_button.setAccessibleName("Review failed operations")
+        self.review_failed_button.setEnabled(False)
+        self.review_failed_button.clicked.connect(self.review_failed_activity)
+        quick_actions.addWidget(create_project)
+        quick_actions.addWidget(open_workspace)
+        quick_actions.addWidget(self.review_failed_button)
+        quick_actions.addStretch(1)
+        v.addLayout(quick_actions)
+
         if not self._saved_session.get("welcome_seen", False):
             self.welcome_panel = QWidget()
             self.welcome_panel.setObjectName("welcomePanel")
@@ -935,12 +953,25 @@ class MainWindow(QMainWindow):
         self.metric_failed.setText(f"<b>{counts['failed']}</b><br>Failed")
         self.metric_running.setText(f"<b>{counts['running']}</b><br>Running")
         self.metric_retention.setText(f"<b>{retention_days} days</b><br>Retention")
+        failed_count = counts["failed"]
+        self.review_failed_button.setText(
+            f"Review {failed_count} failed operation{'s' if failed_count != 1 else ''}"
+            if failed_count else "No failed operations"
+        )
+        self.review_failed_button.setEnabled(failed_count > 0)
         self.ops_summary.setText(
             f"Showing {len(rows)} recent operations · "
             f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
             f"{counts['cancelled']} cancelled · {counts['running']} running"
         )
         self._filter_dashboard_activity()
+
+    def review_failed_activity(self) -> None:
+        if not self.review_failed_button.isEnabled():
+            return
+        self.activity_status_filter.setCurrentText("failed")
+        self.nav.setCurrentRow(NAV.index("Dashboard"))
+        self.status.setText("Showing failed operations in the Dashboard activity list")
 
     def _filter_dashboard_activity(self, *_args) -> None:
         query = self.activity_search.text().strip().casefold()
@@ -1068,7 +1099,7 @@ class MainWindow(QMainWindow):
         dialog.setAccessibleName("Project component picker")
         dialog.resize(620, 520)
         layout = QVBoxLayout(dialog)
-        intro = QLabel("Search the catalog and select any components to include in your project.")
+        intro = QLabel("Search by component ID, category, or description. Your selections stay checked as you filter.")
         intro.setWordWrap(True)
         layout.addWidget(intro)
         search = QLineEdit()
@@ -1081,13 +1112,27 @@ class MainWindow(QMainWindow):
         rows = self._run("Loading component choices", lambda: self.s.search_components("")) or []
         for component in rows:
             component_id = str(component["id"])
-            description = str(component.get("summary") or component.get("category") or "Reusable project component")
-            item = QListWidgetItem(f"{component_id} — {description}")
+            category = str(component.get("category") or "General")
+            description = str(component.get("summary") or "Reusable project component")
+            item = QListWidgetItem(f"{component_id} — {category} — {description}")
             item.setData(Qt.ItemDataRole.UserRole, component_id)
             item.setToolTip(description)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if component_id in self._selected_component_ids else Qt.CheckState.Unchecked)
             items.addItem(item)
+        selection_summary = QLabel()
+        selection_summary.setObjectName("selectionSummary")
+        selection_summary.setAccessibleName("Component selection summary")
+        layout.addWidget(selection_summary)
+
+        def update_selection_summary(*_args) -> None:
+            selected = sum(items.item(i).checkState() == Qt.CheckState.Checked for i in range(items.count()))
+            visible = sum(not items.item(i).isHidden() for i in range(items.count()))
+            selection_summary.setText(
+                f"{selected} selected · {visible} matching component{'s' if visible != 1 else ''}"
+            )
+
+        items.itemChanged.connect(update_selection_summary)
         layout.addWidget(items, 1)
 
         def filter_items(query: str) -> None:
@@ -1096,6 +1141,7 @@ class MainWindow(QMainWindow):
                 item = items.item(index)
                 haystack = item.text().casefold()
                 item.setHidden(not all(term in haystack for term in terms))
+            update_selection_summary()
 
         search.textChanged.connect(filter_items)
         footer = QHBoxLayout()
@@ -1108,6 +1154,7 @@ class MainWindow(QMainWindow):
         clear.clicked.connect(lambda: [items.item(i).setCheckState(Qt.CheckState.Unchecked)
                                        for i in range(items.count())])
         done.clicked.connect(dialog.accept)
+        update_selection_summary()
         footer.addWidget(select_visible)
         footer.addWidget(clear)
         footer.addStretch(1)
@@ -1180,6 +1227,10 @@ class MainWindow(QMainWindow):
         intro.setObjectName("muted")
         intro.setWordWrap(True)
         v.addWidget(intro)
+        self.workspace_summary = QLabel("Loading recent projects…")
+        self.workspace_summary.setObjectName("muted")
+        self.workspace_summary.setAccessibleName("Project workspace summary")
+        v.addWidget(self.workspace_summary)
 
         actions = QHBoxLayout()
         refresh = QPushButton("Refresh projects")
@@ -1217,6 +1268,10 @@ class MainWindow(QMainWindow):
         selected = self.workspace_projects.currentItem().data(Qt.ItemDataRole.UserRole) if self.workspace_projects.currentItem() else None
         projects = self._run("Loading recent projects", lambda: self.s.list_recent_projects(existing_only=True)) or []
         self.workspace_projects.clear()
+        self.workspace_summary.setText(
+            f"{len(projects)} recent project{'s' if len(projects) != 1 else ''} available"
+            if projects else "No projects in your recent workspace yet"
+        )
         for project in projects:
             path = Path(project)
             item = QListWidgetItem(path.name or str(path))

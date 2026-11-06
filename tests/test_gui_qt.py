@@ -15,7 +15,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
-    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QLineEdit, QListWidget, QMessageBox,
+    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QLabel, QLineEdit, QListWidget, QMessageBox,
                                    QPlainTextEdit, QPushButton, QTableWidget)
     HAVE_QT = True
     QT_IMPORT_ERROR = ""
@@ -123,6 +123,18 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.s.store.list_evidence(str(project))[0]["detail"], "preserve me")
         self.assertEqual(self.s.list_recent_projects(), [str(project.resolve())])
 
+    def test_dashboard_action_center_surfaces_and_filters_failed_operations(self):
+        with self.assertRaisesRegex(RuntimeError, "expected test failure"):
+            with self.s.operation("dashboard_failure", self.tmp / "failed-target"):
+                raise RuntimeError("expected test failure")
+        self.win.refresh_dashboard()
+        self.assertTrue(self.win.review_failed_button.isEnabled())
+        self.assertIn("1 failed operation", self.win.review_failed_button.text())
+        self.win.review_failed_activity()
+        self.assertEqual(self.win.activity_status_filter.currentText(), "failed")
+        self.assertEqual(self.win.ops.rowCount(), 1)
+        self.assertEqual(self.win.ops.item(0, 1).text(), "dashboard_failure")
+
     def test_dashboard_activity_search_filters_and_details(self):
         first_target = self.tmp / "activity-alpha"
         second_target = self.tmp / "activity-beta"
@@ -165,6 +177,7 @@ class RealQtTests(ForgeTestCase):
         self.s.add_recent_project(project)
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
         self.assertEqual(self.win.workspace_projects.count(), 1)
+        self.assertEqual(self.win.workspace_summary.text(), "1 recent project available")
         item = self.win.workspace_projects.item(0)
         self.assertEqual(item.text(), "workspace-project")
         self.assertIn(str(project.resolve()), self.win.workspace_detail.toPlainText())
@@ -176,6 +189,7 @@ class RealQtTests(ForgeTestCase):
     def test_project_workspace_empty_state_is_helpful(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
         self.assertEqual(self.win.workspace_projects.count(), 0)
+        self.assertEqual(self.win.workspace_summary.text(), "No projects in your recent workspace yet")
         self.assertIn("No recent projects yet", self.win.workspace_detail.toPlainText())
 
     def test_sidebar_branding_descriptions_and_navigation_layout(self):
@@ -204,6 +218,11 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(len(ids), len(set(ids)))
         first = dialog.component_items.item(0)
         first.setCheckState(Qt.CheckState.Checked)
+        self.assertIn("1 selected", dialog.findChild(QLabel, "selectionSummary").text())
+        category = first.text().split(" — ")[1]
+        dialog.findChild(QLineEdit).setText(category)
+        self.assertFalse(first.isHidden())
+        dialog.findChild(QLineEdit).clear()
         dialog.findChild(QLineEdit).setText(ids[0])
         self.assertTrue(first.isHidden() is False)
         self.assertTrue(any(dialog.component_items.item(i).isHidden()
