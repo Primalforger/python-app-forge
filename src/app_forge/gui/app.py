@@ -161,6 +161,11 @@ class MainWindow(QMainWindow):
             self._record_crash(exc, "Loading desktop session")
         saved_theme = self._saved_session.get("theme")
         self.theme = saved_theme if saved_theme in {"light", "dark"} else "light"
+        self.accent = self._saved_session.get("accent", "blue")
+        if self.accent not in {"blue", "green", "purple"}:
+            self.accent = "blue"
+        self.compact_density = bool(self._saved_session.get("compact_density", False))
+        self.mascots_enabled = self._saved_session.get("mascots_enabled", True) is not False
         self.setWindowTitle(f"Python App Forge {__version__}")
         self.resize(1100, 700)
         root = QWidget()
@@ -249,6 +254,12 @@ class MainWindow(QMainWindow):
         if self._saved_session.get("maximized") is True:
             self.showMaximized()
 
+    def dismiss_welcome(self) -> None:
+        self._saved_session["welcome_seen"] = True
+        if hasattr(self, "welcome_panel"):
+            self.welcome_panel.hide()
+        self._save_session()
+
     def _refresh_recent_projects_menu(self) -> None:
         self._recent_projects_menu.clear()
         try:
@@ -295,6 +306,10 @@ class MainWindow(QMainWindow):
             "screen": self.nav.currentRow(),
             "geometry": bytes(self.saveGeometry().toHex()).decode("ascii"),
             "maximized": self.isMaximized(),
+            "accent": self.accent,
+            "compact_density": self.compact_density,
+            "mascots_enabled": self.mascots_enabled,
+            "welcome_seen": self._saved_session.get("welcome_seen", False),
         }
         try:
             self.s.save_desktop_session(state)
@@ -320,7 +335,15 @@ class MainWindow(QMainWindow):
 
     # -- helpers --------------------------------------------------------------------------
     def apply_theme(self) -> None:
-        self.setStyleSheet(stylesheet(self.theme))
+        sheet = stylesheet(self.theme)
+        accents = {"blue": "#2563EB" if self.theme == "light" else "#3989E8",
+                   "green": "#087A55" if self.theme == "light" else "#45C99A",
+                   "purple": "#6D42C7" if self.theme == "light" else "#A88AEF"}
+        from app_forge.gui.theme import TOKENS
+        sheet = sheet.replace(TOKENS[self.theme]["primary"], accents[self.accent])
+        if self.compact_density:
+            sheet = sheet.replace("padding: 10px 12px", "padding: 6px 9px")
+        self.setStyleSheet(sheet)
 
     def _navigate(self, row: int) -> None:
         if row < 0:
@@ -495,6 +518,33 @@ class MainWindow(QMainWindow):
         refresh.clicked.connect(self.refresh_dashboard)
         heading.addWidget(refresh, 0, Qt.AlignmentFlag.AlignTop)
         v.addLayout(heading)
+
+        if not self._saved_session.get("welcome_seen", False):
+            self.welcome_panel = QWidget()
+            self.welcome_panel.setObjectName("welcomePanel")
+            welcome_layout = QVBoxLayout(self.welcome_panel)
+            welcome_layout.setContentsMargins(16, 12, 16, 12)
+            welcome_title = QLabel("Welcome to Forge Universe" + ("  ✦" if self.mascots_enabled else ""))
+            welcome_title.setObjectName("title")
+            welcome_layout.addWidget(welcome_title)
+            welcome_copy = QLabel("Your workshop for creating, extending, and verifying Python applications. Start with a guided project, explore reusable components, or personalize your workspace.")
+            welcome_copy.setWordWrap(True)
+            welcome_layout.addWidget(welcome_copy)
+            welcome_actions = QHBoxLayout()
+            start = QPushButton("Create your first project")
+            start.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
+            welcome_actions.addWidget(start)
+            personalize = QPushButton("Personalize Forge")
+            personalize.setObjectName("secondaryAction")
+            personalize.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Configuration Center")))
+            welcome_actions.addWidget(personalize)
+            dismiss = QPushButton("Dismiss")
+            dismiss.setObjectName("secondaryAction")
+            dismiss.clicked.connect(self.dismiss_welcome)
+            welcome_actions.addWidget(dismiss)
+            welcome_actions.addStretch(1)
+            welcome_layout.addLayout(welcome_actions)
+            v.addWidget(self.welcome_panel)
 
         metrics = QHBoxLayout()
         metrics.setSpacing(10)
@@ -1401,17 +1451,70 @@ class MainWindow(QMainWindow):
     def _settings(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(_title("Configuration Center"))
-        dark = QCheckBox("Dark theme")
-        dark.setAccessibleName("Dark theme")
-        dark.setChecked(self.theme == "dark")
-        dark.toggled.connect(self.toggle_theme)
-        v.addWidget(dark)
+        v.setContentsMargins(24, 22, 24, 20)
+        v.setSpacing(14)
+        v.addWidget(_title("Settings & Personalization"))
+        intro = QLabel("Make Forge feel right for your workflow. Preferences are stored locally on this device.")
+        intro.setObjectName("muted")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        appearance = QFormLayout()
+        self.preference_theme = QComboBox()
+        self.preference_theme.setAccessibleName("Application theme")
+        self.preference_theme.addItem("Light", "light")
+        self.preference_theme.addItem("Dark", "dark")
+        self.preference_theme.setCurrentIndex(0 if self.theme == "light" else 1)
+        appearance.addRow("Theme", self.preference_theme)
+        self.preference_accent = QComboBox()
+        self.preference_accent.setAccessibleName("Accent color")
+        for label, value in (("Electric blue", "blue"), ("Emerald green", "green"), ("Cosmic purple", "purple")):
+            self.preference_accent.addItem(label, value)
+        self.preference_accent.setCurrentIndex(["blue", "green", "purple"].index(self.accent))
+        appearance.addRow("Accent color", self.preference_accent)
+        self.preference_compact = QCheckBox("Use compact spacing")
+        self.preference_compact.setAccessibleName("Use compact spacing")
+        self.preference_compact.setChecked(self.compact_density)
+        appearance.addRow("Layout density", self.preference_compact)
+        self.preference_mascots = QCheckBox("Show Aura Guild touches in welcome and empty states")
+        self.preference_mascots.setAccessibleName("Show Aura Guild touches")
+        self.preference_mascots.setChecked(self.mascots_enabled)
+        appearance.addRow("Brand details", self.preference_mascots)
+        v.addLayout(appearance)
+        actions = QHBoxLayout()
+        save = QPushButton("Save preferences")
+        save.clicked.connect(self.save_personalization)
+        actions.addWidget(save)
+        reset = QPushButton("Reset to defaults")
+        reset.setObjectName("secondaryAction")
+        reset.clicked.connect(self.reset_personalization)
+        actions.addWidget(reset)
+        actions.addStretch(1)
+        v.addLayout(actions)
+        self.preference_status = QLabel("Changes are applied when you save.")
+        self.preference_status.setObjectName("muted")
+        v.addWidget(self.preference_status)
+        v.addWidget(_title("Forge configuration"))
         box = QPlainTextEdit(json.dumps(self.s.show_config(), indent=2))
         box.setReadOnly(True)
         box.setAccessibleName("Current configuration")
         v.addWidget(box, 1)
         return w
+
+    def save_personalization(self) -> None:
+        self.theme = str(self.preference_theme.currentData())
+        self.accent = str(self.preference_accent.currentData())
+        self.compact_density = self.preference_compact.isChecked()
+        self.mascots_enabled = self.preference_mascots.isChecked()
+        self.apply_theme()
+        self._save_session()
+        self.preference_status.setText("Preferences saved on this device.")
+
+    def reset_personalization(self) -> None:
+        self.preference_theme.setCurrentIndex(0)
+        self.preference_accent.setCurrentIndex(0)
+        self.preference_compact.setChecked(False)
+        self.preference_mascots.setChecked(True)
+        self.save_personalization()
 
     def toggle_theme(self, on: bool) -> None:
         self.set_theme("dark" if on else "light")
