@@ -149,6 +149,67 @@ class CommandPaletteDialog(QDialog):
         callback()
 
 
+
+class GlobalSearchDialog(QDialog):
+    """Search across Forge screens, components, extensions, projects, and activity."""
+
+    def __init__(self, search_callback, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Search Everything")
+        self.setAccessibleName("Global search")
+        self.setModal(True)
+        self.resize(680, 500)
+        self._search_callback = search_callback
+        layout = QVBoxLayout(self)
+        heading = QLabel("Search your Forge workspace")
+        heading.setObjectName("title")
+        layout.addWidget(heading)
+        self.query = QLineEdit()
+        self.query.setPlaceholderText("Search projects, components, extensions, operations, or screens…")
+        self.query.setAccessibleName("Search everything")
+        layout.addWidget(self.query)
+        self.results = QListWidget()
+        self.results.setAccessibleName("Global search results")
+        layout.addWidget(self.results, 1)
+        self.summary = QLabel("Start typing to search across your workspace.")
+        self.summary.setObjectName("muted")
+        layout.addWidget(self.summary)
+        self.query.textChanged.connect(self._filter)
+        self.results.itemActivated.connect(self._activate_item)
+        self.query.returnPressed.connect(self._activate_current)
+        self.query.setFocus()
+
+    def _filter(self, text: str) -> None:
+        self.results.clear()
+        query = text.strip()
+        if not query:
+            self.summary.setText("Search projects, components, extensions, operations, and screens.")
+            return
+        matches = self._search_callback(query)
+        for result in matches:
+            item = QListWidgetItem(f'{result["title"]}   ·   {result["category"]}')
+            item.setToolTip(result.get("description", ""))
+            item.setData(Qt.ItemDataRole.UserRole, result["callback"])
+            self.results.addItem(item)
+        self.summary.setText(
+            f"{len(matches)} result{'s' if len(matches) != 1 else ''} · "
+            "Press Enter to open the selected result"
+            if matches else "No matching results. Try a shorter or different search."
+        )
+        if self.results.count():
+            self.results.setCurrentRow(0)
+
+    def _activate_current(self) -> None:
+        item = self.results.currentItem()
+        if item is not None:
+            self._activate_item(item)
+
+    def _activate_item(self, item: QListWidgetItem) -> None:
+        callback = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+        callback()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, services: ForgeServices):
         super().__init__()
@@ -184,6 +245,11 @@ class MainWindow(QMainWindow):
         tagline.setObjectName("sidebarTagline")
         sidebar_layout.addWidget(brand)
         sidebar_layout.addWidget(tagline)
+        self.global_search_button = QPushButton("Search everything…  Ctrl+Shift+F")
+        self.global_search_button.setObjectName("secondaryAction")
+        self.global_search_button.setAccessibleName("Search everything")
+        self.global_search_button.clicked.connect(self.open_global_search)
+        sidebar_layout.addWidget(self.global_search_button)
 
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
@@ -229,6 +295,9 @@ class MainWindow(QMainWindow):
         self.command_palette_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
         self.command_palette_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.command_palette_shortcut.activated.connect(self.open_command_palette)
+        self.global_search_shortcut = QShortcut(QKeySequence("Ctrl+Shift+F"), self)
+        self.global_search_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.global_search_shortcut.activated.connect(self.open_global_search)
         right = QVBoxLayout()
         right.addWidget(self.stack, 1)
         status_row = QHBoxLayout()
@@ -332,6 +401,87 @@ class MainWindow(QMainWindow):
     def open_command_palette(self) -> None:
         palette = CommandPaletteDialog(self._command_palette_commands(), self)
         palette.exec()
+
+    def _global_search_items(self, query: str) -> list[dict[str, Any]]:
+        """Collect searchable metadata only; opening a result is an explicit user action."""
+        q = query.casefold().strip()
+        if not q:
+            return []
+        results: list[dict[str, Any]] = []
+
+        def add(title: str, category: str, description: str, callback) -> None:
+            haystack = f"{title} {category} {description}".casefold()
+            if all(term in haystack for term in q.split()):
+                results.append({"title": title, "category": category,
+                                "description": description, "callback": callback})
+
+        for index, name in enumerate(NAV):
+            add(name, "Screen", NAV_DESCRIPTIONS[index],
+                lambda i=index: self.nav.setCurrentRow(i))
+
+        try:
+            for component in self.s.search_components(query):
+                cid = str(component.get("id", ""))
+                title = str(component.get("name") or cid)
+                description = str(component.get("summary", ""))
+                add(title, "Component", f"{cid} · {description}",
+                    lambda value=cid: self._open_component_search_result(value))
+        except Exception as exc:
+            self._record_crash(exc, "Searching component catalog")
+
+        try:
+            for extension in self.s.plugin_list():
+                name = str(extension.get("name", ""))
+                description = f'{extension.get("target", "")} · {extension.get("trust", "")} trust'
+                add(name, "Extension", description,
+                    lambda value=name: self._open_extension_search_result(value))
+        except Exception as exc:
+            self._record_crash(exc, "Searching installed extensions")
+
+        try:
+            for project in self.s.list_recent_projects(existing_only=True):
+                path = str(project)
+                add(Path(path).name or path, "Recent project", path,
+                    lambda value=path: self._open_recent_project(value))
+        except (OSError, ValueError) as exc:
+            self._record_crash(exc, "Searching recent projects")
+
+        try:
+            for operation in self.s.history(200):
+                op_id = str(operation.get("operation_id", ""))
+                kind = str(operation.get("kind", "operation"))
+                target = str(operation.get("target", ""))
+                status = str(operation.get("status", ""))
+                description = f"{kind} · {status} · {target} · {op_id}"
+                add(f"{kind} — {target or op_id}", "Operation", description,
+                    lambda value=kind: self._open_operation_search_result(value))
+        except Exception as exc:
+            self._record_crash(exc, "Searching operation history")
+
+        return results[:100]
+
+    def _open_component_search_result(self, component_id: str) -> None:
+        self.nav.setCurrentRow(NAV.index("Component Catalog"))
+        self.c_query.setText(component_id)
+        for row in range(self.c_table.rowCount()):
+            if self.c_table.item(row, 0) and self.c_table.item(row, 0).text() == component_id:
+                self.c_table.selectRow(row)
+                break
+
+    def _open_extension_search_result(self, name: str) -> None:
+        self.nav.setCurrentRow(NAV.index("Extension Manager"))
+        for row in range(self.ex_table.rowCount()):
+            if self.ex_table.item(row, 0) and self.ex_table.item(row, 0).text() == name:
+                self.ex_table.selectRow(row)
+                break
+
+    def _open_operation_search_result(self, kind: str) -> None:
+        self.nav.setCurrentRow(NAV.index("Dashboard"))
+        self.activity_search.setText(kind)
+
+    def open_global_search(self) -> None:
+        dialog = GlobalSearchDialog(self._global_search_items, self)
+        dialog.exec()
 
     # -- helpers --------------------------------------------------------------------------
     def apply_theme(self) -> None:
