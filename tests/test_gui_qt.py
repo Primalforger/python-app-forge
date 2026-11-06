@@ -445,5 +445,46 @@ class RealQtTests(ForgeTestCase):
             trust.assert_not_called()
             enable.assert_not_called()
 
+
+    def test_personalization_settings_apply_and_persist(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Configuration Center"))
+        self.win.preference_theme.setCurrentIndex(1)
+        self.win.preference_accent.setCurrentIndex(2)
+        self.win.preference_compact.setChecked(True)
+        self.win.preference_mascots.setChecked(False)
+        self.win.save_personalization()
+        self.assertEqual(self.win.theme, "dark")
+        self.assertEqual(self.win.accent, "purple")
+        self.assertTrue(self.win.compact_density)
+        self.assertFalse(self.win.mascots_enabled)
+        saved = self.s.load_desktop_session()
+        self.assertEqual(saved["theme"], "dark")
+        self.assertEqual(saved["accent"], "purple")
+        self.assertTrue(saved["compact_density"])
+        self.assertFalse(saved["mascots_enabled"])
+        self.assertIn("Preferences saved", self.win.preference_status.text())
+
+    def test_personalization_reset_restores_product_defaults(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Configuration Center"))
+        self.win.preference_theme.setCurrentIndex(1)
+        self.win.preference_accent.setCurrentIndex(1)
+        self.win.preference_compact.setChecked(True)
+        self.win.preference_mascots.setChecked(False)
+        self.win.reset_personalization()
+        self.assertEqual(self.win.theme, "light")
+        self.assertEqual(self.win.accent, "blue")
+        self.assertFalse(self.win.compact_density)
+        self.assertTrue(self.win.mascots_enabled)
+
+    def test_first_run_welcome_can_be_dismissed_and_remains_dismissed(self):
+        self.assertTrue(hasattr(self.win, "welcome_panel"))
+        self.win.dismiss_welcome()
+        self.assertFalse(self.win.welcome_panel.isVisible())
+        self.assertTrue(self.s.load_desktop_session()["welcome_seen"])
+        restored = self.gui.MainWindow(self.services())
+        self.addCleanup(restored.close)
+        self.assertFalse(hasattr(restored, "welcome_panel"))
+
+
 if __name__ == "__main__":
     unittest.main()
