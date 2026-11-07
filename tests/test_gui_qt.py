@@ -126,14 +126,13 @@ class RealQtTests(ForgeTestCase):
         with self.s.operation("dashboard_test", project):
             pass
         self.win.refresh_dashboard()
-        self.assertIn("not a list of installed apps", self.win.activity_description.text())
-        self.assertIn("<b>1</b>", self.win.metric_total.text())
-        self.assertIn("<b>1</b>", self.win.metric_succeeded.text())
-        for metric in (self.win.metric_total, self.win.metric_succeeded, self.win.metric_failed,
-                       self.win.metric_running, self.win.metric_retention):
-            self.assertIn("<br>", metric.text())
-            self.assertNotIn(r"\n", metric.text())
-        self.assertIn("Retention", self.win.metric_retention.text())
+        self.assertEqual(self.win.activity_description.text(), "Your latest Forge activity, outcomes, and operation history.")
+        self.assertEqual(self.win.metric_total.text(), "<b>1</b><br>Total operations")
+        self.assertEqual(self.win.metric_succeeded.text(), "<b>1</b><br>Succeeded")
+        self.assertEqual(self.win.metric_failed.text(), "<b>0</b><br>Needs attention")
+        self.assertFalse(hasattr(self.win, "metric_retention"))
+        self.assertFalse(hasattr(self.win, "metric_running"))
+        self.assertEqual(self.win.activity_technical_button.text(), "Show technical details")
         self.assertEqual(self.win.ops.objectName(), "activityTable")
         self.assertEqual(self.s.history_count(), 1)
         self.assertEqual(self.s.clear_history(), 1)
@@ -147,6 +146,7 @@ class RealQtTests(ForgeTestCase):
                 raise RuntimeError("expected test failure")
         self.win.refresh_dashboard()
         self.assertTrue(self.win.review_failed_button.isEnabled())
+        self.assertFalse(self.win.review_failed_button.isHidden())
         self.assertIn("1 failed operation", self.win.review_failed_button.text())
         self.win.review_failed_activity()
         self.assertEqual(self.win.activity_status_filter.currentText(), "failed")
@@ -167,6 +167,13 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.ops.rowCount(), 1)
         self.assertEqual(self.win.ops.item(0, 1).text(), "dashboard_alpha")
         self.assertIn("dashboard_alpha", self.win.activity_detail.toPlainText())
+        self.assertIn("Status: Succeeded", self.win.activity_detail.toPlainText())
+        self.assertNotIn('"operation_id"', self.win.activity_detail.toPlainText())
+        self.assertTrue(self.win.activity_technical_button.isEnabled())
+        self.win.activity_technical_button.setChecked(True)
+        self.assertIn('"operation_id"', self.win.activity_detail.toPlainText())
+        self.win.activity_technical_button.setChecked(False)
+        self.assertNotIn('"operation_id"', self.win.activity_detail.toPlainText())
 
         self.win.activity_kind_filter.setCurrentText("All kinds")
         self.win.activity_search.setText("activity-beta")
@@ -177,6 +184,7 @@ class RealQtTests(ForgeTestCase):
         self.win.activity_search.setText("no-such-operation")
         self.assertEqual(self.win.ops.rowCount(), 0)
         self.assertIn("No activity records match", self.win.activity_detail.toPlainText())
+        self.assertFalse(self.win.activity_technical_button.isEnabled())
 
     def test_activity_center_summarizes_selection_and_copies_operation_id(self):
         target = self.tmp / "copy-operation-id"
