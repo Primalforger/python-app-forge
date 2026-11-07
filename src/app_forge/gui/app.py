@@ -2087,8 +2087,8 @@ class MainWindow(QMainWindow):
                 f"Entry point: {target}\n"
                 f"Trust: {trust}\n"
                 f"Enabled: {enabled}\n\n"
-                "Select Inspect for the full extension metadata and isolation details. "
-                "Selecting an extension never imports or executes its code."
+                "Trust and enablement are separate: trust is maintainer approval; enablement controls availability. "
+                "Neither action executes code. Inspect the package source before granting trust."
             )
 
     def inspect_ext(self) -> None:
@@ -2104,8 +2104,9 @@ class MainWindow(QMainWindow):
                 f"Trust: {details.get('trust', 'unknown')}\n"
                 f"Enabled: {'yes' if details.get('enabled') else 'no'}\n"
                 f"Execution boundary: {details.get('isolation', 'not reported')}\n\n"
-                "Security note: trust approval is explicit. Enablement is separate, and "
-                "extension invocation is refused when the required OS sandbox is unavailable."
+                "Trust decision: explicit maintainer approval is required. Permission boundary: isolated worker, "
+                "network disabled, read-only runtime, and only caller-allowlisted writable paths. "
+                "The host fails closed when bubblewrap is unavailable or the platform is unsupported."
             )
 
     def trust_ext(self) -> None:
@@ -2232,6 +2233,20 @@ class MainWindow(QMainWindow):
             f"{result.get('name', Path(path).name)} · {state} · "
             f"{len(warnings)} analyzer warning(s) · {result.get('python_file_count', 0)} Python file(s)"
         )
+        recommendations = []
+        if warnings:
+            recommendations.append(f"P1 · Review {len(warnings)} analyzer warning(s): {warnings[0]}")
+        if not tests.get("present"):
+            recommendations.append("P1 · Add an automated test suite so changes can be verified.")
+        if not result.get("licenses"):
+            recommendations.append("P2 · Add a top-level license file to clarify reuse terms.")
+        if not result.get("lockfiles"):
+            recommendations.append("P2 · Add a supported dependency lockfile for repeatable installs.")
+        self.health_recommendations.setText(
+            "Prioritized recommendations\n" + ("\n".join(recommendations) if recommendations
+                                                  else "No immediate follow-up identified.")
+        )
+        self.load_evidence_history()
         self.q_out.setPlainText(
             "Read-only project assessment\n\n"
             + ("\n".join(f"• {warning}" for warning in warnings) if warnings else "No analyzer warnings.")
@@ -2245,11 +2260,17 @@ class MainWindow(QMainWindow):
             "Verifying",
             lambda *, cancel_token, progress: self.s.verify_project(
                 path, cancel_token=cancel_token, progress=progress),
-            on_success=lambda result: self.q_out.setPlainText(json.dumps(
-                {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2)),
-            on_cancel=lambda result: self.q_out.setPlainText(json.dumps(
-                {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
-                 if k in result}, indent=2))
+            on_success=lambda result: (
+                self.q_out.setPlainText(json.dumps(
+                    {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2)),
+                self.load_evidence_history()
+            ),
+            on_cancel=lambda result: (
+                self.q_out.setPlainText(json.dumps(
+                    {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
+                     if k in result}, indent=2)),
+                self.load_evidence_history()
+            )
         )
 
     def load_evidence_history(self) -> None:
