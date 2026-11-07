@@ -22,6 +22,7 @@ class _Stub(metaclass=_Meta):
         self._text = a[0] if a and isinstance(a[0], str) else ""
         self._items, self._selected, self._accessible = {}, [], ""
         self._combo_items = []
+        self._value = 0
         self._cell_widgets, self._rows, self._current_row = {}, 0, -1
         INSTANCES.append(self)
 
@@ -66,6 +67,8 @@ class _Stub(metaclass=_Meta):
     def currentRow(self): return self._current_row
     def editItem(self, item): return None
     def setCurrentText(self, value): self._text = str(value)
+    def setValue(self, value): self._value = value
+    def value(self): return self._value
     def selectedItems(self): return list(self._selected)
 
 
