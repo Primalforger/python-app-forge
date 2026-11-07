@@ -5,6 +5,7 @@ environment where this project was written (PySide6 could not be installed there
 
     pip install -e ".[gui]" && python scripts/verify_gui.py
 """
+import json
 import os
 import threading
 import time
