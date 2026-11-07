@@ -2087,8 +2087,8 @@ class MainWindow(QMainWindow):
                 f"Entry point: {target}\n"
                 f"Trust: {trust}\n"
                 f"Enabled: {enabled}\n\n"
-                "Select Inspect for the full extension metadata and isolation details. "
-                "Selecting an extension never imports or executes its code."
+                "Trust and enablement are separate: trust is maintainer approval; enablement controls availability. "
+                "Neither action executes code. Inspect the package source before granting trust."
             )
 
     def inspect_ext(self) -> None:
@@ -2104,8 +2104,10 @@ class MainWindow(QMainWindow):
                 f"Trust: {details.get('trust', 'unknown')}\n"
                 f"Enabled: {'yes' if details.get('enabled') else 'no'}\n"
                 f"Execution boundary: {details.get('isolation', 'not reported')}\n\n"
-                "Security note: trust approval is explicit. Enablement is separate, and "
-                "extension invocation is refused when the required OS sandbox is unavailable."
+                "Trust decision: explicit maintainer approval is required. Permission boundary: isolated worker, "
+                "network disabled, read-only runtime, and only caller-allowlisted writable paths. "
+                "Invocation is refused when the required OS sandbox is unavailable; the host fails closed when "
+                "bubblewrap is unavailable or the platform is unsupported."
             )
 
     def trust_ext(self) -> None:
@@ -2162,6 +2164,33 @@ class MainWindow(QMainWindow):
         self.health_table = _table(["Area", "Status", "Details"])
         self.health_table.setAccessibleName("Project health checks")
         v.addWidget(self.health_table, 2)
+        evidence_actions = QHBoxLayout()
+        self.evidence_refresh_button = QPushButton("Refresh verification history")
+        self.evidence_refresh_button.clicked.connect(self.load_evidence_history)
+        evidence_actions.addWidget(self.evidence_refresh_button)
+        self.evidence_compare_button = QPushButton("Compare latest runs")
+        self.evidence_compare_button.clicked.connect(self.compare_latest_runs)
+        evidence_actions.addWidget(self.evidence_compare_button)
+        self.evidence_export_button = QPushButton("Export evidence package…")
+        self.evidence_export_button.clicked.connect(self.export_evidence_package)
+        evidence_actions.addWidget(self.evidence_export_button)
+        evidence_actions.addStretch(1)
+        v.addLayout(evidence_actions)
+        self.health_recommendations = QLabel("Recommendations will appear after the project assessment.")
+        self.health_recommendations.setWordWrap(True)
+        self.health_recommendations.setObjectName("muted")
+        self.health_recommendations.setAccessibleName("Prioritized project health recommendations")
+        v.addWidget(self.health_recommendations)
+        v.addWidget(QLabel("Verification history"))
+        self.evidence_table = _table(["Run ID", "Recorded", "Checks", "Failed", "Not run"])
+        self.evidence_table.setAccessibleName("Verification evidence history")
+        self.evidence_table.itemSelectionChanged.connect(self._show_evidence_run)
+        v.addWidget(self.evidence_table, 2)
+        self.evidence_detail = QLabel("Run verification to create retained evidence for this project.")
+        self.evidence_detail.setWordWrap(True)
+        self.evidence_detail.setObjectName("muted")
+        self.evidence_detail.setAccessibleName("Selected verification evidence details")
+        v.addWidget(self.evidence_detail)
         self.q_out = QPlainTextEdit()
         self.q_out.setAccessibleName("Verification result")
         self.q_out.setReadOnly(True)
@@ -2205,6 +2234,20 @@ class MainWindow(QMainWindow):
             f"{result.get('name', Path(path).name)} · {state} · "
             f"{len(warnings)} analyzer warning(s) · {result.get('python_file_count', 0)} Python file(s)"
         )
+        recommendations = []
+        if warnings:
+            recommendations.append(f"P1 · Review {len(warnings)} analyzer warning(s): {warnings[0]}")
+        if not tests.get("present"):
+            recommendations.append("P1 · Add an automated test suite so changes can be verified.")
+        if not result.get("licenses"):
+            recommendations.append("P2 · Add a top-level license file to clarify reuse terms.")
+        if not result.get("lockfiles"):
+            recommendations.append("P2 · Add a supported dependency lockfile for repeatable installs.")
+        self.health_recommendations.setText(
+            "Prioritized recommendations\n" + ("\n".join(recommendations) if recommendations
+                                                  else "No immediate follow-up identified.")
+        )
+        self.load_evidence_history()
         self.q_out.setPlainText(
             "Read-only project assessment\n\n"
             + ("\n".join(f"• {warning}" for warning in warnings) if warnings else "No analyzer warnings.")
@@ -2218,12 +2261,71 @@ class MainWindow(QMainWindow):
             "Verifying",
             lambda *, cancel_token, progress: self.s.verify_project(
                 path, cancel_token=cancel_token, progress=progress),
-            on_success=lambda result: self.q_out.setPlainText(json.dumps(
-                {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2)),
-            on_cancel=lambda result: self.q_out.setPlainText(json.dumps(
-                {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
-                 if k in result}, indent=2))
+            on_success=self._verification_completed,
+            on_cancel=self._verification_cancelled
         )
+
+    def _verification_completed(self, result: dict) -> None:
+        self.q_out.setPlainText(json.dumps(
+            {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2))
+        self.load_evidence_history()
+
+    def _verification_cancelled(self, result: dict) -> None:
+        self.q_out.setPlainText(json.dumps(
+            {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
+             if k in result}, indent=2))
+        self.load_evidence_history()
+
+    def load_evidence_history(self) -> None:
+        path = self.q_path.text().strip()
+        if not path or not Path(path).is_dir():
+            self.evidence_table.setRowCount(0)
+            self.evidence_detail.setText("Choose an existing project directory to view verification history.")
+            self.evidence_compare_button.setEnabled(False)
+            return
+        runs = self._run("Loading verification history", lambda: self.s.list_runs(path, 20)) or []
+        self.evidence_table.setSortingEnabled(False)
+        _fill(self.evidence_table, [[r["run_id"], r.get("recorded_at", ""), str(r.get("records", 0)),
+                                     str(r.get("failed", 0)), str(r.get("not_run", 0))] for r in runs])
+        self.evidence_table.setSortingEnabled(True)
+        self.evidence_compare_button.setEnabled(len(runs) >= 2)
+        if runs:
+            self.evidence_detail.setText(f"{len(runs)} retained verification run(s). Select a run to inspect its checks.")
+            self.evidence_table.selectRow(0)
+        else:
+            self.evidence_detail.setText("No verification evidence has been retained for this project yet.")
+
+    def _show_evidence_run(self) -> None:
+        items = self.evidence_table.selectedItems()
+        if not items:
+            return
+        run_id = self.evidence_table.item(items[0].row(), 0).text()
+        path = self.q_path.text().strip()
+        rows = self._run("Loading verification evidence",
+                         lambda: self.s.list_evidence(path, run_id)) or []
+        self.evidence_detail.setText(f"{run_id}\n" + ("\n".join(
+            f"• {r['check_id']}: {r['status']} — {r.get('detail', '')}" for r in rows)
+            if rows else "No evidence records are available for this run."))
+
+    def compare_latest_runs(self) -> None:
+        path = self.q_path.text().strip()
+        if not path:
+            return
+        result = self._run("Comparing verification runs", lambda: self.s.compare_runs(path))
+        if result:
+            self.q_out.setPlainText(json.dumps(result, indent=2, default=str))
+
+    def export_evidence_package(self) -> None:
+        path = self.q_path.text().strip()
+        if not path or not Path(path).is_dir():
+            QMessageBox.warning(self, "Choose a project", "Choose an existing project directory first.")
+            return
+        destination = QFileDialog.getExistingDirectory(self, "Export evidence package", path)
+        if not destination:
+            return
+        result = self._run("Exporting evidence package", lambda: self.s.export_evidence(None, path, destination))
+        if result:
+            self.q_out.setPlainText(json.dumps(result, indent=2, default=str))
 
     def report(self) -> None:
         self._remember_project(self.q_path.text())

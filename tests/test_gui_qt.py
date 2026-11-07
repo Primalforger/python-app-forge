@@ -539,6 +539,38 @@ class RealQtTests(ForgeTestCase):
         self.assertIn("Tests", [self.win.health_table.item(row, 0).text()
                                 for row in range(self.win.health_table.rowCount())])
 
+    def test_verification_history_displays_runs_and_comparison(self):
+        project = self.make_project(self.s, "cli", "Evidence Sample")
+        subject = str(project.resolve())
+        self.s.store.add_evidence([
+            {"run_id": "run-new", "subject": subject, "check_id": "syntax", "status": "passed",
+             "detail": "compiled", "duration_s": 0.1, "recorded_at": "2026-11-07T12:00:00+00:00"},
+            {"run_id": "run-old", "subject": subject, "check_id": "tests", "status": "failed",
+             "detail": "one failed", "duration_s": 0.2, "recorded_at": "2026-11-06T12:00:00+00:00"},
+        ])
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Quality and Compliance"))
+        self.win.q_path.setText(str(project))
+        self.win.load_evidence_history()
+        self.assertEqual(self.win.evidence_table.rowCount(), 2)
+        self.assertTrue(self.win.evidence_compare_button.isEnabled())
+        new_run_row = next(row for row in range(self.win.evidence_table.rowCount())
+                           if self.win.evidence_table.item(row, 0).text() == "run-new")
+        self.win.evidence_table.selectRow(new_run_row)
+        self.assertIn("run-new", self.win.evidence_detail.text())
+        self.assertIn("syntax: passed", self.win.evidence_detail.text())
+        with mock.patch.object(self.s, "compare_runs", return_value={"regressions": [], "improvements": []}) as compare:
+            self.win.compare_latest_runs()
+        compare.assert_called_once_with(str(project))
+        self.assertIn("regressions", self.win.q_out.toPlainText())
+
+    def test_health_assessment_shows_prioritized_recommendations(self):
+        project = self.make_project(self.s, "cli", "Recommendation Sample")
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Quality and Compliance"))
+        self.win.q_path.setText(str(project))
+        self.win.assess_project_health()
+        self.assertIn("Prioritized recommendations", self.win.health_recommendations.text())
+        self.assertTrue(self.win.health_recommendations.text().strip())
+
     def test_unexpected_ui_error_is_saved_as_local_crash_report(self):
         with mock.patch.object(self.s, "doctor", side_effect=RuntimeError("token=private-value")):
             self.win.run_doctor()
