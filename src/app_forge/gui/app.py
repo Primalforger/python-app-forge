@@ -2408,10 +2408,12 @@ class MainWindow(QMainWindow):
 
         v.addWidget(_title("Release readiness"))
         release_note = QLabel(
-            f"Forge {__version__} · Python 3.11+ · Optional desktop build: "
-            "pip install -e \".[gui,packaging]\" then pyinstaller --noconfirm --clean "
-            "packaging/forge-gui.spec. Before publishing, run the full test suite, verify the "
-            "GUI on each target OS, inspect the generated artifact, and attach release notes."
+            f"Forge {__version__} · Python 3.11+ · Packaging extra: "
+            "pip install \"python-app-forge[packaging]\". For a project with a packaging manifest, "
+            "generate a spec with \"forge package spec project.toml --project . --out packaging/forge.spec\" "
+            "then build natively with \"forge package build project.toml --project . --spec packaging/forge.spec\". "
+            "Before publishing, run the full test suite, verify native artifacts on each target OS, "
+            "inspect the artifacts, and attach release notes."
         )
         release_note.setWordWrap(True)
         release_note.setObjectName("muted")
