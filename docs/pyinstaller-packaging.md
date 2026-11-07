@@ -56,7 +56,11 @@ application to report that its main window became visible. This exercises the
 frozen imports, Qt platform plugin loading, application construction and
 startup path. The smoke process is force-exited immediately after that
 assertion because frozen Qt teardown can crash on hosted native runners; this
-check intentionally validates startup only, not event-loop or shutdown behavior.
+check intentionally validates startup only, not event-loop or shutdown
+behavior. On Windows, the runner may still report the known Qt access-violation
+exit code after the startup marker is flushed; CI accepts that specific code
+only when the marker confirms the main window was visible. Missing startup
+confirmation, timeouts, and all other non-zero exit codes remain failures.
 
 Run the same check locally after installing the GUI and packaging extras:
 
@@ -66,6 +70,7 @@ python scripts/verify_packaged_gui.py
 ```
 
 CI retains the native distribution and PyInstaller work files as workflow
-artifacts for 30 days. A green package job means the executable both built and
-completed the bounded GUI launch smoke test on that runner; it does not replace
-interactive manual QA on each desktop platform.
+artifacts for 30 days. A green package job means the executable built and
+confirmed main-window startup on that runner; it does not validate interactive
+event-loop or shutdown behavior, nor replace manual QA on each desktop
+platform.
