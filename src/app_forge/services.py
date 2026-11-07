@@ -865,6 +865,10 @@ class ForgeServices:
         return g
 
     # ------------------------------------------------------------------ evidence / history comparison
+    def list_evidence(self, project: str | Path, run_id: str | None = None) -> list[dict]:
+        """Return retained evidence records for a project, optionally scoped to one run."""
+        return self.store.list_evidence(str(Path(project).resolve()), run_id)
+
     def list_runs(self, project: str | Path, limit: int = 20) -> list[dict]:
         return self.store.list_runs(str(Path(project).resolve()), limit)
 
