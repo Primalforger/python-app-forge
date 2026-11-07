@@ -44,3 +44,15 @@ the theme tests and this document together.
 The logo and Aura Guild artwork will be added as separate, optimized assets
 after each design is approved. Do not use generated dashboard mockup text or
 sample metrics as application content.
+
+## Desktop display and window recovery
+
+Qt 6 handles high-DPI scaling natively; avoid forcing a global scale factor in
+application code because it can make text and controls oversized on mixed-DPI
+multi-monitor setups. Keep layouts size-driven, use scrollable page containers,
+and test at both standard and increased operating-system display scaling.
+
+Window geometry is persisted by Qt. If a saved position cannot be restored
+(for example, after disconnecting an external monitor), the application should
+fall back to a usable default size and center the window within the current
+screen's available work area rather than leaving it off-screen.
