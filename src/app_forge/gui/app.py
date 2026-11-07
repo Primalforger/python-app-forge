@@ -2440,7 +2440,7 @@ class MainWindow(QMainWindow):
         temporary = target.with_name(target.name + ".tmp")
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            temporary.write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")
+            temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             temporary.replace(target)
         except OSError as exc:
             temporary.unlink(missing_ok=True)
