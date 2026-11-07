@@ -648,6 +648,17 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(activated, ["ui.widget"])
         self.assertFalse(dialog.isVisible())
 
+    def test_global_search_enter_flushes_pending_debounce(self):
+        activated = []
+        from app_forge.gui.app import GlobalSearchDialog
+        dialog = GlobalSearchDialog(lambda query: [{
+            "title": "Widget Component", "category": "Component",
+            "description": "ui.widget", "callback": lambda: activated.append(query),
+        }], self.win)
+        dialog.query.setText("widget")
+        QTest.keyClick(dialog.query, Qt.Key.Key_Return)
+        self.assertEqual(activated, ["widget"])
+
     def test_global_search_operation_result_targets_exact_operation_id(self):
         self.win.activity_search.setText("")
         self.win._open_operation_search_result("op-widget-42")
