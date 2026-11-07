@@ -54,7 +54,10 @@ Linux. It builds the actual Forge GUI with PyInstaller, launches the resulting
 frozen executable using Qt's offscreen platform plugin, and requires the
 application to report that its main window became visible. This exercises the
 frozen imports, Qt platform plugin loading, application construction and
-startup path.
+startup path. The macOS smoke process is force-exited after that assertion
+because the frozen Qt runtime currently raises SIGBUS during interpreter
+teardown on the hosted runner; this check intentionally does not claim to
+validate shutdown behavior.
 
 Run the same check locally after installing the GUI and packaging extras:
 
