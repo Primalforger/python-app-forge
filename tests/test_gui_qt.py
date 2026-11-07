@@ -653,6 +653,44 @@ class RealQtTests(ForgeTestCase):
         self.assertFalse(saved["mascots_enabled"])
         self.assertIn("Preferences saved", self.win.preference_status.text())
 
+    def test_preference_backup_round_trip_restores_only_personalization(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Configuration Center"))
+        self.win.preference_theme.setCurrentIndex(1)
+        self.win.preference_accent.setCurrentIndex(2)
+        self.win.preference_compact.setChecked(True)
+        self.win.preference_mascots.setChecked(False)
+        backup = self.tmp / "preferences.json"
+        self.win.export_preferences(backup)
+        payload = json.loads(backup.read_text(encoding="utf-8"))
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(set(payload), {
+            "schema_version", "theme", "accent", "compact_density", "mascots_enabled",
+        })
+
+        self.win.preference_theme.setCurrentIndex(0)
+        self.win.preference_accent.setCurrentIndex(0)
+        self.win.preference_compact.setChecked(False)
+        self.win.preference_mascots.setChecked(True)
+        self.win.import_preferences(backup)
+        self.assertEqual(self.win.theme, "dark")
+        self.assertEqual(self.win.accent, "purple")
+        self.assertTrue(self.win.compact_density)
+        self.assertFalse(self.win.mascots_enabled)
+        self.assertIn("restored successfully", self.win.preference_status.text())
+
+    def test_invalid_preference_backup_does_not_change_current_preferences(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Configuration Center"))
+        self.win.preference_theme.setCurrentIndex(1)
+        self.win.save_personalization()
+        backup = self.tmp / "invalid-preferences.json"
+        backup.write_text(json.dumps({
+            "schema_version": 1, "theme": "dark", "accent": "not-a-color",
+            "compact_density": False, "mascots_enabled": True,
+        }), encoding="utf-8")
+        self.win.import_preferences(backup)
+        self.assertEqual(self.win.theme, "dark")
+        self.assertIn("Backup not restored", self.win.preference_status.text())
+
     def test_personalization_reset_restores_product_defaults(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Configuration Center"))
         self.win.preference_theme.setCurrentIndex(1)
