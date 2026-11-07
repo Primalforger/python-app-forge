@@ -263,7 +263,7 @@ class RealQtTests(ForgeTestCase):
         self.assertIn("1 selected", dialog.findChild(QLabel, "selectionSummary").text())
         category = str(first.data(Qt.ItemDataRole.UserRole + 1))
         self.assertIn(category, first.text())
-        self.assertIn(category, dialog.findChild(QLabel, "selectionSummary").text() or first.text())
+        self.assertIn(ids[0], dialog.findChild(QLabel, "selectionSummary").text())
         dialog.findChild(QLineEdit).setText(category)
         self.assertFalse(first.isHidden())
         dialog.findChild(QLineEdit).clear()
