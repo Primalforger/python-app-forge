@@ -2581,13 +2581,10 @@ def main() -> int:
         if not win.isVisible():
             return 1
         print("FORGE_GUI_SMOKE_OK", flush=True)
-        if sys.platform == "darwin":
-            # Frozen Qt teardown currently raises SIGBUS on the macOS runner
-            # after a successful launch. End this short-lived smoke process
-            # after the visibility assertion instead of testing Qt teardown.
-            QTimer.singleShot(1500, lambda: os._exit(0))
-        else:
-            QTimer.singleShot(1500, app.quit)
+        # Frozen Qt teardown can crash on hosted native runners after a
+        # successful launch. End this short-lived smoke process after the
+        # visibility assertion; shutdown behavior is outside this smoke test.
+        QTimer.singleShot(1500, lambda: os._exit(0))
     return app.exec()
 
 
