@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QByteArray, QObject, QThread, Qt, Signal, Slot
+from PySide6.QtCore import QByteArray, QObject, QThread, QTimer, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
@@ -196,12 +196,27 @@ class GlobalSearchDialog(QDialog):
         self.summary = QLabel("Start typing to search across your workspace.")
         self.summary.setObjectName("muted")
         layout.addWidget(self.summary)
-        self.query.textChanged.connect(self._filter)
+        self._filter_timer = QTimer(self)
+        self._filter_timer.setSingleShot(True)
+        self._filter_timer.setInterval(180)
+        self._filter_timer.timeout.connect(lambda: self._filter(self.query.text()))
+        self.query.textChanged.connect(self._schedule_filter)
         self.results.itemActivated.connect(self._activate_item)
         self.query.returnPressed.connect(self._activate_current)
         self.query.setFocus()
 
+    def _schedule_filter(self, text: str) -> None:
+        """Debounce workspace lookups so typing never triggers one scan per key."""
+        self._filter_timer.stop()
+        if not text.strip():
+            self._filter("")
+            return
+        self.results.clear()
+        self.summary.setText("Searching your workspace…")
+        self._filter_timer.start()
+
     def _filter(self, text: str) -> None:
+        self._filter_timer.stop()
         self.results.clear()
         query = text.strip()
         if not query:
@@ -222,6 +237,8 @@ class GlobalSearchDialog(QDialog):
             self.results.setCurrentRow(0)
 
     def _activate_current(self) -> None:
+        if self._filter_timer.isActive():
+            self._filter(self.query.text())
         item = self.results.currentItem()
         if item is not None:
             self._activate_item(item)
@@ -652,7 +669,7 @@ class MainWindow(QMainWindow):
                 status = str(operation.get("status", ""))
                 description = f"{kind} · {status} · {target} · {op_id}"
                 add(f"{kind} — {target or op_id}", "Operation", description,
-                    lambda value=kind: self._open_operation_search_result(value))
+                    lambda value=op_id: self._open_operation_search_result(value))
         except Exception as exc:
             self._record_crash(exc, "Searching operation history")
 
@@ -673,9 +690,9 @@ class MainWindow(QMainWindow):
                 self.ex_table.selectRow(row)
                 break
 
-    def _open_operation_search_result(self, kind: str) -> None:
+    def _open_operation_search_result(self, operation_id: str) -> None:
         self.nav.setCurrentRow(NAV.index("Dashboard"))
-        self.activity_search.setText(kind)
+        self.activity_search.setText(operation_id)
 
     def open_global_search(self) -> None:
         dialog = GlobalSearchDialog(self._global_search_items, self)

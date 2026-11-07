@@ -638,11 +638,33 @@ class RealQtTests(ForgeTestCase):
             "title": "Widget Component", "category": "Component",
             "description": "ui.widget reusable", "callback": lambda: activated.append("ui.widget"),
         }] if "widget" in query.casefold() else [], self.win)
+        dialog.query.setText("wid")
+        self.assertEqual(dialog.results.count(), 0)
+        self.assertEqual(dialog.summary.text(), "Searching your workspace…")
         dialog.query.setText("widget")
+        QTest.qWait(500)
         self.assertEqual(dialog.results.count(), 1)
         QTest.keyClick(dialog.query, Qt.Key.Key_Return)
         self.assertEqual(activated, ["ui.widget"])
         self.assertFalse(dialog.isVisible())
+
+    def test_global_search_enter_flushes_pending_debounce(self):
+        activated = []
+        from app_forge.gui.app import GlobalSearchDialog
+        dialog = GlobalSearchDialog(lambda query: [{
+            "title": "Widget Component", "category": "Component",
+            "description": "ui.widget", "callback": lambda: activated.append(query),
+        }], self.win)
+        dialog.query.setText("widget")
+        QTest.keyClick(dialog.query, Qt.Key.Key_Return)
+        self.assertEqual(activated, ["widget"])
+
+    def test_global_search_operation_result_targets_exact_operation_id(self):
+        self.win.activity_search.setText("")
+        self.win._open_operation_search_result("op-widget-42")
+        self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Dashboard"))
+        self.assertEqual(self.win.activity_search.text(), "op-widget-42")
+        self.assertEqual(self.win.ops.rowCount(), 0)
 
     def test_global_search_shortcut_and_sidebar_action(self):
         self.assertEqual(self.win.global_search_shortcut.key().toString(), "Ctrl+Shift+F")
