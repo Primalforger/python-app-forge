@@ -867,25 +867,23 @@ class MainWindow(QMainWindow):
     def _dashboard(self) -> QWidget:
         w = QWidget()
         v = _page_layout(w)
-        v.setContentsMargins(24, 22, 24, 20)
-        v.setSpacing(14)
+        v.setContentsMargins(24, 20, 24, 18)
+        v.setSpacing(12)
 
         heading = QHBoxLayout()
         title_column = QVBoxLayout()
-        eyebrow = QLabel("WORKSPACE OVERVIEW")
+        eyebrow = QLabel("WORKSPACE")
         eyebrow.setObjectName("eyebrow")
         title_column.addWidget(eyebrow)
-        title_column.addWidget(_title("Recent Forge Activity"))
-        self.activity_description = QLabel(
-            "A clear view of actions performed by Python App Forge—not a list of installed apps or projects. "
-            "Review recent operations, inspect results, and keep your workspace history tidy."
-        )
+        title_column.addWidget(_title("Dashboard"))
+        self.activity_description = QLabel("Your latest Forge activity, outcomes, and operation history.")
         self.activity_description.setObjectName("muted")
         self.activity_description.setWordWrap(True)
         title_column.addWidget(self.activity_description)
         heading.addLayout(title_column, 1)
-        refresh = QPushButton("Refresh activity")
+        refresh = QPushButton("Refresh")
         refresh.setObjectName("secondaryAction")
+        refresh.setAccessibleName("Refresh dashboard activity")
         refresh.clicked.connect(self.refresh_dashboard)
         heading.addWidget(refresh, 0, Qt.AlignmentFlag.AlignTop)
         v.addLayout(heading)
@@ -901,6 +899,7 @@ class MainWindow(QMainWindow):
         self.review_failed_button.setObjectName("secondaryAction")
         self.review_failed_button.setAccessibleName("Review failed operations")
         self.review_failed_button.setEnabled(False)
+        self.review_failed_button.setVisible(False)
         self.review_failed_button.clicked.connect(self.review_failed_activity)
         quick_actions.addWidget(create_project)
         quick_actions.addWidget(open_workspace)
@@ -911,53 +910,38 @@ class MainWindow(QMainWindow):
         if not self._saved_session.get("welcome_seen", False):
             self.welcome_panel = QWidget()
             self.welcome_panel.setObjectName("welcomePanel")
-            welcome_layout = QVBoxLayout(self.welcome_panel)
-            welcome_layout.setContentsMargins(16, 12, 16, 12)
+            welcome_layout = QHBoxLayout(self.welcome_panel)
+            welcome_layout.setContentsMargins(12, 8, 12, 8)
+            welcome_copy = QVBoxLayout()
             welcome_title = QLabel("Welcome to Forge Universe" + ("  ✦" if self.mascots_enabled else ""))
-            welcome_title.setObjectName("title")
-            welcome_layout.addWidget(welcome_title)
-            welcome_copy = QLabel("Your workshop for creating, extending, and verifying Python applications. Start with a guided project, explore reusable components, or personalize your workspace.")
-            welcome_copy.setWordWrap(True)
-            welcome_layout.addWidget(welcome_copy)
-            welcome_steps = QLabel(
-                "A simple workflow: choose a template, review the proposed files, then create your project. "
-                "Components can be added now or later."
-            )
-            welcome_steps.setObjectName("pageHint")
-            welcome_steps.setAccessibleName("Getting started workflow")
-            welcome_steps.setWordWrap(True)
-            welcome_layout.addWidget(welcome_steps)
-            welcome_actions = QHBoxLayout()
+            welcome_title.setObjectName("welcomeTitle")
+            welcome_copy.addWidget(welcome_title)
+            welcome_message = QLabel("Start with a guided project, then add components as your app grows.")
+            welcome_message.setObjectName("muted")
+            welcome_message.setWordWrap(True)
+            welcome_copy.addWidget(welcome_message)
+            welcome_layout.addLayout(welcome_copy, 1)
             start = QPushButton("Create your first project")
             start.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
-            welcome_actions.addWidget(start)
+            welcome_layout.addWidget(start)
             explore = QPushButton("Explore components")
             explore.setObjectName("secondaryAction")
             explore.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Component Catalog")))
-            welcome_actions.addWidget(explore)
-            personalize = QPushButton("Personalize Forge")
-            personalize.setObjectName("secondaryAction")
-            personalize.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Configuration Center")))
-            welcome_actions.addWidget(personalize)
+            welcome_layout.addWidget(explore)
             dismiss = QPushButton("Dismiss")
             dismiss.setObjectName("secondaryAction")
             dismiss.clicked.connect(self.dismiss_welcome)
-            welcome_actions.addWidget(dismiss)
-            welcome_actions.addStretch(1)
-            welcome_layout.addLayout(welcome_actions)
+            welcome_layout.addWidget(dismiss)
             v.addWidget(self.welcome_panel)
 
         metrics = QHBoxLayout()
         metrics.setSpacing(10)
         self.metric_total = QLabel("<b>—</b><br>Total operations")
         self.metric_succeeded = QLabel("<b>—</b><br>Succeeded")
-        self.metric_failed = QLabel("<b>—</b><br>Failed")
-        self.metric_running = QLabel("<b>—</b><br>Running")
-        self.metric_retention = QLabel("<b>—</b><br>Retention")
+        self.metric_failed = QLabel("<b>—</b><br>Needs attention")
         for name, label in (
             ("total", self.metric_total), ("succeeded", self.metric_succeeded),
-            ("failed", self.metric_failed), ("running", self.metric_running),
-            ("retention", self.metric_retention),
+            ("attention", self.metric_failed),
         ):
             label.setObjectName("metricCard")
             label.setAccessibleName(f"{name.title()} dashboard metric")
@@ -992,18 +976,28 @@ class MainWindow(QMainWindow):
         self.ops.setObjectName("activityTable")
         self.ops.setAccessibleName("Recent operations table")
         self.ops.currentCellChanged.connect(self._show_dashboard_activity_detail)
-        v.addWidget(self.ops, 2)
+        v.addWidget(self.ops, 3)
+
         self.activity_detail_summary = QLabel("Select an activity record to inspect its outcome.")
         self.activity_detail_summary.setObjectName("muted")
         self.activity_detail_summary.setAccessibleName("Selected activity summary")
+        self.activity_detail_summary.setWordWrap(True)
         v.addWidget(self.activity_detail_summary)
         self.activity_detail = QPlainTextEdit()
         self.activity_detail.setAccessibleName("Selected activity details")
         self.activity_detail.setReadOnly(True)
         self.activity_detail.setPlaceholderText("Select an activity record to inspect its details.")
-        self.activity_detail.setMaximumHeight(150)
+        self.activity_detail.setMaximumHeight(112)
         v.addWidget(self.activity_detail)
+
         actions = QHBoxLayout()
+        self.activity_technical_button = QPushButton("Show technical details")
+        self.activity_technical_button.setObjectName("secondaryAction")
+        self.activity_technical_button.setAccessibleName("Show raw technical activity details")
+        self.activity_technical_button.setEnabled(False)
+        self.activity_technical_button.setCheckable(True)
+        self.activity_technical_button.toggled.connect(self.toggle_activity_technical_details)
+        actions.addWidget(self.activity_technical_button)
         self.copy_activity_id_button = QPushButton("Copy operation ID")
         self.copy_activity_id_button.setObjectName("secondaryAction")
         self.copy_activity_id_button.setAccessibleName("Copy selected operation ID")
@@ -1011,13 +1005,15 @@ class MainWindow(QMainWindow):
         self.copy_activity_id_button.clicked.connect(self.copy_selected_activity_id)
         actions.addWidget(self.copy_activity_id_button)
         actions.addStretch(1)
-        self.clear_history_button = QPushButton("Clear activity history…")
+        self.clear_history_button = QPushButton("Clear history…")
         self.clear_history_button.setAccessibleName("Clear activity history")
         self.clear_history_button.clicked.connect(self.clear_dashboard_history)
         actions.addWidget(self.clear_history_button)
         v.addLayout(actions)
         self._activity_rows: list[dict] = []
         self._visible_activity_rows: list[dict] = []
+        self._selected_activity_operation: dict | None = None
+        self._showing_technical_activity = False
         return w
 
     def refresh_dashboard(self) -> None:
@@ -1033,22 +1029,19 @@ class MainWindow(QMainWindow):
         self.activity_kind_filter.blockSignals(False)
         counts = {status: sum(o.get("status") == status for o in rows)
                   for status in ("succeeded", "failed", "cancelled", "running")}
-        retention_days = getattr(self.s, "settings").operation_retention_days
         self.metric_total.setText(f"<b>{len(rows)}</b><br>Total operations")
         self.metric_succeeded.setText(f"<b>{counts['succeeded']}</b><br>Succeeded")
-        self.metric_failed.setText(f"<b>{counts['failed']}</b><br>Failed")
-        self.metric_running.setText(f"<b>{counts['running']}</b><br>Running")
-        self.metric_retention.setText(f"<b>{retention_days} days</b><br>Retention")
+        self.metric_failed.setText(f"<b>{counts['failed']}</b><br>Needs attention")
         failed_count = counts["failed"]
         self.review_failed_button.setText(
             f"Review {failed_count} failed operation{'s' if failed_count != 1 else ''}"
             if failed_count else "No failed operations"
         )
         self.review_failed_button.setEnabled(failed_count > 0)
+        self.review_failed_button.setVisible(failed_count > 0)
         self.ops_summary.setText(
-            f"Showing {len(rows)} recent operations · "
-            f"{counts['succeeded']} succeeded · {counts['failed']} failed · "
-            f"{counts['cancelled']} cancelled · {counts['running']} running"
+            f"{len(rows)} operations · {counts['succeeded']} succeeded · "
+            f"{failed_count} need attention · {counts['running']} running"
         )
         self._filter_dashboard_activity()
 
@@ -1084,27 +1077,91 @@ class MainWindow(QMainWindow):
         else:
             self.activity_detail_summary.setText("No matching operation selected")
             self.activity_detail.setPlainText("No activity records match the current search and filters.")
+            self._selected_activity_operation = None
+            self.activity_technical_button.setChecked(False)
+            self.activity_technical_button.setEnabled(False)
             self.copy_activity_id_button.setEnabled(False)
 
     def _show_dashboard_activity_detail(self, row: int, _column: int, _previous_row: int, _previous_column: int) -> None:
         if row < 0 or row >= len(self._visible_activity_rows):
             self.activity_detail_summary.setText("No matching operation selected")
             self.activity_detail.clear()
+            self._selected_activity_operation = None
+            self.activity_technical_button.setChecked(False)
+            self.activity_technical_button.setEnabled(False)
             self.copy_activity_id_button.setEnabled(False)
             return
         selected = self._visible_activity_rows[row]
         operation_id = str(selected.get("operation_id", ""))
         operation = self._run("Loading activity details", lambda: self.s.history_item(operation_id))
         if operation is not None:
+            self._selected_activity_operation = operation
+            self._showing_technical_activity = False
             status = str(operation.get("status", selected.get("status", "unknown"))).upper()
             kind = str(operation.get("kind", selected.get("kind", "operation")))
             target = str(operation.get("target", selected.get("target", "")))
-            summary = operation.get("summary", {})
+            operation_summary = operation.get("summary", "")
+            if isinstance(operation_summary, dict):
+                summary_text = operation_summary.get("message") or operation_summary.get("summary") or ""
+                if not summary_text:
+                    summary_text = "; ".join(
+                        f"{key.replace('_', ' ').title()}: {value}"
+                        for key, value in operation_summary.items()
+                        if value not in (None, "", [], {})
+                    )
+            elif isinstance(operation_summary, (list, tuple)):
+                summary_text = "; ".join(str(item) for item in operation_summary)
+            else:
+                summary_text = str(operation_summary or "")
+            lines = [
+                f"Status: {status.title()}",
+                f"Operation: {kind}",
+                f"Target: {target or 'Not specified'}",
+                f"Started: {operation.get('started', selected.get('started', 'Not recorded'))}",
+                f"Finished: {operation.get('finished', 'In progress' if status == 'RUNNING' else 'Not recorded')}",
+            ]
+            if summary_text:
+                lines.append(f"Summary: {summary_text}")
             self.activity_detail_summary.setText(
                 f"{status}  ·  {kind}  ·  {target or 'No target'}  ·  ID: {operation_id}"
             )
-            self.activity_detail.setPlainText(json.dumps(operation, indent=2, sort_keys=True, default=str))
+            self.activity_detail.setPlainText("\n".join(lines))
+            self.activity_technical_button.blockSignals(True)
+            self.activity_technical_button.setChecked(False)
+            self.activity_technical_button.setText("Show technical details")
+            self.activity_technical_button.setEnabled(True)
+            self.activity_technical_button.blockSignals(False)
             self.copy_activity_id_button.setEnabled(bool(operation_id))
+
+    def toggle_activity_technical_details(self, enabled: bool) -> None:
+        """Switch the selected activity pane between its readable summary and raw record."""
+        operation = self._selected_activity_operation
+        if operation is None:
+            return
+        self._showing_technical_activity = enabled
+        if enabled:
+            self.activity_detail.setPlainText(json.dumps(operation, indent=2, sort_keys=True, default=str))
+            self.activity_technical_button.setText("Hide technical details")
+        else:
+            status = str(operation.get("status", "unknown")).upper()
+            kind = str(operation.get("kind", "operation"))
+            target = str(operation.get("target", ""))
+            summary = operation.get("summary", "")
+            summary_text = (
+                summary.get("message") or summary.get("summary") or ""
+                if isinstance(summary, dict) else str(summary or "")
+            )
+            lines = [
+                f"Status: {status.title()}",
+                f"Operation: {kind}",
+                f"Target: {target or 'Not specified'}",
+                f"Started: {operation.get('started', 'Not recorded')}",
+                f"Finished: {operation.get('finished', 'In progress' if status == 'RUNNING' else 'Not recorded')}",
+            ]
+            if summary_text:
+                lines.append(f"Summary: {summary_text}")
+            self.activity_detail.setPlainText("\n".join(lines))
+            self.activity_technical_button.setText("Show technical details")
 
     def copy_selected_activity_id(self) -> None:
         row = self.ops.currentRow()
