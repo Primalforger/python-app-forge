@@ -8,6 +8,7 @@ from unittest import mock
 from app_forge.domain.errors import ConflictFailure
 from app_forge.locks import lock_path, project_lock
 from tests.helpers import ForgeTestCase
+from app_forge.security import safe_environ
 
 
 class ManifestDigestTests(ForgeTestCase):  # G-02
@@ -107,6 +108,15 @@ class VerificationEnvironmentTests(ForgeTestCase):  # G-03
         (proj / "tests" / "test_core.py").write_text("import os\nimport unittest\n\nclass T(unittest.TestCase):\n"
                                                      "    def test_it(self):\n" + "".join(f"        {l}\n" for l in body.splitlines()))
         return proj
+
+    def test_windows_user_site_paths_are_preserved_in_safe_environment(self):
+        with mock.patch.dict(os.environ, {
+            "APPDATA": "C:/Users/test/AppData/Roaming",
+            "LOCALAPPDATA": "C:/Users/test/AppData/Local",
+        }):
+            env = safe_environ()
+        self.assertEqual(env.get("APPDATA"), "C:/Users/test/AppData/Roaming")
+        self.assertEqual(env.get("LOCALAPPDATA"), "C:/Users/test/AppData/Local")
 
     def test_secrets_in_the_environment_are_not_visible_to_project_tests(self):
         proj = self.project_with_test("self.assertIsNone(os.environ.get('FORGE_TEST_SECRET'))\n"

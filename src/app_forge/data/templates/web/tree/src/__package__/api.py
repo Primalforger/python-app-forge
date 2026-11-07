@@ -1,5 +1,4 @@
 """FastAPI entry point with authentication and a conservative security baseline."""
-from __future__ import annotations
 import os
 from {{package}}.auth import current_principal, require_roles
 from {{package}}.core import ItemStore

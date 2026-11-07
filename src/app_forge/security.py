@@ -59,7 +59,7 @@ def sha256_file(path: Path) -> str:
 
 
 SAFE_ENV_KEYS = ("PATH", "SYSTEMROOT", "SystemDrive", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP", "TMPDIR",
-                 "HOME", "USERPROFILE", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TERM", "VIRTUAL_ENV")
+                 "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TERM", "VIRTUAL_ENV")
 
 
 def safe_environ(passthrough: tuple[str, ...] = ()) -> dict[str, str]:

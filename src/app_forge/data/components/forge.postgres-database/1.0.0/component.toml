@@ -1,0 +1,71 @@
+schema_version = 1
+
+[component]
+id = "forge.postgres-database"
+name = "PostgreSQL database adapter"
+version = "1.0.0"
+summary = "SQLAlchemy-backed PostgreSQL connection pooling, sessions, transactions, and generic CRUD repository."
+category = "storage"
+artifact_type = "generated-project-component"
+keywords = ["postgresql", "postgres", "database", "sqlalchemy", "psycopg", "repository"]
+documentation = "Adds a reusable PostgreSQL database adapter and repository to the generated project."
+
+[ownership]
+publisher = "Python App Forge"
+contact = "forge-maintainers@example.invalid"
+
+[licensing]
+license = "MIT"
+third_party = []
+
+[compatibility]
+python = ">=3.11"
+platforms = ["windows", "linux", "macos"]
+archetypes = ["desktop", "web", "cli", "service"]
+platform_api = "1"
+
+[dependencies]
+python_packages = ["SQLAlchemy>=2.0", "psycopg[binary]>=3.2"]
+
+[dependencies.components]
+
+[interfaces]
+provides = []
+requires = []
+
+[configuration]
+secrets = []
+
+[configuration.defaults]
+
+[[integration.files]]
+src = "files/src/postgres_repository.py"
+dest = "src/{{package}}/postgres_repository.py"
+
+[[integration.files]]
+src = "files/tests/test_postgres_repository.py"
+dest = "tests/test_postgres_repository.py"
+
+[lifecycle]
+install = "copy-files"
+removal = true
+upgrade = "remove-and-add"
+migrations = []
+
+[verification]
+tests = ["tests/test_postgres_repository.py"]
+
+[security]
+trust = "builtin"
+permissions = ["filesystem.project", "network"]
+network = true
+advisories = []
+
+[provenance]
+source = "builtin"
+digest = "sha256:d0f2a90a7854f2b409dd484121362134368aa890eda6e03f815577dcb5a7098c"
+
+[support]
+status = "stable"
+compatibility_window = "1.x"
+known_limitations = ["Requires SQLAlchemy 2.x and psycopg 3.x.", "A reachable PostgreSQL server and valid connection URL are required at runtime."]
