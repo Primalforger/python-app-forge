@@ -237,6 +237,8 @@ class GlobalSearchDialog(QDialog):
             self.results.setCurrentRow(0)
 
     def _activate_current(self) -> None:
+        if self._filter_timer.isActive():
+            self._filter(self.query.text())
         item = self.results.currentItem()
         if item is not None:
             self._activate_item(item)
