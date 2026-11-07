@@ -440,11 +440,15 @@ class MainWindow(QMainWindow):
         lay.addLayout(right, 1)
         self.setCentralWidget(root)
         geometry = self._saved_session.get("geometry")
+        restored = False
         if isinstance(geometry, str) and geometry:
             try:
-                self.restoreGeometry(QByteArray.fromHex(geometry.encode("ascii")))
-            except ValueError:
+                restored = self.restoreGeometry(QByteArray.fromHex(geometry.encode("ascii")))
+            except (ValueError, TypeError):
                 self._record_crash(ValueError("saved window geometry is invalid"), "Restoring desktop session")
+        if not restored:
+            self._place_window_on_available_screen()
+
         saved_screen = self._saved_session.get("screen", 0)
         if isinstance(saved_screen, int) and not isinstance(saved_screen, bool) and 0 <= saved_screen < len(NAV):
             self.nav.setCurrentRow(saved_screen)
@@ -454,6 +458,16 @@ class MainWindow(QMainWindow):
         self._refresh_notification_button()
         if self._saved_session.get("maximized") is True:
             self.showMaximized()
+
+    def _place_window_on_available_screen(self) -> None:
+        """Recover safely when saved geometry belongs to a removed or different display."""
+        screen = self.screen() or QApplication.primaryScreen()
+        self.resize(1100, 700)
+        if screen is not None:
+            available = screen.availableGeometry()
+            frame = self.frameGeometry()
+            frame.moveCenter(available.center())
+            self.move(frame.topLeft())
 
     def resizeEvent(self, event) -> None:
         """Adapt navigation width while preserving a useful content viewport."""
