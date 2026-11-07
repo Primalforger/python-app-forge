@@ -29,7 +29,7 @@ def main() -> int:
     }
     spec = write_pyinstaller_spec(manifest, root, "build/packaging/forge-gui-ci.spec")
     result = build_pyinstaller(
-        spec.relative_to(root), root, dist_path="dist",
+        spec.relative_to(root).as_posix(), root, dist_path="dist",
         work_path="build/pyinstaller", clean=True, timeout=1200,
         platforms=[platform],
     )
