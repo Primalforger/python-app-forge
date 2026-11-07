@@ -69,7 +69,7 @@ class RealQtTests(ForgeTestCase):
                             for i in range(self.win.stack.count())))
 
     def test_dashboard_and_sidebar_layout_remain_readable_at_compact_sizes(self):
-        self.assertEqual(self.win.global_search_button.text(), "Search everything")
+        self.assertEqual(self.win.global_search_button.text(), "Search")
         self.assertEqual(self.win.global_search_button.accessibleName(), "Search everything")
         self.assertTrue(self.win.nav.wordWrap())
         self.assertTrue(self.win.metric_total.wordWrap())
@@ -82,9 +82,7 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.sidebar.width(), 184)
         self.assertGreaterEqual(self.win.global_search_button.width(), 140)
         self.assertLessEqual(
-            self.win.global_search_button.fontMetrics().horizontalAdvance(
-                self.win.global_search_button.text()
-            ) + 14,
+            self.win.global_search_button.fontMetrics().horizontalAdvance("Search") + 14,
             self.win.global_search_button.width(),
         )
         self.assertGreaterEqual(self.win.metric_total.height(), 72)
