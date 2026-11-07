@@ -2162,6 +2162,33 @@ class MainWindow(QMainWindow):
         self.health_table = _table(["Area", "Status", "Details"])
         self.health_table.setAccessibleName("Project health checks")
         v.addWidget(self.health_table, 2)
+        evidence_actions = QHBoxLayout()
+        self.evidence_refresh_button = QPushButton("Refresh verification history")
+        self.evidence_refresh_button.clicked.connect(self.load_evidence_history)
+        evidence_actions.addWidget(self.evidence_refresh_button)
+        self.evidence_compare_button = QPushButton("Compare latest runs")
+        self.evidence_compare_button.clicked.connect(self.compare_latest_runs)
+        evidence_actions.addWidget(self.evidence_compare_button)
+        self.evidence_export_button = QPushButton("Export evidence package…")
+        self.evidence_export_button.clicked.connect(self.export_evidence_package)
+        evidence_actions.addWidget(self.evidence_export_button)
+        evidence_actions.addStretch(1)
+        v.addLayout(evidence_actions)
+        self.health_recommendations = QLabel("Recommendations will appear after the project assessment.")
+        self.health_recommendations.setWordWrap(True)
+        self.health_recommendations.setObjectName("muted")
+        self.health_recommendations.setAccessibleName("Prioritized project health recommendations")
+        v.addWidget(self.health_recommendations)
+        v.addWidget(QLabel("Verification history"))
+        self.evidence_table = _table(["Run ID", "Recorded", "Checks", "Failed", "Not run"])
+        self.evidence_table.setAccessibleName("Verification evidence history")
+        self.evidence_table.itemSelectionChanged.connect(self._show_evidence_run)
+        v.addWidget(self.evidence_table, 2)
+        self.evidence_detail = QLabel("Run verification to create retained evidence for this project.")
+        self.evidence_detail.setWordWrap(True)
+        self.evidence_detail.setObjectName("muted")
+        self.evidence_detail.setAccessibleName("Selected verification evidence details")
+        v.addWidget(self.evidence_detail)
         self.q_out = QPlainTextEdit()
         self.q_out.setAccessibleName("Verification result")
         self.q_out.setReadOnly(True)
@@ -2224,6 +2251,57 @@ class MainWindow(QMainWindow):
                 {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
                  if k in result}, indent=2))
         )
+
+    def load_evidence_history(self) -> None:
+        path = self.q_path.text().strip()
+        if not path or not Path(path).is_dir():
+            self.evidence_table.setRowCount(0)
+            self.evidence_detail.setText("Choose an existing project directory to view verification history.")
+            self.evidence_compare_button.setEnabled(False)
+            return
+        runs = self._run("Loading verification history", lambda: self.s.list_runs(path, 20)) or []
+        self.evidence_table.setSortingEnabled(False)
+        _fill(self.evidence_table, [[r["run_id"], r.get("recorded_at", ""), str(r.get("records", 0)),
+                                     str(r.get("failed", 0)), str(r.get("not_run", 0))] for r in runs])
+        self.evidence_table.setSortingEnabled(True)
+        self.evidence_compare_button.setEnabled(len(runs) >= 2)
+        if runs:
+            self.evidence_table.selectRow(0)
+            self.evidence_detail.setText(f"{len(runs)} retained verification run(s). Select a run to inspect its checks.")
+        else:
+            self.evidence_detail.setText("No verification evidence has been retained for this project yet.")
+
+    def _show_evidence_run(self) -> None:
+        items = self.evidence_table.selectedItems()
+        if not items:
+            return
+        run_id = self.evidence_table.item(items[0].row(), 0).text()
+        path = self.q_path.text().strip()
+        rows = self._run("Loading verification evidence",
+                         lambda: self.s.store.list_evidence(str(Path(path).resolve()), run_id)) or []
+        self.evidence_detail.setText(f"{run_id}\n" + ("\n".join(
+            f"• {r['check_id']}: {r['status']} — {r.get('detail', '')}" for r in rows)
+            if rows else "No evidence records are available for this run."))
+
+    def compare_latest_runs(self) -> None:
+        path = self.q_path.text().strip()
+        if not path:
+            return
+        result = self._run("Comparing verification runs", lambda: self.s.compare_runs(path))
+        if result:
+            self.q_out.setPlainText(json.dumps(result, indent=2, default=str))
+
+    def export_evidence_package(self) -> None:
+        path = self.q_path.text().strip()
+        if not path or not Path(path).is_dir():
+            QMessageBox.warning(self, "Choose a project", "Choose an existing project directory first.")
+            return
+        destination = QFileDialog.getExistingDirectory(self, "Export evidence package", path)
+        if not destination:
+            return
+        result = self._run("Exporting evidence package", lambda: self.s.export_evidence(None, path, destination))
+        if result:
+            self.q_out.setPlainText(json.dumps(result, indent=2, default=str))
 
     def report(self) -> None:
         self._remember_project(self.q_path.text())
