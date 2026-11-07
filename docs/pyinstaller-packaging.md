@@ -45,3 +45,32 @@ must be relative paths. Hidden imports, collected packages and exclusions
 must be valid dotted Python module names. The generated spec uses literal
 values only. Build execution uses the current interpreter, an argument vector,
 a project-local spec and no shell. Build output is bounded in the CLI report.
+
+
+## Native desktop launch validation
+
+The CI workflow has a dedicated native packaging job for Windows, macOS and
+Linux. It builds the actual Forge GUI with PyInstaller, launches the resulting
+frozen executable using Qt's offscreen platform plugin, and requires the
+application to report that its main window became visible. This exercises the
+frozen imports, Qt platform plugin loading, application construction and
+startup path. The smoke process is force-exited immediately after that
+assertion because frozen Qt teardown can crash on hosted native runners; this
+check intentionally validates startup only, not event-loop or shutdown
+behavior. On Windows, the runner may still report the known Qt access-violation
+exit code after the startup marker is flushed; CI accepts that specific code
+only when the marker confirms the main window was visible. Missing startup
+confirmation, timeouts, and all other non-zero exit codes remain failures.
+
+Run the same check locally after installing the GUI and packaging extras:
+
+```sh
+pip install -e ".[gui,packaging]"
+python scripts/verify_packaged_gui.py
+```
+
+CI retains the native distribution and PyInstaller work files as workflow
+artifacts for 30 days. A green package job means the executable built and
+confirmed main-window startup on that runner; it does not validate interactive
+event-loop or shutdown behavior, nor replace manual QA on each desktop
+platform.
