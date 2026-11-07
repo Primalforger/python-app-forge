@@ -1164,7 +1164,8 @@ class MainWindow(QMainWindow):
         for template_info in sorted(self._template_choices, key=lambda item: (item["name"].casefold(), item["id"])):
             label = f'{template_info["name"]}  ·  {template_info["id"]}'
             self.t_arch.addItem(label, template_info["id"])
-            self.t_arch.setItemData(self.t_arch.count() - 1, template_info["summary"], Qt.ItemDataRole.ToolTipRole)
+            # Keep the summary in the adjacent description label; avoid relying on
+            # QComboBox.count() here so lightweight GUI stubs can build the wizard too.
         default_template = next(
             (index for index in range(self.t_arch.count())
              if self.t_arch.itemData(index) == "desktop-pyside6"),
