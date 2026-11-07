@@ -1202,11 +1202,11 @@ class MainWindow(QMainWindow):
         component_row.addWidget(self.t_comps, 1)
         component_row.addWidget(choose_components)
         form.addRow("Template", self.t_arch)
-        v.addWidget(self.template_summary)
         form.addRow("Project name", self.t_name)
         form.addRow("Output directory", row)
         form.addRow("Components", component_row)
         v.addLayout(form)
+        v.addWidget(self.template_summary)
         btns = QHBoxLayout()
         review = QPushButton("Preview project plan")
         review.setObjectName("secondaryAction")
@@ -1338,9 +1338,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(search)
         items = QListWidget()
         items.setAccessibleName("Available project components")
+        items.setWordWrap(True)
         dialog.component_items = items
         rows = self._run("Loading component choices", lambda: self.s.search_components("")) or []
-        for component in rows:
+        for component in sorted(rows, key=lambda item: str(item["id"]).casefold()):
             component_id = str(component["id"])
             category = str(component.get("category") or "General")
             description = str(component.get("summary") or "Reusable project component")
@@ -1394,7 +1395,11 @@ class MainWindow(QMainWindow):
             terms = query.casefold().split()
             for index in range(items.count()):
                 item = items.item(index)
-                haystack = item.text().casefold()
+                haystack = " ".join((
+                    item.text(),
+                    str(item.data(Qt.ItemDataRole.UserRole + 1) or ""),
+                    str(item.data(Qt.ItemDataRole.UserRole + 2) or ""),
+                )).casefold()
                 item.setHidden(not all(term in haystack for term in terms))
             update_selection_summary()
 
