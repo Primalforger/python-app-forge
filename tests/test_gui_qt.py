@@ -16,7 +16,7 @@ try:
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QLabel, QLineEdit, QListWidget, QMessageBox,
-                                   QPlainTextEdit, QPushButton, QTableWidget)
+                                   QPlainTextEdit, QPushButton, QScrollArea, QTableWidget)
     HAVE_QT = True
     QT_IMPORT_ERROR = ""
 except ImportError as exc:
@@ -49,6 +49,23 @@ class RealQtTests(ForgeTestCase):
         self.addCleanup(self.win.close)
         self.win.show()
 
+
+    def test_responsive_shell_keeps_pages_scrollable_and_navigation_compact(self):
+        from app_forge.gui.app import _scrollable_page
+        self.assertIsInstance(self.win.stack.currentWidget(), QScrollArea)
+        self.assertTrue(self.win.stack.currentWidget().widgetResizable())
+        self.assertIsNotNone(self.win.stack.currentWidget().widget())
+
+        self.win.resize(820, 620)
+        self.app.processEvents()
+        self.assertEqual(self.win.sidebar.width(), 184)
+        self.assertGreaterEqual(self.win.width(), 760)
+
+        self.win.resize(1200, 760)
+        self.app.processEvents()
+        self.assertEqual(self.win.sidebar.width(), 238)
+        self.assertTrue(all(isinstance(self.win.stack.widget(i), QScrollArea)
+                            for i in range(self.win.stack.count())))
 
     def test_command_palette_filters_and_navigates(self):
         self.win.nav.setCurrentRow(0)
