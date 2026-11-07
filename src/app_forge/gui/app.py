@@ -2576,15 +2576,14 @@ def main() -> int:
     win = MainWindow(ForgeServices(ForgeSettings.load()))
     win.show()
     if os.environ.get("FORGE_GUI_SMOKE_TEST") == "1":
-        # Prove the real main window initializes, then exit cleanly in CI.
+        # Prove the real main window initializes before bypassing frozen Qt
+        # teardown, which can crash on hosted native runners.
         app.processEvents()
         if not win.isVisible():
             return 1
         print("FORGE_GUI_SMOKE_OK", flush=True)
-        # Frozen Qt teardown can crash on hosted native runners after a
-        # successful launch. End this short-lived smoke process after the
-        # visibility assertion; shutdown behavior is outside this smoke test.
-        QTimer.singleShot(1500, lambda: os._exit(0))
+        # This subprocess validates startup only, not event-loop or shutdown.
+        os._exit(0)
     return app.exec()
 
 
