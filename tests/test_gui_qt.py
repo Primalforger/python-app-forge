@@ -553,7 +553,9 @@ class RealQtTests(ForgeTestCase):
         self.win.load_evidence_history()
         self.assertEqual(self.win.evidence_table.rowCount(), 2)
         self.assertTrue(self.win.evidence_compare_button.isEnabled())
-        self.win.evidence_table.selectRow(0)
+        new_run_row = next(row for row in range(self.win.evidence_table.rowCount())
+                           if self.win.evidence_table.item(row, 0).text() == "run-new")
+        self.win.evidence_table.selectRow(new_run_row)
         self.assertIn("run-new", self.win.evidence_detail.text())
         self.assertIn("syntax: passed", self.win.evidence_detail.text())
         with mock.patch.object(self.s, "compare_runs", return_value={"regressions": [], "improvements": []}) as compare:
