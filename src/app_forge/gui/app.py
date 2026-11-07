@@ -1501,6 +1501,10 @@ class MainWindow(QMainWindow):
         refresh = QPushButton("Refresh projects")
         refresh.setAccessibleName("Refresh recent projects")
         refresh.clicked.connect(self.refresh_project_workspace)
+        add_existing = QPushButton("Add existing project")
+        add_existing.setObjectName("secondaryAction")
+        add_existing.setAccessibleName("Add an existing project folder to the workspace")
+        add_existing.clicked.connect(self.add_existing_workspace_project)
         new_project = QPushButton("Create a project")
         new_project.setAccessibleName("Create a new project")
         new_project.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
@@ -1508,6 +1512,7 @@ class MainWindow(QMainWindow):
         open_project.setAccessibleName("Open selected project in Integration Workbench")
         open_project.clicked.connect(self.open_project_workspace_selection)
         actions.addWidget(refresh)
+        actions.addWidget(add_existing)
         actions.addStretch(1)
         actions.addWidget(new_project)
         actions.addWidget(open_project)
@@ -1528,6 +1533,19 @@ class MainWindow(QMainWindow):
         v.addWidget(self.workspace_detail)
         self.refresh_project_workspace()
         return w
+
+    def add_existing_workspace_project(self) -> None:
+        """Add a user-selected existing folder to recent projects without modifying it."""
+        selected = QFileDialog.getExistingDirectory(self, "Add existing project")
+        if not selected:
+            return
+        path = Path(selected).expanduser()
+        if not path.is_dir():
+            self.status.setText("Selected project folder is no longer available")
+            return
+        self._remember_project(str(path))
+        self.refresh_project_workspace()
+        self.status.setText(f"Added to workspace: {path}")
 
     def refresh_project_workspace(self) -> None:
         selected = self.workspace_projects.currentItem().data(Qt.ItemDataRole.UserRole) if self.workspace_projects.currentItem() else None
