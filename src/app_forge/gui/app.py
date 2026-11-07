@@ -389,7 +389,7 @@ class MainWindow(QMainWindow):
         tagline.setObjectName("sidebarTagline")
         sidebar_layout.addWidget(brand)
         sidebar_layout.addWidget(tagline)
-        self.global_search_button = QPushButton("Search everything")
+        self.global_search_button = QPushButton("Search")
         self.global_search_button.setObjectName("secondaryAction")
         self.global_search_button.setAccessibleName("Search everything")
         self.global_search_button.setToolTip("Search everything (Ctrl+Shift+F)")
@@ -962,7 +962,7 @@ class MainWindow(QMainWindow):
             label.setAccessibleName(f"{name.title()} dashboard metric")
             label.setMinimumHeight(72)
             label.setWordWrap(True)
-            label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
             metrics.addWidget(label, 1)
         v.addLayout(metrics)
 
