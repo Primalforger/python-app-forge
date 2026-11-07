@@ -333,7 +333,7 @@ class GuiStubTests(ForgeTestCase):
     def test_table_designer_screen(self):
         self.win.td_import.setText("app.table_model")
         self.win.td_columns.item(0, 0).setText("order_id")
-        self.win.td_columns.cellWidget(0, 1).setCurrentText("number")
+        self.win.td_columns.cellWidget(0, 2).setCurrentText("number")
         self.win.add_table_column()
         self.assertEqual(self.win.td_columns.rowCount(), 4)
         self.win.td_columns.setCurrentCell(3, 0)
