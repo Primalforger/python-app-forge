@@ -329,6 +329,22 @@ class RealQtTests(ForgeTestCase):
         self.win.c_query.setText("pagination")
         self.assertEqual(self.win.c_table.rowCount(), 1)
 
+    def test_catalog_empty_state_explains_no_matches(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Component Catalog"))
+        self.win.c_query.setText("component-that-does-not-exist")
+        self.assertEqual(self.win.c_table.rowCount(), 0)
+        self.assertTrue(self.win.catalog_empty.isVisible())
+        self.assertIn("clear the search", self.win.catalog_empty.text())
+
+    def test_project_wizard_explains_preview_before_creation(self):
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
+        self.assertIn("preview the generated files", self.win.wizard_intro.text().lower())
+        self.assertEqual(self.win.t_review_button.text(), "Preview project plan")
+        with mock.patch.object(self.win, "review_generation") as preview:
+            self.win.open_generation_review_from_wizard()
+        self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Generation Review"))
+        preview.assert_called_once_with()
+
     def test_theme_switch_applies_tokens_and_focus_style(self):
         from app_forge.gui.theme import TOKENS
         for name in TOKENS:
