@@ -2385,7 +2385,96 @@ class MainWindow(QMainWindow):
         box.setReadOnly(True)
         box.setAccessibleName("Current configuration")
         v.addWidget(box, 1)
+
+        recovery_title = _title("Preference backup & recovery")
+        v.addWidget(recovery_title)
+        recovery_note = QLabel(
+            "Export a portable backup of your Forge appearance preferences, or restore one later. "
+            "Project files, databases, credentials, and trusted keys are never included."
+        )
+        recovery_note.setWordWrap(True)
+        recovery_note.setObjectName("muted")
+        v.addWidget(recovery_note)
+        recovery_actions = QHBoxLayout()
+        export_preferences = QPushButton("Export preference backup…")
+        export_preferences.clicked.connect(self.export_preferences_dialog)
+        recovery_actions.addWidget(export_preferences)
+        import_preferences = QPushButton("Restore preference backup…")
+        import_preferences.setObjectName("secondaryAction")
+        import_preferences.clicked.connect(self.import_preferences_dialog)
+        recovery_actions.addWidget(import_preferences)
+        recovery_actions.addStretch(1)
+        v.addLayout(recovery_actions)
+
+        v.addWidget(_title("Release readiness"))
+        release_note = QLabel(
+            f"Forge {__version__} · Python 3.11+ · Optional desktop build: "
+            "pip install -e \".[gui,packaging]\" then pyinstaller --noconfirm --clean "
+            "packaging/forge-gui.spec. Before publishing, run the full test suite, verify the "
+            "GUI on each target OS, inspect the generated artifact, and attach release notes."
+        )
+        release_note.setWordWrap(True)
+        release_note.setObjectName("muted")
+        release_note.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        v.addWidget(release_note)
         return w
+
+    def export_preferences_dialog(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export preference backup", "forge-preferences.json", "JSON files (*.json)"
+        )
+        if path:
+            self.export_preferences(Path(path))
+
+    def export_preferences(self, path: Path) -> None:
+        payload = {
+            "schema_version": 1,
+            "theme": str(self.preference_theme.currentData()),
+            "accent": str(self.preference_accent.currentData()),
+            "compact_density": self.preference_compact.isChecked(),
+            "mascots_enabled": self.preference_mascots.isChecked(),
+        }
+        target = Path(path)
+        temporary = target.with_name(target.name + ".tmp")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary.write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")
+            temporary.replace(target)
+        except OSError as exc:
+            temporary.unlink(missing_ok=True)
+            QMessageBox.warning(self, "Export failed", f"Could not write preference backup: {exc}")
+            return
+        self.preference_status.setText(f"Preference backup exported to {target}.")
+
+    def import_preferences_dialog(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Restore preference backup", "", "JSON files (*.json)"
+        )
+        if path:
+            self.import_preferences(Path(path))
+
+    def import_preferences(self, path: Path) -> None:
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+                raise ValueError("Unsupported preference backup format.")
+            if payload.get("theme") not in ("light", "dark"):
+                raise ValueError("Theme must be light or dark.")
+            if payload.get("accent") not in ("blue", "green", "purple"):
+                raise ValueError("Accent must be blue, green, or purple.")
+            for key in ("compact_density", "mascots_enabled"):
+                if type(payload.get(key)) is not bool:
+                    raise ValueError(f"{key} must be true or false.")
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            self.preference_status.setText(f"Backup not restored: {exc}")
+            QMessageBox.warning(self, "Restore failed", f"The preference backup is invalid or unreadable.\\n{exc}")
+            return
+        self.preference_theme.setCurrentIndex(["light", "dark"].index(payload["theme"]))
+        self.preference_accent.setCurrentIndex(["blue", "green", "purple"].index(payload["accent"]))
+        self.preference_compact.setChecked(payload["compact_density"])
+        self.preference_mascots.setChecked(payload["mascots_enabled"])
+        self.save_personalization()
+        self.preference_status.setText("Preference backup restored successfully.")
 
     def save_personalization(self) -> None:
         self.theme = str(self.preference_theme.currentData())
