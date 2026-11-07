@@ -421,19 +421,45 @@ class RealQtTests(ForgeTestCase):
         self.win.make_plan()
         self.assertFalse(self.win.w_apply.isEnabled())
 
-    def test_table_designer_uses_column_grid(self):
+    def test_table_designer_exposes_column_metadata_and_generation_options(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Table Designer"))
         self.assertEqual(self.win.td_columns.rowCount(), 3)
+        self.assertEqual(self.win.td_columns.columnCount(), 4)
         self.win.td_columns.item(0, 0).setText("order_id")
-        self.win.td_columns.cellWidget(0, 1).setCurrentText("number")
+        self.win.td_columns.item(0, 1).setText("Order ID")
+        self.win.td_columns.cellWidget(0, 2).setCurrentText("number")
+        self.win.td_columns.cellWidget(0, 3).setCurrentText("Hidden")
+        self.win.td_page_size.setValue(50)
+        self.win.td_filter_mode.setCurrentText("or")
         self.win.add_table_column()
         self.assertEqual(self.win.td_columns.rowCount(), 4)
         self.win.td_columns.setCurrentCell(3, 0)
         self.win.remove_table_column()
         self.assertEqual(self.win.td_columns.rowCount(), 3)
         self.win.design_table()
-        self.assertIn("order_id", self.win.td_out.toPlainText())
-        self.assertTrue(self.win.td_out.toPlainText())
+        generated = self.win.td_out.toPlainText()
+        self.assertIn("order_id", generated)
+        self.assertTrue(generated)
+        definition = self.s.design_table({
+            "name": "Orders",
+            "columns": [{"key": "order_id", "title": "Order ID", "type": "number", "visible": False}],
+            "page_size": 50, "filter_mode": "or",
+        })["definition"]
+        self.assertEqual(definition["columns"][0]["title"], "Order ID")
+        self.assertFalse(definition["columns"][0]["visible"])
+        self.assertEqual(definition["page_size"], 50)
+        self.assertEqual(definition["filter_mode"], "or")
+
+    def test_project_health_assessment_summarizes_read_only_project_signals(self):
+        project = self.make_project(self.s, "cli", "Health Sample")
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Quality and Compliance"))
+        self.win.q_path.setText(str(project))
+        self.win.assess_project_health()
+        self.assertEqual(self.win.health_table.rowCount(), 7)
+        self.assertIn("Health Sample", self.win.health_summary.text())
+        self.assertIn("Read-only project assessment", self.win.q_out.toPlainText())
+        self.assertIn("Tests", [self.win.health_table.item(row, 0).text()
+                                for row in range(self.win.health_table.rowCount())])
 
     def test_unexpected_ui_error_is_saved_as_local_crash_report(self):
         with mock.patch.object(self.s, "doctor", side_effect=RuntimeError("token=private-value")):
