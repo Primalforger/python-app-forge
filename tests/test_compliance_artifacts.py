@@ -101,7 +101,15 @@ class ComplianceArtifactTests(ForgeTestCase):
         directory = project / ".forge" / "compliance"
         directory.mkdir(parents=True)
         target = directory / "change-impact.json"
-        target.symlink_to(self.tmp / "outside.json")
+        try:
+            target.symlink_to(self.tmp / "outside.json")
+        except OSError as exc:
+            # Creating symlinks on Windows may require Developer Mode or
+            # elevated privileges. Keep the security assertion active where
+            # the platform permits symlink creation.
+            if getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows symlink creation requires additional privileges")
+            raise
         with self.assertRaises(SecurityBlock):
             save_artifact(project, "CMP-09", {
                 "change": "x", "impacted_requirements": ["REQ-1"], "impact_assessment": "x"
