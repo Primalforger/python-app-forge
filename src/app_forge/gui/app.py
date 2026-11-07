@@ -17,7 +17,7 @@ from PySide6.QtCore import QByteArray, QObject, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QProgressBar, QPushButton, QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem,
+                               QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem,
                                QListWidgetItem, QVBoxLayout, QWidget)
 
 from app_forge import __version__
@@ -61,6 +61,18 @@ def _page_layout(widget: QWidget, spacing: int = 12) -> QVBoxLayout:
     layout.setContentsMargins(24, 22, 24, 20)
     layout.setSpacing(spacing)
     return layout
+
+
+def _scrollable_page(widget: QWidget) -> QScrollArea:
+    """Keep long screens usable in short windows and at high display scaling."""
+    area = QScrollArea()
+    area.setObjectName("pageScrollArea")
+    area.setWidgetResizable(True)
+    area.setFrameShape(QScrollArea.Shape.NoFrame)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    area.setWidget(widget)
+    return area
 
 
 def _table(headers: list[str]) -> QTableWidget:
@@ -340,6 +352,7 @@ class MainWindow(QMainWindow):
             if isinstance(saved_notifications, list) else []
         self.setWindowTitle(f"Python App Forge {__version__}")
         self.resize(1100, 700)
+        self.setMinimumSize(760, 520)
         root = QWidget()
         lay = QHBoxLayout(root)
         self.sidebar = QWidget()
@@ -406,7 +419,7 @@ class MainWindow(QMainWindow):
         for build in (self._dashboard, self._project_workspace, self._templates, self._generation_review, self._catalog, self._components,
                       self._workbench, self._design_system, self._table_designer, self._architecture,
                       self._quality, self._extensions, self._settings, self._diagnostics):
-            self.stack.addWidget(build())
+            self.stack.addWidget(_scrollable_page(build()))
         self.nav.currentRowChanged.connect(self._navigate)
         self._recent_projects_menu = self.menuBar().addMenu("Recent Projects")
         self._refresh_recent_projects_menu()
@@ -441,6 +454,13 @@ class MainWindow(QMainWindow):
         self._refresh_notification_button()
         if self._saved_session.get("maximized") is True:
             self.showMaximized()
+
+    def resizeEvent(self, event) -> None:
+        """Adapt navigation width while preserving a useful content viewport."""
+        super().resizeEvent(event)
+        if hasattr(self, "sidebar"):
+            width = self.width()
+            self.sidebar.setFixedWidth(238 if width >= 1000 else 210 if width >= 860 else 184)
 
     def dismiss_welcome(self) -> None:
         self._saved_session["welcome_seen"] = True
