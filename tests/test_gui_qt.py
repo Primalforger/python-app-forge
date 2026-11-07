@@ -191,6 +191,17 @@ class RealQtTests(ForgeTestCase):
         self.win.activity_search.setText("not-a-real-operation")
         self.assertFalse(self.win.copy_activity_id_button.isEnabled())
 
+    def test_invalid_saved_geometry_recovers_to_available_screen(self):
+        self.s.save_desktop_session({"geometry": "not-hex"})
+        restored = self.gui.MainWindow(self.s)
+        self.addCleanup(restored.close)
+        self.assertGreaterEqual(restored.width(), 760)
+        self.assertGreaterEqual(restored.height(), 520)
+        screen = restored.screen() or self.app.primaryScreen()
+        if screen is not None:
+            available = screen.availableGeometry()
+            self.assertTrue(available.intersects(restored.frameGeometry()))
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
