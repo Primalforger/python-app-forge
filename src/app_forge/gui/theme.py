@@ -100,7 +100,7 @@ def stylesheet(name: str) -> str:
         "QToolTip { background: %(surface)s; color: %(text)s;"
         " border: 1px solid %(border)s; padding: 5px; }\n"
         "QPushButton:focus, QLineEdit:focus, QComboBox:focus, QListWidget:focus,"
-        " QTableWidget:focus, QPlainTextEdit:focus, QCheckBox:focus, QRadioButton:focus,
+        " QTableWidget:focus, QPlainTextEdit:focus, QCheckBox:focus, QRadioButton:focus,"
         " QSpinBox:focus, QDateEdit:focus, QSlider:focus { border: 2px solid %(focus)s; }\n"
     ) % t
 
