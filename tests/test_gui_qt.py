@@ -228,6 +228,19 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.w_path.text(), str(project.resolve()))
         self.assertEqual(self.win.q_path.text(), str(project.resolve()))
 
+    def test_project_workspace_can_add_an_existing_folder(self):
+        project = self.tmp / "existing-workspace-project"
+        project.mkdir()
+        marker = project / "keep-me.txt"
+        marker.write_text("untouched", encoding="utf-8")
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
+        with mock.patch.object(self.gui.QFileDialog, "getExistingDirectory", return_value=str(project)):
+            self.win.add_existing_workspace_project()
+        self.assertIn(str(project.resolve()), self.s.list_recent_projects(existing_only=True))
+        self.assertEqual(marker.read_text(encoding="utf-8"), "untouched")
+        self.assertEqual(self.win.workspace_projects.count(), 1)
+        self.assertEqual(self.win.workspace_projects.item(0).text(), project.name)
+
     def test_project_workspace_empty_state_is_helpful(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
         self.assertEqual(self.win.workspace_projects.count(), 0)
@@ -261,7 +274,9 @@ class RealQtTests(ForgeTestCase):
         first = dialog.component_items.item(0)
         first.setCheckState(Qt.CheckState.Checked)
         self.assertIn("1 selected", dialog.findChild(QLabel, "selectionSummary").text())
-        category = first.text().split(" — ")[1]
+        category = str(first.data(Qt.ItemDataRole.UserRole + 1))
+        self.assertIn(category, first.text())
+        self.assertIn(ids[0], dialog.findChild(QLabel, "selectionSummary").text())
         dialog.findChild(QLineEdit).setText(category)
         self.assertFalse(first.isHidden())
         dialog.findChild(QLineEdit).clear()
@@ -292,6 +307,23 @@ class RealQtTests(ForgeTestCase):
         self.assertTrue(captured["dry_run"])
         self.assertIsNotNone(captured["cancel_token"])
         self.assertIn("ready", self.win.gr_out.toPlainText())
+
+    def test_project_wizard_lists_real_templates_and_explains_selection(self):
+        template_ids = {
+            str(self.win.t_arch.itemData(index))
+            for index in range(self.win.t_arch.count())
+        }
+        expected = {item["id"] for item in self.s.list_templates()}
+        self.assertEqual(template_ids, expected)
+        self.assertIn("desktop-pyside6", template_ids)
+        self.assertIn("PySide6 desktop shell", self.win.template_summary.text())
+        web_index = next(
+            index for index in range(self.win.t_arch.count())
+            if self.win.t_arch.itemData(index) == "web-fastapi"
+        )
+        self.win.t_arch.setCurrentIndex(web_index)
+        self.assertIn("FastAPI", self.win.template_summary.text())
+        self.assertIn("web", self.win.template_summary.text())
 
     def test_project_wizard_opens_dedicated_generation_review(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
