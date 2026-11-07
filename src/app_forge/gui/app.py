@@ -1159,8 +1159,26 @@ class MainWindow(QMainWindow):
         v.addWidget(self.wizard_guidance)
         form = QFormLayout()
         self.t_arch = QComboBox()
-        self.t_arch.setAccessibleName("Application archetype")
-        self.t_arch.addItems(["desktop", "web", "cli", "service"])
+        self.t_arch.setAccessibleName("Project template")
+        self._template_choices = sorted(
+            self.s.list_templates(), key=lambda item: (item["name"].casefold(), item["id"])
+        )
+        for template_info in self._template_choices:
+            label = f'{template_info["name"]}  ·  {template_info["id"]}'
+            self.t_arch.addItem(label, template_info["id"])
+        default_template = next(
+            (index for index, info in enumerate(self._template_choices)
+             if info["id"] == "desktop-pyside6"),
+            0,
+        )
+        if self._template_choices:
+            self.t_arch.setCurrentIndex(default_template)
+        self.template_summary = QLabel()
+        self.template_summary.setObjectName("pageHint")
+        self.template_summary.setAccessibleName("Selected template description")
+        self.template_summary.setWordWrap(True)
+        self.t_arch.currentIndexChanged.connect(self.update_template_summary)
+        self.update_template_summary()
         self.t_name = QLineEdit()
         self.t_name.setAccessibleName("Project name")
         self.t_name.setPlaceholderText("e.g. Inventory Dashboard")
@@ -1184,11 +1202,12 @@ class MainWindow(QMainWindow):
         component_row = QHBoxLayout()
         component_row.addWidget(self.t_comps, 1)
         component_row.addWidget(choose_components)
-        form.addRow("Archetype", self.t_arch)
+        form.addRow("Template", self.t_arch)
         form.addRow("Project name", self.t_name)
         form.addRow("Output directory", row)
         form.addRow("Components", component_row)
         v.addLayout(form)
+        v.addWidget(self.template_summary)
         btns = QHBoxLayout()
         review = QPushButton("Preview project plan")
         review.setObjectName("secondaryAction")
@@ -1205,6 +1224,38 @@ class MainWindow(QMainWindow):
         self.t_out_box.setReadOnly(True)
         v.addWidget(self.t_out_box, 1)
         return w
+
+    def _selected_template_id(self) -> str:
+        """Resolve the selected template while remaining compatible with lightweight Qt stubs."""
+        data = self.t_arch.currentData()
+        if isinstance(data, str) and data:
+            return data
+        index = self.t_arch.currentIndex()
+        if isinstance(index, int) and 0 <= index < len(self._template_choices):
+            return str(self._template_choices[index]["id"])
+        current_text = self.t_arch.currentText()
+        for item in self._template_choices:
+            label = f'{item["name"]}  ·  {item["id"]}'
+            if current_text == label:
+                return str(item["id"])
+        return next(
+            (str(item["id"]) for item in self._template_choices
+             if item["id"] == "desktop-pyside6"),
+            str(self._template_choices[0]["id"]) if self._template_choices else "",
+        )
+
+    def update_template_summary(self, *_args) -> None:
+        """Keep the wizard's template choice understandable without opening another screen."""
+        template_id = self._selected_template_id()
+        info = next((item for item in self._template_choices if item["id"] == template_id), None)
+        if info is None:
+            self.template_summary.setText("No project templates are currently available.")
+            return
+        archetypes = ", ".join(info.get("archetypes") or [info["archetype"]])
+        self.template_summary.setText(
+            f'{info["summary"]}  Supported project types: {archetypes}. '
+            f'Version {info["version"]}.'
+        )
 
     def _generation_review(self) -> QWidget:
         w = QWidget()
@@ -1307,38 +1358,68 @@ class MainWindow(QMainWindow):
         layout.addWidget(search)
         items = QListWidget()
         items.setAccessibleName("Available project components")
+        items.setWordWrap(True)
         dialog.component_items = items
         rows = self._run("Loading component choices", lambda: self.s.search_components("")) or []
-        for component in rows:
+        for component in sorted(rows, key=lambda item: str(item["id"]).casefold()):
             component_id = str(component["id"])
             category = str(component.get("category") or "General")
             description = str(component.get("summary") or "Reusable project component")
-            item = QListWidgetItem(f"{component_id} — {category} — {description}")
+            item = QListWidgetItem(f"{component_id}  ·  {category}")
             item.setData(Qt.ItemDataRole.UserRole, component_id)
-            item.setToolTip(description)
+            item.setData(Qt.ItemDataRole.UserRole + 1, category)
+            item.setData(Qt.ItemDataRole.UserRole + 2, description)
+            item.setToolTip(f"{component_id}\nCategory: {category}\n{description}")
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if component_id in self._selected_component_ids else Qt.CheckState.Unchecked)
             items.addItem(item)
         selection_summary = QLabel()
         selection_summary.setObjectName("selectionSummary")
         selection_summary.setAccessibleName("Component selection summary")
+        selection_summary.setWordWrap(True)
         layout.addWidget(selection_summary)
+        component_detail = QLabel("Select a component to inspect its purpose.")
+        component_detail.setObjectName("muted")
+        component_detail.setAccessibleName("Selected component details")
+        component_detail.setWordWrap(True)
+        layout.addWidget(component_detail)
 
         def update_selection_summary(*_args) -> None:
-            selected = sum(items.item(i).checkState() == Qt.CheckState.Checked for i in range(items.count()))
+            selected_ids = [
+                str(items.item(i).data(Qt.ItemDataRole.UserRole))
+                for i in range(items.count())
+                if items.item(i).checkState() == Qt.CheckState.Checked
+            ]
             visible = sum(not items.item(i).isHidden() for i in range(items.count()))
             selection_summary.setText(
-                f"{selected} selected · {visible} matching component{'s' if visible != 1 else ''}"
+                f"{len(selected_ids)} selected · {visible} matching component"
+                f"{'s' if visible != 1 else ''}"
+                + (f"\nSelected: {', '.join(selected_ids)}" if selected_ids else "")
+            )
+
+        def show_component_detail(current, *_args) -> None:
+            if current is None:
+                component_detail.setText("Select a component to inspect its purpose.")
+                return
+            component_detail.setText(
+                f'{current.data(Qt.ItemDataRole.UserRole)} · '
+                f'{current.data(Qt.ItemDataRole.UserRole + 1)}\n'
+                f'{current.data(Qt.ItemDataRole.UserRole + 2)}'
             )
 
         items.itemChanged.connect(update_selection_summary)
+        items.currentItemChanged.connect(show_component_detail)
         layout.addWidget(items, 1)
 
         def filter_items(query: str) -> None:
             terms = query.casefold().split()
             for index in range(items.count()):
                 item = items.item(index)
-                haystack = item.text().casefold()
+                haystack = " ".join((
+                    item.text(),
+                    str(item.data(Qt.ItemDataRole.UserRole + 1) or ""),
+                    str(item.data(Qt.ItemDataRole.UserRole + 2) or ""),
+                )).casefold()
                 item.setHidden(not all(term in haystack for term in terms))
             update_selection_summary()
 
@@ -1380,7 +1461,7 @@ class MainWindow(QMainWindow):
     def review_generation(self) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        template = self.t_arch.currentText()
+        template = self._selected_template_id()
         options = {"name": self.t_name.text()}
         self.gr_out.setPlainText("Preparing generation preview…")
         self._start_background(
@@ -1398,7 +1479,7 @@ class MainWindow(QMainWindow):
     def generate(self, dry: bool) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        template = self.t_arch.currentText()
+        template = self._selected_template_id()
         options = {"name": self.t_name.text()}
         if dry:
             self.review_generation()
@@ -1440,6 +1521,10 @@ class MainWindow(QMainWindow):
         refresh = QPushButton("Refresh projects")
         refresh.setAccessibleName("Refresh recent projects")
         refresh.clicked.connect(self.refresh_project_workspace)
+        add_existing = QPushButton("Add existing project")
+        add_existing.setObjectName("secondaryAction")
+        add_existing.setAccessibleName("Add an existing project folder to the workspace")
+        add_existing.clicked.connect(self.add_existing_workspace_project)
         new_project = QPushButton("Create a project")
         new_project.setAccessibleName("Create a new project")
         new_project.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
@@ -1447,6 +1532,7 @@ class MainWindow(QMainWindow):
         open_project.setAccessibleName("Open selected project in Integration Workbench")
         open_project.clicked.connect(self.open_project_workspace_selection)
         actions.addWidget(refresh)
+        actions.addWidget(add_existing)
         actions.addStretch(1)
         actions.addWidget(new_project)
         actions.addWidget(open_project)
@@ -1467,6 +1553,19 @@ class MainWindow(QMainWindow):
         v.addWidget(self.workspace_detail)
         self.refresh_project_workspace()
         return w
+
+    def add_existing_workspace_project(self) -> None:
+        """Add a user-selected existing folder to recent projects without modifying it."""
+        selected = QFileDialog.getExistingDirectory(self, "Add existing project")
+        if not selected:
+            return
+        path = Path(selected).expanduser()
+        if not path.is_dir():
+            self.status.setText("Selected project folder is no longer available")
+            return
+        self._remember_project(str(path))
+        self.refresh_project_workspace()
+        self.status.setText(f"Added to workspace: {path}")
 
     def refresh_project_workspace(self) -> None:
         selected = self.workspace_projects.currentItem().data(Qt.ItemDataRole.UserRole) if self.workspace_projects.currentItem() else None
