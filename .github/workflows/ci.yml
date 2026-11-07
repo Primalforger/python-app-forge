@@ -94,6 +94,56 @@ jobs:
         timeout-minutes: 5
         run: ./scripts/verify_gui_windows.ps1
 
+  packaged-gui:
+    name: Packaged desktop GUI (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11"]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1 libxkbcommon-x11-0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install Forge GUI and packaging dependencies
+        run: uv pip install --system -e ".[gui,dev,packaging]"
+
+      - name: Build and launch the packaged Forge desktop application
+        run: python scripts/verify_packaged_gui.py
+
+      - name: Preserve native package and build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-forge-gui-${{ runner.os }}-py${{ matrix.python-version }}
+          path: |
+            dist/ForgeDesktop/**
+            build/packaging/**
+            build/pyinstaller/**
+          if-no-files-found: warn
+          retention-days: 30
+
   quality:
     name: Lint, types, security, and build
     runs-on: ubuntu-latest
