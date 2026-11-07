@@ -1225,9 +1225,28 @@ class MainWindow(QMainWindow):
         v.addWidget(self.t_out_box, 1)
         return w
 
+    def _selected_template_id(self) -> str:
+        """Resolve the selected template while remaining compatible with lightweight Qt stubs."""
+        data = self.t_arch.currentData()
+        if isinstance(data, str) and data:
+            return data
+        index = self.t_arch.currentIndex()
+        if isinstance(index, int) and 0 <= index < len(self._template_choices):
+            return str(self._template_choices[index]["id"])
+        current_text = self.t_arch.currentText()
+        for item in self._template_choices:
+            label = f'{item["name"]}  ·  {item["id"]}'
+            if current_text == label:
+                return str(item["id"])
+        return next(
+            (str(item["id"]) for item in self._template_choices
+             if item["id"] == "desktop-pyside6"),
+            str(self._template_choices[0]["id"]) if self._template_choices else "",
+        )
+
     def update_template_summary(self, *_args) -> None:
         """Keep the wizard's template choice understandable without opening another screen."""
-        template_id = self.t_arch.currentData()
+        template_id = self._selected_template_id()
         info = next((item for item in self._template_choices if item["id"] == template_id), None)
         if info is None:
             self.template_summary.setText("No project templates are currently available.")
@@ -1442,7 +1461,7 @@ class MainWindow(QMainWindow):
     def review_generation(self) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        template = str(self.t_arch.currentData() or self.t_arch.currentText())
+        template = self._selected_template_id()
         options = {"name": self.t_name.text()}
         self.gr_out.setPlainText("Preparing generation preview…")
         self._start_background(
@@ -1460,7 +1479,7 @@ class MainWindow(QMainWindow):
     def generate(self, dry: bool) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        template = self.t_arch.currentText()
+        template = self._selected_template_id()
         options = {"name": self.t_name.text()}
         if dry:
             self.review_generation()
