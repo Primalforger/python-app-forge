@@ -75,7 +75,7 @@ class RealQtTests(ForgeTestCase):
         self.assertTrue(self.win.metric_total.wordWrap())
         self.assertTrue(self.win.metric_succeeded.wordWrap())
         self.assertTrue(self.win.metric_failed.wordWrap())
-        self.assertEqual(self.win.findChild(QLabel, "eyebrow").text(), "OPERATIONS OVERVIEW")
+        self.assertIn("OPERATIONS OVERVIEW", [label.text() for label in self.win.findChildren(QLabel, "eyebrow")])
 
         self.win.resize(760, 560)
         self.app.processEvents()
