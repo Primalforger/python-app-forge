@@ -21,8 +21,10 @@ surfaces provide most of the visual area.
 
 ## Interface principles
 
-- Prefer clear hierarchy, consistent spacing, and restrained borders.
+- Prefer clear hierarchy, consistent spacing, and restrained borders. Stacked screens use a shared 24 px horizontal content inset, 22 px top inset, and 12 px default vertical rhythm.
 - Use shared Qt stylesheet tokens rather than screen-specific color literals.
+- Give first-run users a short, actionable path through project setup; explain preview-before-write behavior.
+- Empty data views should explain why they are empty and offer a useful next step rather than leaving a blank table.
 - Keep focus indicators visible in both themes.
 - Preserve readable contrast for text and status indicators.
 - Avoid excessive glow, gradients, and decorative backgrounds.

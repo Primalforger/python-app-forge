@@ -88,6 +88,8 @@ def stylesheet(name: str) -> str:
         " border: 0; border-bottom: 1px solid %(border)s; padding: 8px;"
         " font-weight: 600; }\n"
         "QLabel#muted { color: %(muted)s; }\n"
+        "QLabel#pageHint { background: %(surface_alt)s; color: %(text)s; border: 1px solid %(border)s; border-radius: 6px; padding: 9px 11px; }\n"
+        "QLabel#emptyState { background: %(surface_alt)s; color: %(muted)s; border: 1px dashed %(border)s; border-radius: 6px; padding: 16px; }\n"
         "QLabel#eyebrow { color: %(primary)s; font-size: 10px; font-weight: 700; letter-spacing: 1px; }\n"
         "QLabel#metricCard { background: %(surface)s; color: %(text)s; border: 1px solid %(border)s; border-radius: 8px; padding: 10px 12px; font-size: 12px; }\n"
         "QLabel#metricCard b { color: %(primary)s; font-size: 19px; font-weight: 700; }\n"
