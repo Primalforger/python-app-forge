@@ -1159,8 +1159,25 @@ class MainWindow(QMainWindow):
         v.addWidget(self.wizard_guidance)
         form = QFormLayout()
         self.t_arch = QComboBox()
-        self.t_arch.setAccessibleName("Application archetype")
-        self.t_arch.addItems(["desktop", "web", "cli", "service"])
+        self.t_arch.setAccessibleName("Project template")
+        self._template_choices = self.s.list_templates()
+        for template_info in sorted(self._template_choices, key=lambda item: (item["name"].casefold(), item["id"])):
+            label = f'{template_info["name"]}  ·  {template_info["id"]}'
+            self.t_arch.addItem(label, template_info["id"])
+            self.t_arch.setItemData(self.t_arch.count() - 1, template_info["summary"], Qt.ItemDataRole.ToolTipRole)
+        default_template = next(
+            (index for index in range(self.t_arch.count())
+             if self.t_arch.itemData(index) == "desktop-pyside6"),
+            0,
+        )
+        if self.t_arch.count():
+            self.t_arch.setCurrentIndex(default_template)
+        self.template_summary = QLabel()
+        self.template_summary.setObjectName("pageHint")
+        self.template_summary.setAccessibleName("Selected template description")
+        self.template_summary.setWordWrap(True)
+        self.t_arch.currentIndexChanged.connect(self.update_template_summary)
+        self.update_template_summary()
         self.t_name = QLineEdit()
         self.t_name.setAccessibleName("Project name")
         self.t_name.setPlaceholderText("e.g. Inventory Dashboard")
@@ -1184,7 +1201,8 @@ class MainWindow(QMainWindow):
         component_row = QHBoxLayout()
         component_row.addWidget(self.t_comps, 1)
         component_row.addWidget(choose_components)
-        form.addRow("Archetype", self.t_arch)
+        form.addRow("Template", self.t_arch)
+        v.addWidget(self.template_summary)
         form.addRow("Project name", self.t_name)
         form.addRow("Output directory", row)
         form.addRow("Components", component_row)
@@ -1205,6 +1223,19 @@ class MainWindow(QMainWindow):
         self.t_out_box.setReadOnly(True)
         v.addWidget(self.t_out_box, 1)
         return w
+
+    def update_template_summary(self, *_args) -> None:
+        """Keep the wizard's template choice understandable without opening another screen."""
+        template_id = self.t_arch.currentData()
+        info = next((item for item in self._template_choices if item["id"] == template_id), None)
+        if info is None:
+            self.template_summary.setText("No project templates are currently available.")
+            return
+        archetypes = ", ".join(info.get("archetypes") or [info["archetype"]])
+        self.template_summary.setText(
+            f'{info["summary"]}  Supported project types: {archetypes}. '
+            f'Version {info["version"]}.'
+        )
 
     def _generation_review(self) -> QWidget:
         w = QWidget()
@@ -1313,25 +1344,50 @@ class MainWindow(QMainWindow):
             component_id = str(component["id"])
             category = str(component.get("category") or "General")
             description = str(component.get("summary") or "Reusable project component")
-            item = QListWidgetItem(f"{component_id} — {category} — {description}")
+            item = QListWidgetItem(f"{component_id}  ·  {category}")
             item.setData(Qt.ItemDataRole.UserRole, component_id)
-            item.setToolTip(description)
+            item.setData(Qt.ItemDataRole.UserRole + 1, category)
+            item.setData(Qt.ItemDataRole.UserRole + 2, description)
+            item.setToolTip(f"{component_id}\nCategory: {category}\n{description}")
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if component_id in self._selected_component_ids else Qt.CheckState.Unchecked)
             items.addItem(item)
         selection_summary = QLabel()
         selection_summary.setObjectName("selectionSummary")
         selection_summary.setAccessibleName("Component selection summary")
+        selection_summary.setWordWrap(True)
         layout.addWidget(selection_summary)
+        component_detail = QLabel("Select a component to inspect its purpose.")
+        component_detail.setObjectName("muted")
+        component_detail.setAccessibleName("Selected component details")
+        component_detail.setWordWrap(True)
+        layout.addWidget(component_detail)
 
         def update_selection_summary(*_args) -> None:
-            selected = sum(items.item(i).checkState() == Qt.CheckState.Checked for i in range(items.count()))
+            selected_ids = [
+                str(items.item(i).data(Qt.ItemDataRole.UserRole))
+                for i in range(items.count())
+                if items.item(i).checkState() == Qt.CheckState.Checked
+            ]
             visible = sum(not items.item(i).isHidden() for i in range(items.count()))
             selection_summary.setText(
-                f"{selected} selected · {visible} matching component{'s' if visible != 1 else ''}"
+                f"{len(selected_ids)} selected · {visible} matching component"
+                f"{'s' if visible != 1 else ''}"
+                + (f"\nSelected: {', '.join(selected_ids)}" if selected_ids else "")
+            )
+
+        def show_component_detail(current, *_args) -> None:
+            if current is None:
+                component_detail.setText("Select a component to inspect its purpose.")
+                return
+            component_detail.setText(
+                f'{current.data(Qt.ItemDataRole.UserRole)} · '
+                f'{current.data(Qt.ItemDataRole.UserRole + 1)}\n'
+                f'{current.data(Qt.ItemDataRole.UserRole + 2)}'
             )
 
         items.itemChanged.connect(update_selection_summary)
+        items.currentItemChanged.connect(show_component_detail)
         layout.addWidget(items, 1)
 
         def filter_items(query: str) -> None:
@@ -1380,7 +1436,7 @@ class MainWindow(QMainWindow):
     def review_generation(self) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
-        template = self.t_arch.currentText()
+        template = str(self.t_arch.currentData() or self.t_arch.currentText())
         options = {"name": self.t_name.text()}
         self.gr_out.setPlainText("Preparing generation preview…")
         self._start_background(
