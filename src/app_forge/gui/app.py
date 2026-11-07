@@ -1160,18 +1160,18 @@ class MainWindow(QMainWindow):
         form = QFormLayout()
         self.t_arch = QComboBox()
         self.t_arch.setAccessibleName("Project template")
-        self._template_choices = self.s.list_templates()
-        for template_info in sorted(self._template_choices, key=lambda item: (item["name"].casefold(), item["id"])):
+        self._template_choices = sorted(
+            self.s.list_templates(), key=lambda item: (item["name"].casefold(), item["id"])
+        )
+        for template_info in self._template_choices:
             label = f'{template_info["name"]}  ·  {template_info["id"]}'
             self.t_arch.addItem(label, template_info["id"])
-            # Keep the summary in the adjacent description label; avoid relying on
-            # QComboBox.count() here so lightweight GUI stubs can build the wizard too.
         default_template = next(
-            (index for index in range(self.t_arch.count())
-             if self.t_arch.itemData(index) == "desktop-pyside6"),
+            (index for index, info in enumerate(self._template_choices)
+             if info["id"] == "desktop-pyside6"),
             0,
         )
-        if self.t_arch.count():
+        if self._template_choices:
             self.t_arch.setCurrentIndex(default_template)
         self.template_summary = QLabel()
         self.template_summary.setObjectName("pageHint")
