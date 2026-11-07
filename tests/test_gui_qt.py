@@ -288,7 +288,8 @@ class RealQtTests(ForgeTestCase):
         self.assertIn("forge.forms-validation", self.win.gr_dependencies.text())
         self.assertIn("requests>=2", self.win.gr_dependencies.text())
         self.assertEqual(self.win.gr_files.rowCount(), 2)
-        self.assertEqual(self.win.gr_files.item(0, 0).text(), "pyproject.toml")
+        displayed_paths = {self.win.gr_files.item(row, 0).text() for row in range(self.win.gr_files.rowCount())}
+        self.assertEqual(displayed_paths, {"pyproject.toml", "src/app.py"})
         self.assertTrue(self.win.gr_copy_button.isEnabled())
         self.win.copy_generation_review()
         self.assertIn("preview-123", self.gui.QApplication.clipboard().text())
