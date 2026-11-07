@@ -2106,7 +2106,8 @@ class MainWindow(QMainWindow):
                 f"Execution boundary: {details.get('isolation', 'not reported')}\n\n"
                 "Trust decision: explicit maintainer approval is required. Permission boundary: isolated worker, "
                 "network disabled, read-only runtime, and only caller-allowlisted writable paths. "
-                "The host fails closed when bubblewrap is unavailable or the platform is unsupported."
+                "Invocation is refused when the required OS sandbox is unavailable; the host fails closed when "
+                "bubblewrap is unavailable or the platform is unsupported."
             )
 
     def trust_ext(self) -> None:
