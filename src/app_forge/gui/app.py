@@ -7,6 +7,7 @@ Requires: pip install "python-app-forge[gui]"
 from __future__ import annotations
 
 import json
+import os
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -2574,6 +2575,13 @@ def main() -> int:
     app = QApplication(sys.argv)
     win = MainWindow(ForgeServices(ForgeSettings.load()))
     win.show()
+    if os.environ.get("FORGE_GUI_SMOKE_TEST") == "1":
+        # Prove the real main window initializes, then exit cleanly in CI.
+        app.processEvents()
+        if not win.isVisible():
+            return 1
+        print("FORGE_GUI_SMOKE_OK", flush=True)
+        QTimer.singleShot(1500, app.quit)
     return app.exec()
 
 
