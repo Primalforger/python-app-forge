@@ -1,4 +1,4 @@
-""""Build and launch the frozen Forge GUI on the current native platform."""
+"""Build and launch the frozen Forge GUI on the current native platform."""
 from __future__ import annotations
 
 import os
