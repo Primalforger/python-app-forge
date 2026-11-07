@@ -68,6 +68,32 @@ class RealQtTests(ForgeTestCase):
         self.assertTrue(all(isinstance(self.win.stack.widget(i), QScrollArea)
                             for i in range(self.win.stack.count())))
 
+    def test_dashboard_and_sidebar_layout_remain_readable_at_compact_sizes(self):
+        self.assertEqual(self.win.global_search_button.text(), "Search everything")
+        self.assertEqual(self.win.global_search_button.accessibleName(), "Search everything")
+        self.assertTrue(self.win.nav.wordWrap())
+        self.assertTrue(self.win.metric_total.wordWrap())
+        self.assertTrue(self.win.metric_succeeded.wordWrap())
+        self.assertTrue(self.win.metric_failed.wordWrap())
+        self.assertEqual(self.win.findChild(QLabel, "eyebrow").text(), "OPERATIONS OVERVIEW")
+
+        self.win.resize(760, 560)
+        self.app.processEvents()
+        self.assertEqual(self.win.sidebar.width(), 184)
+        self.assertGreaterEqual(self.win.global_search_button.width(), 140)
+        self.assertLessEqual(
+            self.win.global_search_button.fontMetrics().horizontalAdvance(
+                self.win.global_search_button.text()
+            ) + 14,
+            self.win.global_search_button.width(),
+        )
+        self.assertGreaterEqual(self.win.metric_total.height(), 72)
+
+        self.win.resize(1200, 760)
+        self.app.processEvents()
+        self.assertEqual(self.win.sidebar.width(), 238)
+        self.assertGreaterEqual(self.win.global_search_button.width(), 190)
+
     def test_command_palette_filters_and_navigates(self):
         self.win.nav.setCurrentRow(0)
         palette = self.gui.CommandPaletteDialog(self.win._command_palette_commands(), self.win)
