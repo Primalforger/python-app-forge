@@ -228,6 +228,19 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.w_path.text(), str(project.resolve()))
         self.assertEqual(self.win.q_path.text(), str(project.resolve()))
 
+    def test_project_workspace_can_add_an_existing_folder(self):
+        project = self.tmp / "existing-workspace-project"
+        project.mkdir()
+        marker = project / "keep-me.txt"
+        marker.write_text("untouched", encoding="utf-8")
+        self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
+        with mock.patch.object(self.gui.QFileDialog, "getExistingDirectory", return_value=str(project)):
+            self.win.add_existing_workspace_project()
+        self.assertIn(str(project.resolve()), self.s.list_recent_projects(existing_only=True))
+        self.assertEqual(marker.read_text(encoding="utf-8"), "untouched")
+        self.assertEqual(self.win.workspace_projects.count(), 1)
+        self.assertEqual(self.win.workspace_projects.item(0).text(), project.name)
+
     def test_project_workspace_empty_state_is_helpful(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Workspace"))
         self.assertEqual(self.win.workspace_projects.count(), 0)
