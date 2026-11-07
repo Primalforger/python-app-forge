@@ -2261,18 +2261,20 @@ class MainWindow(QMainWindow):
             "Verifying",
             lambda *, cancel_token, progress: self.s.verify_project(
                 path, cancel_token=cancel_token, progress=progress),
-            on_success=lambda result: (
-                self.q_out.setPlainText(json.dumps(
-                    {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2)),
-                self.load_evidence_history()
-            ),
-            on_cancel=lambda result: (
-                self.q_out.setPlainText(json.dumps(
-                    {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
-                     if k in result}, indent=2)),
-                self.load_evidence_history()
-            )
+            on_success=self._verification_completed,
+            on_cancel=self._verification_cancelled
         )
+
+    def _verification_completed(self, result: dict) -> None:
+        self.q_out.setPlainText(json.dumps(
+            {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")}, indent=2))
+        self.load_evidence_history()
+
+    def _verification_cancelled(self, result: dict) -> None:
+        self.q_out.setPlainText(json.dumps(
+            {k: result[k] for k in ("overall", "passed", "failed", "not_run", "complete", "run_id")
+             if k in result}, indent=2))
+        self.load_evidence_history()
 
     def load_evidence_history(self) -> None:
         path = self.q_path.text().strip()
