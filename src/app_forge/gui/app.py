@@ -1666,6 +1666,7 @@ class MainWindow(QMainWindow):
         options.addWidget(QLabel("Rows per page"))
         self.td_page_size = QSpinBox()
         self.td_page_size.setAccessibleName("Rows per page")
+        self.td_page_size.lineEdit().setAccessibleName("Rows per page value")
         self.td_page_size.setRange(1, 1000)
         self.td_page_size.setValue(self.SAMPLE_TABLE["page_size"])
         options.addWidget(self.td_page_size)
