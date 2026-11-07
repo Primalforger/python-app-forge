@@ -352,6 +352,8 @@ class RealQtTests(ForgeTestCase):
             sheet = self.win.styleSheet()
             self.assertIn(TOKENS[name]["background"], sheet)
             self.assertIn(":focus", sheet)  # focus must stay visible in both themes
+            for control in ("QCheckBox:focus", "QRadioButton:focus", "QSpinBox:focus", "QDateEdit:focus", "QSlider:focus"):
+                self.assertIn(control, sheet)
             self.assertFalse(self.win.grab().isNull())
 
     def test_accessibility_audit(self):
@@ -656,6 +658,14 @@ class RealQtTests(ForgeTestCase):
             self.win,
         )
         dialog.items.setCurrentRow(0)
+        expected_names = {
+            dialog.read_button: "Mark selected notification as read",
+            dialog.dismiss_button: "Dismiss selected notification",
+            dialog.open_button: "Open activity for selected notification",
+            dialog.clear_button: "Clear all notifications",
+        }
+        for button, name in expected_names.items():
+            self.assertEqual(button.accessibleName(), name)
         self.assertTrue(dialog.read_button.isEnabled())
         dialog.read_button.click()
         self.assertEqual(actions[-1], ("read", "notice-1"))
