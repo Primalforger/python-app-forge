@@ -55,6 +55,14 @@ def _title(text: str) -> QLabel:
     return lab
 
 
+def _page_layout(widget: QWidget, spacing: int = 12) -> QVBoxLayout:
+    """Create a screen layout with the shared Forge content spacing."""
+    layout = QVBoxLayout(widget)
+    layout.setContentsMargins(24, 22, 24, 20)
+    layout.setSpacing(spacing)
+    return layout
+
+
 def _table(headers: list[str]) -> QTableWidget:
     t = QTableWidget(0, len(headers))
     t.setHorizontalHeaderLabels(headers)
@@ -802,7 +810,7 @@ class MainWindow(QMainWindow):
     # -- UI-001 Dashboard -----------------------------------------------------------------
     def _dashboard(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.setContentsMargins(24, 22, 24, 20)
         v.setSpacing(14)
 
@@ -855,10 +863,22 @@ class MainWindow(QMainWindow):
             welcome_copy = QLabel("Your workshop for creating, extending, and verifying Python applications. Start with a guided project, explore reusable components, or personalize your workspace.")
             welcome_copy.setWordWrap(True)
             welcome_layout.addWidget(welcome_copy)
+            welcome_steps = QLabel(
+                "A simple workflow: choose a template, review the proposed files, then create your project. "
+                "Components can be added now or later."
+            )
+            welcome_steps.setObjectName("pageHint")
+            welcome_steps.setAccessibleName("Getting started workflow")
+            welcome_steps.setWordWrap(True)
+            welcome_layout.addWidget(welcome_steps)
             welcome_actions = QHBoxLayout()
             start = QPushButton("Create your first project")
             start.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
             welcome_actions.addWidget(start)
+            explore = QPushButton("Explore components")
+            explore.setObjectName("secondaryAction")
+            explore.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Component Catalog")))
+            welcome_actions.addWidget(explore)
             personalize = QPushButton("Personalize Forge")
             personalize.setObjectName("secondaryAction")
             personalize.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Configuration Center")))
@@ -1064,16 +1084,33 @@ class MainWindow(QMainWindow):
     # -- UI-002..005 Template Studio ------------------------------------------------------
     def _templates(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
-        v.addWidget(_title("Template Studio"))
+        v = _page_layout(w)
+        v.addWidget(_title("Project Wizard"))
+        intro = QLabel(
+            "Create a project in three steps: choose an application type, name the project and destination, "
+            "then preview the generated files before creating anything."
+        )
+        intro.setObjectName("muted")
+        intro.setWordWrap(True)
+        self.wizard_intro = intro
+        v.addWidget(intro)
+        self.wizard_guidance = QLabel(
+            "1  Choose a template   ·   2  Add optional components   ·   3  Review the plan and create"
+        )
+        self.wizard_guidance.setObjectName("pageHint")
+        self.wizard_guidance.setAccessibleName("Project wizard steps")
+        self.wizard_guidance.setWordWrap(True)
+        v.addWidget(self.wizard_guidance)
         form = QFormLayout()
         self.t_arch = QComboBox()
         self.t_arch.setAccessibleName("Application archetype")
         self.t_arch.addItems(["desktop", "web", "cli", "service"])
         self.t_name = QLineEdit()
         self.t_name.setAccessibleName("Project name")
+        self.t_name.setPlaceholderText("e.g. Inventory Dashboard")
         self.t_out = QLineEdit()
         self.t_out.setAccessibleName("Output directory")
+        self.t_out.setPlaceholderText("Choose where the new project will be created")
         browse = QPushButton("Browse...")
         browse.clicked.connect(lambda: self.t_out.setText(QFileDialog.getExistingDirectory(self, "Output") or self.t_out.text()))
         row = QHBoxLayout()
@@ -1097,9 +1134,12 @@ class MainWindow(QMainWindow):
         form.addRow("Components", component_row)
         v.addLayout(form)
         btns = QHBoxLayout()
-        review = QPushButton("Open Generation Review")
+        review = QPushButton("Preview project plan")
+        review.setObjectName("secondaryAction")
+        review.setAccessibleName("Preview project plan before creating files")
+        self.t_review_button = review
         create = QPushButton("Create project")
-        review.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Generation Review")))
+        review.clicked.connect(self.open_generation_review_from_wizard)
         create.clicked.connect(lambda: self.generate(False))
         btns.addWidget(review)
         btns.addWidget(create)
@@ -1112,7 +1152,7 @@ class MainWindow(QMainWindow):
 
     def _generation_review(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Generation Review"))
         intro = QLabel(
             "Preview the exact project structure before writing anything. Review the template, "
@@ -1276,6 +1316,11 @@ class MainWindow(QMainWindow):
         ]
         self.t_comps.setText(", ".join(self._selected_component_ids))
 
+    def open_generation_review_from_wizard(self) -> None:
+        """Open the review screen and immediately prepare a non-writing preview."""
+        self.nav.setCurrentRow(NAV.index("Generation Review"))
+        self.review_generation()
+
     def review_generation(self) -> None:
         comps = list(self._selected_component_ids)
         out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
@@ -1324,7 +1369,7 @@ class MainWindow(QMainWindow):
     # -- Project Workspace ----------------------------------------------------------------
     def _project_workspace(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Project Workspace"))
         intro = QLabel("Pick up where you left off. Your recent projects are stored locally; this view only lists folders that still exist.")
         intro.setObjectName("muted")
@@ -1409,7 +1454,7 @@ class MainWindow(QMainWindow):
     # -- UI-006..008 Component Catalog ----------------------------------------------------
     def _catalog(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Component Catalog"))
         self.c_query = QLineEdit()
         self.c_query.setPlaceholderText("Search components")
@@ -1420,6 +1465,12 @@ class MainWindow(QMainWindow):
         self.c_table.setAccessibleName("Component catalog table")
         self.c_table.itemSelectionChanged.connect(self.show_component)
         v.addWidget(self.c_table, 2)
+        self.catalog_empty = QLabel("No matching components. Try a shorter search, or clear the search to browse the full catalog.")
+        self.catalog_empty.setObjectName("emptyState")
+        self.catalog_empty.setAccessibleName("Component catalog empty state")
+        self.catalog_empty.setWordWrap(True)
+        self.catalog_empty.hide()
+        v.addWidget(self.catalog_empty)
         self.c_detail = QPlainTextEdit()
         self.c_detail.setAccessibleName("Component manifest")
         self.c_detail.setReadOnly(True)
@@ -1430,6 +1481,9 @@ class MainWindow(QMainWindow):
         rows = self._run("Searching catalog", lambda: self.s.search_components(self.c_query.text())) or []
         _fill(self.c_table, [[r["id"], r["version"], r["category"], r["state"], ", ".join(r["archetypes"]),
                               r["summary"]] for r in rows])
+        self.catalog_empty.setVisible(not rows)
+        if not rows:
+            self.c_detail.clear()
 
     def show_component(self) -> None:
         items = self.c_table.selectedItems()
@@ -1442,7 +1496,7 @@ class MainWindow(QMainWindow):
     # -- UI-009..012 Integration Workbench ------------------------------------------------
     def _workbench(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Integration Workbench"))
         row = QHBoxLayout()
         self.w_path = QLineEdit()
@@ -1532,7 +1586,7 @@ class MainWindow(QMainWindow):
     # -- UI-008 Component Manager -----------------------------------------------------------
     def _components(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Component Manager"))
         row = QHBoxLayout()
         self.cm_path = QLineEdit()
@@ -1545,6 +1599,12 @@ class MainWindow(QMainWindow):
         self.cm_table = _table(["Id", "Installed", "Newest usable", "Upgrade available", "Catalog state"])
         self.cm_table.setAccessibleName("Installed components table")
         v.addWidget(self.cm_table, 1)
+        self.cm_empty = QLabel("No installed components are listed yet. Enter a project directory and load its components to inspect what it uses.")
+        self.cm_empty.setObjectName("emptyState")
+        self.cm_empty.setAccessibleName("Installed components empty state")
+        self.cm_empty.setWordWrap(True)
+        self.cm_empty.hide()
+        v.addWidget(self.cm_empty)
         row2 = QHBoxLayout()
         up = QPushButton("Plan upgrade (selected)")
         rm = QPushButton("Plan removal (selected)")
@@ -1567,6 +1627,7 @@ class MainWindow(QMainWindow):
         rows = self._run("Loading components", lambda: self.s.project_components(self.cm_path.text())) or []
         _fill(self.cm_table, [[r["id"], r["installed"], r["newest"], "yes" if r["upgrade_available"] else "no",
                                r["state"]] for r in rows])
+        self.cm_empty.setVisible(not rows)
 
     def plan_selected(self, kind: str) -> None:
         items = self.cm_table.selectedItems()
@@ -1593,7 +1654,7 @@ class MainWindow(QMainWindow):
     # -- UI-013 Design System ---------------------------------------------------------------
     def _design_system(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Design System"))
         self.ds_theme = QComboBox()
         self.ds_theme.addItems(sorted(TOKENS))
@@ -1628,7 +1689,7 @@ class MainWindow(QMainWindow):
 
     def _table_designer(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.setContentsMargins(24, 22, 24, 20)
         v.setSpacing(12)
         v.addWidget(_title("Table Designer"))
@@ -1750,7 +1811,7 @@ class MainWindow(QMainWindow):
     # -- UI-016 Architecture Explorer -------------------------------------------------------
     def _architecture(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Architecture Explorer"))
         self.ar_table = _table(["From", "To", "Imports"])
         self.ar_table.setAccessibleName("Dependency edges table")
@@ -1781,7 +1842,7 @@ class MainWindow(QMainWindow):
     # -- UI-019 Extension Manager -----------------------------------------------------------
     def _extensions(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Extension & Tool Discovery"))
         v.addWidget(QLabel(
             "Discover installed capabilities, review their package entry points, and manage trust. "
@@ -1914,7 +1975,7 @@ class MainWindow(QMainWindow):
     # -- UI-017/018 Quality and Compliance ------------------------------------------------
     def _quality(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.setContentsMargins(24, 22, 24, 20)
         v.setSpacing(12)
         v.addWidget(_title("Project Health & Quality"))
@@ -2019,7 +2080,7 @@ class MainWindow(QMainWindow):
     # -- UI-021 Settings / UI-020 Diagnostics ---------------------------------------------
     def _settings(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.setContentsMargins(24, 22, 24, 20)
         v.setSpacing(14)
         v.addWidget(_title("Settings & Personalization"))
@@ -2090,7 +2151,7 @@ class MainWindow(QMainWindow):
 
     def _diagnostics(self) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
+        v = _page_layout(w)
         v.addWidget(_title("Diagnostics"))
         self.d_out = QPlainTextEdit()
         self.d_out.setAccessibleName("Diagnostics output")
