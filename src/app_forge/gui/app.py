@@ -2302,7 +2302,7 @@ class MainWindow(QMainWindow):
         run_id = self.evidence_table.item(items[0].row(), 0).text()
         path = self.q_path.text().strip()
         rows = self._run("Loading verification evidence",
-                         lambda: self.s.store.list_evidence(str(Path(path).resolve()), run_id)) or []
+                         lambda: self.s.list_evidence(path, run_id)) or []
         self.evidence_detail.setText(f"{run_id}\n" + ("\n".join(
             f"• {r['check_id']}: {r['status']} — {r.get('detail', '')}" for r in rows)
             if rows else "No evidence records are available for this run."))
