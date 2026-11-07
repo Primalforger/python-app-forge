@@ -17,7 +17,7 @@ from PySide6.QtCore import QByteArray, QObject, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QProgressBar, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem,
+                               QPlainTextEdit, QProgressBar, QPushButton, QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem,
                                QListWidgetItem, QVBoxLayout, QWidget)
 
 from app_forge import __version__
@@ -1629,13 +1629,22 @@ class MainWindow(QMainWindow):
     def _table_designer(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
+        v.setContentsMargins(24, 22, 24, 20)
+        v.setSpacing(12)
         v.addWidget(_title("Table Designer"))
-        v.addWidget(QLabel("Define columns in the grid, then validate and generate the advanced-table model."))
+        intro = QLabel(
+            "Define column names, labels, data types, and visibility, then configure paging and filter behavior. "
+            "Validation uses the same rules as the Forge CLI."
+        )
+        intro.setWordWrap(True)
+        intro.setObjectName("muted")
+        v.addWidget(intro)
         self.td_name = QLineEdit(self.SAMPLE_TABLE["name"])
         self.td_name.setAccessibleName("Table name")
+        self.td_name.setPlaceholderText("Table name")
         v.addWidget(self.td_name)
-        self.td_columns = QTableWidget(0, 2)
-        self.td_columns.setHorizontalHeaderLabels(["Column key", "Data type"])
+        self.td_columns = QTableWidget(0, 4)
+        self.td_columns.setHorizontalHeaderLabels(["Column key", "Display title", "Data type", "Visible"])
         self.td_columns.setAccessibleName("Table columns grid")
         self.td_columns.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.td_columns.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -1653,6 +1662,21 @@ class MainWindow(QMainWindow):
         controls.addWidget(remove)
         controls.addStretch(1)
         v.addLayout(controls)
+        options = QHBoxLayout()
+        options.addWidget(QLabel("Rows per page"))
+        self.td_page_size = QSpinBox()
+        self.td_page_size.setAccessibleName("Rows per page")
+        self.td_page_size.setRange(1, 1000)
+        self.td_page_size.setValue(self.SAMPLE_TABLE["page_size"])
+        options.addWidget(self.td_page_size)
+        options.addWidget(QLabel("Filter matching"))
+        self.td_filter_mode = QComboBox()
+        self.td_filter_mode.setAccessibleName("Filter matching mode")
+        self.td_filter_mode.addItems(["and", "or"])
+        self.td_filter_mode.setCurrentText(self.SAMPLE_TABLE["filter_mode"])
+        options.addWidget(self.td_filter_mode)
+        options.addStretch(1)
+        v.addLayout(options)
         self.td_import = QLineEdit("my_app.table_model")
         self.td_import.setAccessibleName("Import path of the table component")
         go = QPushButton("Validate and generate")
@@ -1664,21 +1688,29 @@ class MainWindow(QMainWindow):
         self.td_out = QPlainTextEdit()
         self.td_out.setAccessibleName("Generated code")
         self.td_out.setReadOnly(True)
+        self.td_out.setPlaceholderText("Validated Python model configuration will appear here.")
         v.addWidget(self.td_out, 2)
         for column in self.SAMPLE_TABLE["columns"]:
-            self._insert_table_column(column["key"], column["type"])
+            self._insert_table_column(column["key"], column["type"], column.get("title"), column.get("visible", True))
         return w
 
-    def _insert_table_column(self, key: str, data_type: str) -> None:
+    def _insert_table_column(self, key: str, data_type: str, title: str | None = None,
+                             visible: bool = True) -> None:
         row = self.td_columns.rowCount()
         self.td_columns.insertRow(row)
         self.td_columns.setItem(row, 0, QTableWidgetItem(key))
+        self.td_columns.setItem(row, 1, QTableWidgetItem(title or key.replace("_", " ").title()))
         kind = QComboBox()
         kind.setAccessibleName(f"Data type for column {key or row + 1}")
         kind.addItems(["text", "number", "category", "date", "bool"])
         index = kind.findText(data_type)
         kind.setCurrentIndex(index if index >= 0 else 0)
-        self.td_columns.setCellWidget(row, 1, kind)
+        self.td_columns.setCellWidget(row, 2, kind)
+        visibility = QComboBox()
+        visibility.setAccessibleName(f"Visibility for column {key or row + 1}")
+        visibility.addItems(["Visible", "Hidden"])
+        visibility.setCurrentText("Visible" if visible else "Hidden")
+        self.td_columns.setCellWidget(row, 3, visibility)
 
     def add_table_column(self) -> None:
         self._insert_table_column(f"column_{self.td_columns.rowCount() + 1}", "text")
@@ -1696,12 +1728,20 @@ class MainWindow(QMainWindow):
         columns = []
         for row in range(self.td_columns.rowCount()):
             key_item = self.td_columns.item(row, 0)
-            kind = self.td_columns.cellWidget(row, 1)
-            columns.append({"key": key_item.text().strip() if key_item else "",
-                            "type": kind.currentText() if isinstance(kind, QComboBox) else "text"})
+            title_item = self.td_columns.item(row, 1)
+            kind = self.td_columns.cellWidget(row, 2)
+            visibility = self.td_columns.cellWidget(row, 3)
+            columns.append({
+                "key": key_item.text().strip() if key_item else "",
+                "title": title_item.text().strip() if title_item else "",
+                "type": kind.currentText() if isinstance(kind, QComboBox) else "text",
+                "visible": visibility.currentText() == "Visible" if isinstance(visibility, QComboBox) else True,
+            })
         definition = dict(self.SAMPLE_TABLE)
         definition["name"] = self.td_name.text().strip()
         definition["columns"] = columns
+        definition["page_size"] = self.td_page_size.value()
+        definition["filter_mode"] = self.td_filter_mode.currentText()
         r = self._run("Designing table", lambda: self.s.design_table(definition, self.td_import.text()))
         if r:
             self.td_out.setPlainText(r["python"])
@@ -1874,22 +1914,85 @@ class MainWindow(QMainWindow):
     def _quality(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(_title("Quality and Compliance"))
+        v.setContentsMargins(24, 22, 24, 20)
+        v.setSpacing(12)
+        v.addWidget(_title("Project Health & Quality"))
+        intro = QLabel(
+            "Get a read-only snapshot of project structure, tests, dependencies, Git state, and Forge metadata. "
+            "Run verification for executable checks and evidence."
+        )
+        intro.setWordWrap(True)
+        intro.setObjectName("muted")
+        v.addWidget(intro)
         row = QHBoxLayout()
         self.q_path = QLineEdit()
         self.q_path.setAccessibleName("Project directory to verify")
+        self.q_path.setPlaceholderText("Choose or enter a project directory…")
+        assess = QPushButton("Assess project health")
+        assess.clicked.connect(self.assess_project_health)
         run = QPushButton("Run verification")
         run.clicked.connect(self.verify)
         rep = QPushButton("Compliance report")
         rep.clicked.connect(self.report)
-        for x in (self.q_path, run, rep):
+        for x in (self.q_path, assess, run, rep):
             row.addWidget(x, 1 if x is self.q_path else 0)
         v.addLayout(row)
+        self.health_summary = QLabel("Enter a project directory and choose Assess project health.")
+        self.health_summary.setObjectName("metricCard")
+        self.health_summary.setAccessibleName("Project health summary")
+        self.health_summary.setWordWrap(True)
+        v.addWidget(self.health_summary)
+        self.health_table = _table(["Area", "Status", "Details"])
+        self.health_table.setAccessibleName("Project health checks")
+        v.addWidget(self.health_table, 2)
         self.q_out = QPlainTextEdit()
         self.q_out.setAccessibleName("Verification result")
         self.q_out.setReadOnly(True)
+        self.q_out.setPlaceholderText("Verification and compliance results will appear here.")
+        self.q_out.setMaximumHeight(150)
         v.addWidget(self.q_out, 1)
         return w
+
+    def assess_project_health(self) -> None:
+        path = self.q_path.text().strip()
+        if not path:
+            self.health_summary.setText("Choose a project directory to assess its health.")
+            return
+        self._remember_project(path)
+        result = self._run("Assessing project health", lambda: self.s.analyze_project(path))
+        if not result:
+            return
+        tests = result.get("tests", {})
+        git = result.get("git", {})
+        warnings = result.get("warnings", [])
+        rows = [
+            ["Project structure", result.get("level_name", "Unknown"),
+             f"{result.get('layout', 'unknown')} layout · {len(result.get('packages', []))} package(s)"],
+            ["Tests", "Configured" if tests.get("present") else "Missing",
+             ", ".join(tests.get("config", [])) or ("Test files detected" if tests.get("present") else "No test suite detected")],
+            ["Dependencies", f"{len(result.get('dependencies', []))} found",
+             ", ".join(result.get("dependencies", [])[:8]) or "No dependencies declared"],
+            ["Lockfile", "Present" if result.get("lockfiles") else "Missing",
+             ", ".join(result.get("lockfiles", [])) or "No supported lockfile detected"],
+            ["Git", str(git.get("state", "unknown")).title(),
+             f"{len(git.get('dirty_paths', []))} changed path(s)" if git.get("state") == "dirty" else "Repository state"],
+            ["Forge metadata", "Present" if result.get("forge_project") else "Not adopted",
+             f"{len(result.get('installed_components', []))} installed component(s)"],
+            ["License", "Present" if result.get("licenses") else "Missing",
+             ", ".join(result.get("licenses", [])) or "No top-level license file detected"],
+        ]
+        _fill(self.health_table, rows)
+        attention = len(warnings) + (0 if tests.get("present") else 1) + (0 if result.get("licenses") else 1)
+        state = "Review recommended" if attention else "Healthy"
+        self.health_summary.setText(
+            f"{result.get('name', Path(path).name)} · {state} · "
+            f"{len(warnings)} analyzer warning(s) · {result.get('python_file_count', 0)} Python file(s)"
+        )
+        self.q_out.setPlainText(
+            "Read-only project assessment\n\n"
+            + ("\n".join(f"• {warning}" for warning in warnings) if warnings else "No analyzer warnings.")
+            + "\n\nThis assessment does not execute project code. Run verification for syntax and test checks."
+        )
 
     def verify(self) -> None:
         path = self.q_path.text()
