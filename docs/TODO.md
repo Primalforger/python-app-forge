@@ -102,15 +102,15 @@ Already done (release 0.1.0 plus follow-ups): the 15 P0 spec items, component up
   *Verified by:* `tests/test_extension_isolation.py` checks the sandbox profile, fail-closed behavior, allowlist validation, and (where runner kernel support permits) denial of sibling-file access.
 
 - [x] **G-17 Signatures and attestation** (M)
-  Provenance is a SHA-256 digest only.
+  Ed25519 detached attestations bind component identity, version and sealed SHA-256 digest. Catalog scans verify signatures against locally pinned public keys; invalid or untrusted signatures are quarantined, and unsigned artifacts follow the configurable `allow`/`warn`/`deny` policy. See `docs/component-signing.md`.
   *Done when:* signed component artifacts are verified before install and unsigned ones follow a configurable policy.
 
 - [x] **G-18 Online catalog refresh** (L, needs G-17)
-  Offline-only today. Add an explicit refresh that downloads, verifies and then accepts artifacts (never silently).
+  Add an explicit operator-triggered refresh for HTTPS indexes. Preflight archive hashes, component identity/digest and trusted Ed25519 attestations before importing artifacts; refuse refresh in offline mode and do not poll in the background. See `docs/online-catalogs.md`.
   *Done when:* refresh works against a test server, rejects tampered artifacts, and offline mode is unaffected.
 
 - [x] **G-19 Windows and macOS hardening** (M): manifest path validation rejects Windows-incompatible separators, characters, reserved device names, trailing dots/spaces, oversized segments, and case/Unicode-normalization collisions; the pull-request CI matrix exercises Windows, macOS and Linux.
-  Untested: case-insensitive filesystems, CRLF files, long paths, path separators in manifests.
+  Cross-platform CI now exercises the path-validation and line-ending cases on Windows, macOS and Linux.
   *Done when:* the CI matrix covers these cases with dedicated tests.
 
 - [x] **G-20 OWASP ASVS checks for the web template** (M): generated web projects include an ASVS 5.0.0 verification map, focused API/security tests and explicit deployment-owned gaps.
@@ -201,17 +201,11 @@ Each component needs: a manifest, contract tests, an entry in `requirements.toml
 
 ---
 
-## Suggested order
+## Roadmap status
 
-1. **G-02, G-03, G-05**: small and close real trust and safety holes.
-2. **G-06** (on a machine with PySide6), then G-19: turns "unrun" into evidence.
-3. **G-01**: the patch engine; then **G-07** (authoring CLI) so others can contribute.
-4. **G-04**, then the no-blocker component batches: **C-01 to C-20**, then **C-21 to C-28** with G-11 and G-12.
-5. **C-29 to C-44** and G-08, G-09, G-10 once G-01 is proven.
-6. G-15 to G-18, G-20, G-21 for production hardening; P2 items last.
+The original Part A and Part B implementation roadmap is complete through G-46 and C-46. The sequence above is retained in Git history as the original implementation plan; it is no longer the recommended next-work order.
 
-Track progress by turning each item into a `[[requirement]]` in `requirements.toml` with `verified_by` tests, so status comes from
-evidence, not from ticking this list.
+The next product phase is focused on release readiness and the desktop experience: accurate capability documentation, workspace navigation and project creation, project-health and verification workflows, extension trust presentation, native packaging evidence, and configuration recovery. Track new work as `[[requirement]]` entries in `requirements.toml` with `verified_by` tests so status comes from evidence, not from ticking a list.
 
 
 ### Desktop integration follow-up
