@@ -2290,8 +2290,8 @@ class MainWindow(QMainWindow):
         self.evidence_table.setSortingEnabled(True)
         self.evidence_compare_button.setEnabled(len(runs) >= 2)
         if runs:
-            self.evidence_table.selectRow(0)
             self.evidence_detail.setText(f"{len(runs)} retained verification run(s). Select a run to inspect its checks.")
+            self.evidence_table.selectRow(0)
         else:
             self.evidence_detail.setText("No verification evidence has been retained for this project yet.")
 
