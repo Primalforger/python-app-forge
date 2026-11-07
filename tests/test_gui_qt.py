@@ -160,6 +160,20 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(self.win.ops.rowCount(), 0)
         self.assertIn("No activity records match", self.win.activity_detail.toPlainText())
 
+    def test_activity_center_summarizes_selection_and_copies_operation_id(self):
+        target = self.tmp / "copy-operation-id"
+        with self.s.operation("copyable_operation", target) as operation:
+            pass
+        self.win.refresh_dashboard()
+        self.assertIn("SUCCEEDED", self.win.activity_detail_summary.text())
+        self.assertIn("copyable_operation", self.win.activity_detail_summary.text())
+        self.assertTrue(self.win.copy_activity_id_button.isEnabled())
+        operation_id = self.win._visible_activity_rows[0]["operation_id"]
+        self.win.copy_selected_activity_id()
+        self.assertEqual(self.gui.QApplication.clipboard().text(), operation_id)
+        self.win.activity_search.setText("not-a-real-operation")
+        self.assertFalse(self.win.copy_activity_id_button.isEnabled())
+
     def test_window_structure(self):
         self.assertEqual(self.win.nav.count(), len(self.gui.NAV))
         self.assertEqual(self.win.stack.count(), len(self.gui.NAV))
@@ -259,6 +273,26 @@ class RealQtTests(ForgeTestCase):
         self._wait_for_background()
         self.assertIn("Reviewed Qt App", self.win.gr_out.toPlainText())
         self.assertFalse((self.tmp / "reviewed-qt-app").exists())
+
+    def test_generation_review_summarizes_plan_and_lists_generated_files(self):
+        result = {
+            "operation_id": "preview-123", "dry_run": True, "path": str(self.tmp / "reviewed-app"),
+            "template": "desktop@1.0", "components": ["forge.forms-validation"],
+            "added_dependencies": ["requests>=2"], "patches": ["forge.forms-validation:forms -> src/app.py"],
+            "files": [{"path": "pyproject.toml", "bytes": 240}, {"path": "src/app.py", "bytes": 512}],
+            "configuration": {"name": "Reviewed App", "package": "reviewed_app"},
+        }
+        self.win._render_generation_review(result)
+        self.assertIn("Reviewed App", self.win.gr_summary.text())
+        self.assertIn("2 files", self.win.gr_summary.text())
+        self.assertIn("forge.forms-validation", self.win.gr_dependencies.text())
+        self.assertIn("requests>=2", self.win.gr_dependencies.text())
+        self.assertEqual(self.win.gr_files.rowCount(), 2)
+        displayed_paths = {self.win.gr_files.item(row, 0).text() for row in range(self.win.gr_files.rowCount())}
+        self.assertEqual(displayed_paths, {"pyproject.toml", "src/app.py"})
+        self.assertTrue(self.win.gr_copy_button.isEnabled())
+        self.win.copy_generation_review()
+        self.assertIn("preview-123", self.gui.QApplication.clipboard().text())
 
     def test_project_generation_runs_in_background_with_progress_and_remembers_project(self):
         output = self.tmp / "background-generated"
