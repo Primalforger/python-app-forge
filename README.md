@@ -276,6 +276,10 @@ See the repository's [Actions](https://github.com/Primalforger/python-app-forge/
 | [Architecture](docs/architecture.md) | Platform layers, integration transaction, extension and infrastructure design |
 | [Specification coverage](docs/spec-coverage.md) | Implemented areas, verification status, deviations, and known limitations |
 | [Component authoring](docs/component-authoring.md) | Creating, validating, and sealing reusable components |
+| [Component signing](docs/component-signing.md) | Ed25519 signing, trusted keys, and unsigned-artifact policy |
+| [Online catalogs](docs/online-catalogs.md) | Explicit signed catalog refresh and artifact acceptance |
+| [Table Designer](docs/table-designer.md) | Editing and validating table column definitions |
+| [PyInstaller packaging](docs/pyinstaller-packaging.md) | Reviewable specs and native application builds |
 | [Compliance artifacts](docs/compliance-artifacts.md) | Structured compliance records and evidence packaging |
 | [Desktop session](docs/desktop-session.md) | Desktop session restoration and recent-project behavior |
 | [Durable workflows](docs/durable-workflows.md) | Queue-backed workflow dispatch, retries, leases and delivery guarantees |
@@ -289,7 +293,9 @@ Python App Forge is under active development. Some capabilities are intentionall
 
 - Extension isolation currently uses scoped Linux bubblewrap isolation where supported; it is not a virtual machine. Unsupported environments fail closed.
 - Component packs cover a subset of the component families described in the implementation specification.
-- Component artifact provenance uses SHA-256 digests; cryptographic signature verification is not implemented.
+- Component signing uses locally trusted Ed25519 keys and detached attestations. This is publisher-key pinning, not a certificate authority or transparency log; key distribution, rotation, and revocation remain operator responsibilities.
+- Online catalog refresh is explicit and opt-in. Ordinary catalog operations remain local; refresh requires HTTPS sources and verified signed artifacts. No background polling is performed.
+- PyInstaller builds are native to the target operating system. A generated spec is reviewable across platforms, but release binaries still need native build and launch validation on each supported OS.
 - Some generated deployment, CI/CD, and infrastructure artifacts are starter outputs and require environment-specific review and configuration.
 - Standards mappings and compliance records are engineering aids, not independent audits, regulatory approvals, or certification.
 
