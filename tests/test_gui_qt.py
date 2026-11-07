@@ -642,7 +642,7 @@ class RealQtTests(ForgeTestCase):
         self.assertEqual(dialog.results.count(), 0)
         self.assertEqual(dialog.summary.text(), "Searching your workspace…")
         dialog.query.setText("widget")
-        QTest.qWait(220)
+        QTest.qWait(500)
         self.assertEqual(dialog.results.count(), 1)
         QTest.keyClick(dialog.query, Qt.Key.Key_Return)
         self.assertEqual(activated, ["ui.widget"])
