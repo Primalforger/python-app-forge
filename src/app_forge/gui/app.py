@@ -1608,6 +1608,7 @@ class MainWindow(QMainWindow):
             if dialog.component_items.item(i).checkState() == Qt.CheckState.Checked
         ]
         self.t_comps.setText(", ".join(self._selected_component_ids))
+        self._invalidate_generation_review()
 
     def open_generation_review_from_wizard(self) -> None:
         """Open the review screen and immediately prepare a non-writing preview."""
