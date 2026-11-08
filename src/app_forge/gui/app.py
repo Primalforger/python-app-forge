@@ -1491,6 +1491,8 @@ class MainWindow(QMainWindow):
             self._invalidate_generation_review()
             QMessageBox.information(self, "Review required", "Project settings changed. Build a fresh preview before creating the project.")
             return
+        self._generation_review_signature = None
+        self.gr_create_button.setEnabled(False)
         self.generate(False)
 
     def copy_generation_review(self) -> None:
