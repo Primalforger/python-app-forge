@@ -1241,6 +1241,7 @@ class MainWindow(QMainWindow):
         self.wizard_guidance.setAccessibleName("Project wizard steps")
         self.wizard_guidance.setWordWrap(True)
         v.addWidget(self.wizard_guidance)
+        self._generation_review_signature: str | None = None
         form = QFormLayout()
         self.t_arch = QComboBox()
         self.t_arch.setAccessibleName("Project template")
@@ -1266,6 +1267,19 @@ class MainWindow(QMainWindow):
         self.t_name = QLineEdit()
         self.t_name.setAccessibleName("Project name")
         self.t_name.setPlaceholderText("e.g. Inventory Dashboard")
+        self.t_package = QLineEdit()
+        self.t_package.setAccessibleName("Python package name")
+        self.t_package.setPlaceholderText("Optional; derived from project name")
+        self.t_description = QLineEdit()
+        self.t_description.setAccessibleName("Project description")
+        self.t_description.setPlaceholderText("Optional project description")
+        self.t_author = QLineEdit()
+        self.t_author.setAccessibleName("Project author")
+        self.t_author.setPlaceholderText("Optional author name")
+        self.t_python_version = QComboBox()
+        self.t_python_version.setAccessibleName("Python version")
+        self.t_python_version.addItems(["3.11", "3.12", "3.13", "3.14"])
+        self.t_python_version.setCurrentText("3.11")
         self.t_out = QLineEdit()
         self.t_out.setAccessibleName("Output directory")
         self.t_out.setPlaceholderText("Choose where the new project will be created")
@@ -1288,25 +1302,36 @@ class MainWindow(QMainWindow):
         component_row.addWidget(choose_components)
         form.addRow("Template", self.t_arch)
         form.addRow("Project name", self.t_name)
+        form.addRow("Package name (optional)", self.t_package)
+        form.addRow("Description (optional)", self.t_description)
+        form.addRow("Author (optional)", self.t_author)
+        form.addRow("Python version", self.t_python_version)
         form.addRow("Output directory", row)
         form.addRow("Components", component_row)
         v.addLayout(form)
         v.addWidget(self.template_summary)
         btns = QHBoxLayout()
-        review = QPushButton("Preview project plan")
+        review = QPushButton("Review and continue")
         review.setObjectName("secondaryAction")
-        review.setAccessibleName("Preview project plan before creating files")
+        review.setAccessibleName("Review project plan before creating files")
         self.t_review_button = review
-        create = QPushButton("Create project")
         review.clicked.connect(self.open_generation_review_from_wizard)
-        create.clicked.connect(lambda: self.generate(False))
         btns.addWidget(review)
-        btns.addWidget(create)
         v.addLayout(btns)
         self.t_out_box = QPlainTextEdit()
         self.t_out_box.setAccessibleName("Generation result")
         self.t_out_box.setReadOnly(True)
         v.addWidget(self.t_out_box, 1)
+        for control, signal in (
+            (self.t_arch, self.t_arch.currentIndexChanged),
+            (self.t_name, self.t_name.textChanged),
+            (self.t_package, self.t_package.textChanged),
+            (self.t_description, self.t_description.textChanged),
+            (self.t_author, self.t_author.textChanged),
+            (self.t_python_version, self.t_python_version.currentIndexChanged),
+            (self.t_out, self.t_out.textChanged),
+        ):
+            signal.connect(self._invalidate_generation_review)
         return w
 
     def _selected_template_id(self) -> str:
@@ -1356,12 +1381,22 @@ class MainWindow(QMainWindow):
         review = QPushButton("Build generation plan")
         review.setAccessibleName("Build generation plan")
         review.clicked.connect(self.review_generation)
+        back = QPushButton("Back to edit project")
+        back.setObjectName("secondaryAction")
+        back.setAccessibleName("Return to project wizard and keep current selections")
+        back.clicked.connect(lambda: self.nav.setCurrentRow(NAV.index("Project Wizard")))
+        self.gr_create_button = QPushButton("Create reviewed project")
+        self.gr_create_button.setAccessibleName("Create project after reviewing the generation plan")
+        self.gr_create_button.setEnabled(False)
+        self.gr_create_button.clicked.connect(self._create_reviewed_project)
         self.gr_copy_button = QPushButton("Copy plan details")
         self.gr_copy_button.setObjectName("secondaryAction")
         self.gr_copy_button.setAccessibleName("Copy generation plan details")
         self.gr_copy_button.setEnabled(False)
         self.gr_copy_button.clicked.connect(self.copy_generation_review)
         actions.addWidget(review)
+        actions.addWidget(back)
+        actions.addWidget(self.gr_create_button)
         actions.addWidget(self.gr_copy_button)
         actions.addStretch(1)
         v.addLayout(actions)
@@ -1389,6 +1424,7 @@ class MainWindow(QMainWindow):
 
     def _render_generation_review(self, result: object) -> None:
         if not isinstance(result, dict):
+            self.gr_create_button.setEnabled(False)
             self.gr_summary.setText("The generation service returned an unexpected preview.")
             self.gr_dependencies.setText("")
             self.gr_files.setRowCount(0)
@@ -1420,6 +1456,44 @@ class MainWindow(QMainWindow):
         ])
         self.gr_out.setPlainText(json.dumps(result, indent=2, sort_keys=True, default=str))
         self.gr_copy_button.setEnabled(True)
+        self.gr_create_button.setEnabled(bool(result.get("dry_run")) and self._generation_review_signature is not None)
+
+    def _wizard_output_path(self) -> str:
+        return self.t_out.text().strip() or str(
+            Path.home() / self.t_name.text().strip().lower().replace(" ", "-")
+        )
+
+    def _wizard_options(self) -> dict[str, str]:
+        options = {"name": self.t_name.text()}
+        for key, control in (
+            ("package", self.t_package), ("description", self.t_description), ("author", self.t_author),
+        ):
+            value = control.text().strip()
+            if value:
+                options[key] = value
+        options["python_version"] = self.t_python_version.currentText()
+        return options
+
+    def _wizard_signature(self) -> str:
+        return json.dumps({
+            "template": self._selected_template_id(), "options": self._wizard_options(),
+            "output": self._wizard_output_path(), "components": list(self._selected_component_ids),
+        }, sort_keys=True)
+
+    def _invalidate_generation_review(self, *_args) -> None:
+        self._generation_review_signature = None
+        if hasattr(self, "gr_create_button"):
+            self.gr_create_button.setEnabled(False)
+            self.gr_summary.setText("Project settings changed. Build a new preview before creating files.")
+
+    def _create_reviewed_project(self) -> None:
+        if self._generation_review_signature is None or self._wizard_signature() != self._generation_review_signature:
+            self._invalidate_generation_review()
+            QMessageBox.information(self, "Review required", "Project settings changed. Build a fresh preview before creating the project.")
+            return
+        self._generation_review_signature = None
+        self.gr_create_button.setEnabled(False)
+        self.generate(False)
 
     def copy_generation_review(self) -> None:
         content = self.gr_out.toPlainText()
@@ -1536,6 +1610,7 @@ class MainWindow(QMainWindow):
             if dialog.component_items.item(i).checkState() == Qt.CheckState.Checked
         ]
         self.t_comps.setText(", ".join(self._selected_component_ids))
+        self._invalidate_generation_review()
 
     def open_generation_review_from_wizard(self) -> None:
         """Open the review screen and immediately prepare a non-writing preview."""
@@ -1544,9 +1619,13 @@ class MainWindow(QMainWindow):
 
     def review_generation(self) -> None:
         comps = list(self._selected_component_ids)
-        out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
+        out = self._wizard_output_path()
         template = self._selected_template_id()
-        options = {"name": self.t_name.text()}
+        options = self._wizard_options()
+        self._generation_review_signature = self._wizard_signature()
+        self.gr_create_button.setEnabled(False)
+        self.gr_copy_button.setEnabled(False)
+        self.gr_files.setRowCount(0)
         self.gr_out.setPlainText("Preparing generation preview…")
         self._start_background(
             "Generation review",
@@ -1562,9 +1641,9 @@ class MainWindow(QMainWindow):
 
     def generate(self, dry: bool) -> None:
         comps = list(self._selected_component_ids)
-        out = self.t_out.text() or str(Path.home() / self.t_name.text().lower().replace(" ", "-"))
+        out = self._wizard_output_path()
         template = self._selected_template_id()
-        options = {"name": self.t_name.text()}
+        options = self._wizard_options()
         if dry:
             self.review_generation()
             return

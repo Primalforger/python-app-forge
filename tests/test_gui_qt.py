@@ -432,11 +432,45 @@ class RealQtTests(ForgeTestCase):
     def test_project_wizard_explains_preview_before_creation(self):
         self.win.nav.setCurrentRow(self.gui.NAV.index("Project Wizard"))
         self.assertIn("preview the generated files", self.win.wizard_intro.text().lower())
-        self.assertEqual(self.win.t_review_button.text(), "Preview project plan")
+        self.assertEqual(self.win.t_review_button.text(), "Review and continue")
         with mock.patch.object(self.win, "review_generation") as preview:
             self.win.open_generation_review_from_wizard()
         self.assertEqual(self.win.nav.currentRow(), self.gui.NAV.index("Generation Review"))
         preview.assert_called_once_with()
+
+    def test_project_wizard_review_requires_a_fresh_preview_before_creation(self):
+        self.win.t_name.setText("Reviewed Project")
+        self.win.t_package.setText("reviewed_project")
+        self.win.t_description.setText("A reviewed project")
+        self.win.t_author.setText("Forge Team")
+        self.win.t_python_version.setCurrentText("3.12")
+        self.assertEqual(self.win._wizard_options(), {
+            "name": "Reviewed Project", "package": "reviewed_project",
+            "description": "A reviewed project", "author": "Forge Team",
+            "python_version": "3.12",
+        })
+        self.win._generation_review_signature = self.win._wizard_signature()
+        self.win._render_generation_review({
+            "dry_run": True, "path": str(self.tmp / "reviewed-project"),
+            "template": "desktop@1.0", "files": [],
+            "configuration": {"name": "Reviewed Project"},
+        })
+        self.assertTrue(self.win.gr_create_button.isEnabled())
+        with mock.patch.object(self.win, "generate") as create:
+            self.win._create_reviewed_project()
+        create.assert_called_once_with(False)
+        self.win.t_name.setText("Changed After Review")
+        self.assertIsNone(self.win._generation_review_signature)
+        self.assertFalse(self.win.gr_create_button.isEnabled())
+
+    def test_generation_review_does_not_enable_creation_for_non_preview_result(self):
+        self.win._generation_review_signature = self.win._wizard_signature()
+        self.win._render_generation_review({
+            "dry_run": False, "path": str(self.tmp / "not-a-preview"),
+            "template": "desktop@1.0", "files": [],
+            "configuration": {"name": "Not a preview"},
+        })
+        self.assertFalse(self.win.gr_create_button.isEnabled())
 
     def test_theme_switch_applies_tokens_and_focus_style(self):
         from app_forge.gui.theme import TOKENS
