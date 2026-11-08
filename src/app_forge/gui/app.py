@@ -1241,7 +1241,7 @@ class MainWindow(QMainWindow):
         self.wizard_guidance.setAccessibleName("Project wizard steps")
         self.wizard_guidance.setWordWrap(True)
         v.addWidget(self.wizard_guidance)
-        self._generation_review_signature = None
+        self._generation_review_signature: str | None = None
         form = QFormLayout()
         self.t_arch = QComboBox()
         self.t_arch.setAccessibleName("Project template")
