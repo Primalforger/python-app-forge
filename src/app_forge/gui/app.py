@@ -18,7 +18,7 @@ from PySide6.QtCore import QByteArray, QObject, QThread, QTimer, Qt, Signal, Slo
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem,
+                               QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem,
                                QListWidgetItem, QVBoxLayout, QWidget)
 
 from app_forge import __version__
@@ -376,12 +376,14 @@ class MainWindow(QMainWindow):
         self.sidebar = QWidget()
         self.sidebar.setObjectName("sidebar")
         self.sidebar.setFixedWidth(238)
+        self.sidebar.setMinimumWidth(184)
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(14, 18, 14, 14)
         sidebar_layout.setSpacing(10)
 
         brand = QLabel("PYTHON APP FORGE")
         brand.setObjectName("sidebarBrand")
+        brand.setWordWrap(True)
         brand.setAccessibleName("Python App Forge")
         tagline = QLabel("Cultivate. Create. Forge.")
         tagline.setObjectName("sidebarTagline")
@@ -392,20 +394,28 @@ class MainWindow(QMainWindow):
         self.global_search_button.setAccessibleName("Search everything")
         self.global_search_button.setToolTip("Search everything (Ctrl+Shift+F)")
         self.global_search_button.setMinimumWidth(0)
+        self.global_search_button.setMinimumHeight(34)
+        self.global_search_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.global_search_button.clicked.connect(self.open_global_search)
         sidebar_layout.addWidget(self.global_search_button)
         self.notification_button = QPushButton("Notifications")
         self.notification_button.setObjectName("secondaryAction")
         self.notification_button.setAccessibleName("Open notification center")
+        self.notification_button.setMinimumWidth(0)
+        self.notification_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.notification_button.clicked.connect(self.open_notification_center)
         sidebar_layout.addWidget(self.notification_button)
 
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         self.nav.setAccessibleName("Primary navigation")
+        self.nav.setWordWrap(True)
+        self.nav.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.nav.setUniformItemSizes(False)
         for label, description in zip(NAV, NAV_DESCRIPTIONS):
             item = QListWidgetItem(label)
             item.setToolTip(description)
+            item.setSizeHint(item.sizeHint())
             item.setStatusTip(description)
             self.nav.addItem(item)
         sidebar_layout.addWidget(self.nav, 1)
@@ -492,7 +502,7 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, "sidebar"):
             width = self.width()
-            self.sidebar.setFixedWidth(238 if width >= 1000 else 210 if width >= 860 else 184)
+            self.sidebar.setFixedWidth(238 if width >= 1100 else 210 if width >= 900 else 184)
 
     def dismiss_welcome(self) -> None:
         self._saved_session["welcome_seen"] = True
@@ -908,6 +918,10 @@ class MainWindow(QMainWindow):
         quick_actions.addStretch(1)
         v.addLayout(quick_actions)
 
+        overview_heading = QLabel("OPERATIONS OVERVIEW")
+        overview_heading.setObjectName("eyebrow")
+        v.addWidget(overview_heading)
+
         if not self._saved_session.get("welcome_seen", False):
             self.welcome_panel = QWidget()
             self.welcome_panel.setObjectName("welcomePanel")
@@ -946,7 +960,9 @@ class MainWindow(QMainWindow):
         ):
             label.setObjectName("metricCard")
             label.setAccessibleName(f"{name.title()} dashboard metric")
-            label.setMinimumHeight(58)
+            label.setMinimumHeight(72)
+            label.setWordWrap(True)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
             metrics.addWidget(label, 1)
         v.addLayout(metrics)
 
@@ -955,17 +971,24 @@ class MainWindow(QMainWindow):
         self.ops_summary.setAccessibleName("Activity summary")
         v.addWidget(self.ops_summary)
 
+        activity_heading = QLabel("RECENT ACTIVITY")
+        activity_heading.setObjectName("eyebrow")
+        v.addWidget(activity_heading)
+
         filters = QHBoxLayout()
         self.activity_search = QLineEdit()
         self.activity_search.setAccessibleName("Search activity")
         self.activity_search.setPlaceholderText("Search operation, kind, target, or summary…")
+        self.activity_search.setMinimumWidth(140)
         self.activity_search.textChanged.connect(self._filter_dashboard_activity)
         self.activity_status_filter = QComboBox()
         self.activity_status_filter.setAccessibleName("Filter activity by status")
+        self.activity_status_filter.setMinimumWidth(112)
         self.activity_status_filter.addItems(["All statuses", "running", "succeeded", "failed", "cancelled"])
         self.activity_status_filter.currentTextChanged.connect(self._filter_dashboard_activity)
         self.activity_kind_filter = QComboBox()
         self.activity_kind_filter.setAccessibleName("Filter activity by kind")
+        self.activity_kind_filter.setMinimumWidth(112)
         self.activity_kind_filter.addItem("All kinds")
         self.activity_kind_filter.currentTextChanged.connect(self._filter_dashboard_activity)
         filters.addWidget(self.activity_search, 2)
@@ -979,6 +1002,9 @@ class MainWindow(QMainWindow):
         self.ops.currentCellChanged.connect(self._show_dashboard_activity_detail)
         v.addWidget(self.ops, 3)
 
+        detail_heading = QLabel("SELECTED OPERATION")
+        detail_heading.setObjectName("eyebrow")
+        v.addWidget(detail_heading)
         self.activity_detail_summary = QLabel("Select an activity record to inspect its outcome.")
         self.activity_detail_summary.setObjectName("muted")
         self.activity_detail_summary.setAccessibleName("Selected activity summary")
